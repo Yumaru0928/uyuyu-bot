@@ -7,7 +7,6 @@ const {
     ComponentType
 } = require("discord.js");
 
-// 静止画IDまたはアニメーション絵文字フォーマットを統一・直接定義
 const Emojis = [
     '1549375294614540409',
     '1524698363532935248',
@@ -25,14 +24,12 @@ const Emojis = [
     'a:rolling_uyuyu:1529182253207392267'
 ];
 
-// ガチャを10回引くヘルパー関数
+// ガチャ結果の文字列を生成する関数
 function drawGacha() {
     const result = [];
     for (let i = 0; i < 10; i++) {
         const rand = Math.floor(Math.random() * Emojis.length);
         const item = Emojis[rand];
-        
-        // 'a:' で始まる（アニメーション絵文字）かどうかの判定
         if (item.startsWith('a:')) {
             result.push(`<${item}>`);
         } else {
@@ -42,60 +39,85 @@ function drawGacha() {
     return result.join(" ");
 }
 
+// ガチャの埋め込みメッセージとボタンを生成するヘルパー
+function buildGachaMessage() {
+    const embed = new EmbedBuilder()
+        .setColor("#0099ff")
+        .setTitle("うゆゆガチャ結果")
+        .setDescription(drawGacha());
+
+    const rerollButton = new ButtonBuilder()
+        .setCustomId("reroll")
+        .setLabel("もう一度回す")
+        .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(rerollButton);
+
+    return { embeds: [embed], components: [row] };
+}
+
+// メッセージに対してボタンの入力受け取りをセットアップする再帰関数
+async function setupCollector(targetInteraction, responseMessage, userId) {
+    const collector = responseMessage.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 15000
+    });
+
+    collector.on('collect', async i => {
+        if (i.user.id !== userId) {
+            await i.reply({ content: 'このボタンは実行した本人のみ使用できます。', ephemeral: true });
+            return;
+        }
+
+        // 1. 元のメッセージのボタンを無効化
+        const disabledButton = new ButtonBuilder()
+            .setCustomId("reroll_disabled")
+            .setLabel("もう一度回す")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(true);
+        
+        await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
+
+        // 2. 新しいガチャ結果を「新規メッセージ（返信）」として投稿
+        const newPayload = buildGachaMessage();
+        const newResponse = await i.followUp({
+            ...newPayload,
+            fetchReply: true
+        });
+
+        // 3. 新しく投稿されたメッセージにボタンの監視を引き継ぐ
+        setupCollector(i, newResponse, userId);
+    });
+
+    collector.on('end', async (collected, reason) => {
+        // 時間切れ等の場合、ボタンを無効化
+        if (reason === 'time') {
+            const disabledButton = new ButtonBuilder()
+                .setCustomId("reroll_disabled")
+                .setLabel("もう一度回す")
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(true);
+
+            await targetInteraction.editReply({
+                components: [new ActionRowBuilder().addComponents(disabledButton)]
+            }).catch(() => {});
+        }
+    });
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("uyuyu-gacha")
         .setDescription("うゆゆガチャを回します。"),
     async execute(interaction) {
-        // ガチャ結果の生成
-        const gachaResult = drawGacha();
-
-        const embed = new EmbedBuilder()
-            .setColor("#0099ff")
-            .setTitle("うゆゆガチャ結果")
-            .setDescription(gachaResult);
-
-        const rerollButton = new ButtonBuilder()
-            .setCustomId("reroll")
-            .setLabel("もう一度回す")
-            .setStyle(ButtonStyle.Primary);
-
-        const row = new ActionRowBuilder().addComponents(rerollButton);
+        const payload = buildGachaMessage();
 
         const response = await interaction.reply({
-            embeds: [embed],
-            components: [row],
+            ...payload,
             fetchReply: true
         });
 
-        // ボタンのインタラクション監視設定
-        const collector = response.createMessageComponentCollector({
-            componentType: ComponentType.Button,
-            time: 15000
-        });
-
-        collector.on('collect', async i => {
-            // 実行した本人のみ操作可能
-            if (i.user.id !== interaction.user.id) {
-                await i.reply({ content: 'このボタンは実行した本人のみ使用できます。', ephemeral: true });
-                return;
-            }
-
-            // 再度ガチャを引いて埋め込みを更新
-            const newGachaResult = drawGacha();
-            const newEmbed = new EmbedBuilder()
-                .setColor("#0099ff")
-                .setTitle("うゆゆガチャ結果")
-                .setDescription(newGachaResult);
-
-            await i.update({ embeds: [newEmbed], components: [row] });
-        });
-
-        // タイムアウト時にボタンを無効化
-        collector.on('end', async () => {
-            rerollButton.setDisabled(true);
-            const disabledRow = new ActionRowBuilder().addComponents(rerollButton);
-            await interaction.editReply({ components: [disabledRow] }).catch(() => {});
-        });
+        // ボタン待機の開始
+        setupCollector(interaction, response, interaction.user.id);
     }
 };
