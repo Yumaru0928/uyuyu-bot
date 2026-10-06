@@ -4,7 +4,9 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    ComponentType
+    ComponentType,
+    ApplicationIntegrationType,
+    InteractionContextType
 } = require("discord.js");
 
 const Emojis = [
@@ -108,7 +110,19 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("uyuyu-gacha")
-        .setDescription("うゆゆガチャを回します。"),
+        .setDescription("うゆゆガチャを回します。")
+        // サーバーインストール & ユーザー個人の連携アプリ(ユーザーインストール)の両方に対応
+        .setIntegrationTypes([
+            ApplicationIntegrationType.GuildInstall,
+            ApplicationIntegrationType.UserInstall
+        ])
+        // サーバー内、BotのDM、ユーザーの個人DMなど全コンテキストで実行可能にする
+        .setContexts([
+            InteractionContextType.Guild,
+            InteractionContextType.BotDM,
+            InteractionContextType.PrivateChannel
+        ]),
+
     async execute(interaction) {
         const payload = buildGachaMessage();
 
