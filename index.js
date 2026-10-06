@@ -7,6 +7,7 @@ const deployCommands = require('./deploy-commands.js');
 
 // ★ 削除ログ処理モジュールを読み込み
 const messageDeleteEvent = require('./events/delete-message-log.js');
+const senduyuyu = require('./events/send-uyuyu.js');
 
 const client = new Client({
     intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
@@ -38,6 +39,7 @@ for (const folder of commandFolders) {
 }
 
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
+client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 
 // コマンド実行（InteractionCreate）
 client.on(Events.InteractionCreate, async interaction => {

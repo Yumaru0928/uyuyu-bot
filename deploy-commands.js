@@ -29,7 +29,7 @@ async function deployCommands() {
         console.log(`${commands.length} 件のスラッシュコマンドを登録します`);
 
         const data = await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
+            Routes.applicationCommands(clientId),
             { body: commands },
         );
 
