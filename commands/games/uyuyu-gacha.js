@@ -1,129 +1,102 @@
-const {
-    SlashCommandBuilder,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ComponentType,
-    ApplicationIntegrationType,
-    InteractionContextType
-} = require("discord.js");
+const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const { createCanvas, loadImage } = require('@napi-rs/canvas'); // Canvasの読み込み
 
+// 対象の絵文字IDリスト
 const Emojis = [
-    '<:crying_uyuyu:1524698363532935248>',
-    '<:myumyumyu:1521842573314887762>',
-    '<:suyarunn:1528488334014283806>',
-    '<:uuuuuuuyuyuuuuuuu:1537390880934203392>',
-    '<:uyuyu:1549375294614540409>',
-    '<:uyuyu_:1551217609880510534>',
-    '<:uyuyu_dango:1512638117268685020>',
-    '<:uyuyu_fuck:1528265962984439970>',
-    '<:uyuyu_mu:1528093863573585924>',
-    '<:uyuyu_space:1523354371986030692>',
-    '<:uyuyu_sweat:1527287285446344704>',
-    '<:uyuyumarunn:1528036666936131715>',
-    '<:WT_uyuyu:1529686813071900814>',
-    '<:uyuyu_take:1539487778553729064>'
+    '1549375294614540409',
+    '1524698363532935248',
+    '1521842573314887762',
+    '1528488334014283806',
+    '1537390880934203392',
+    '1551217609880510534',
+    '1512638117268685020',
+    '1528265962984439970',
+    '1528093863573585924',
+    '1527287285446344704',
+    '1528036666936131715',
+    '1529686813071900814',
+    '1539487778553729064'
 ];
 
-// 1. ガチャ結果の文字列を生成する関数（定義を追加）
-function drawGacha() {
-    const result = [];
+/**
+ * 10個の絵文字を選出して5×2のグリッド画像を生成する関数
+ * @returns {Promise<Buffer>} 画像バッファ
+ */
+async function generateEmojiGridImage() {
+    // 1. ガチャ等で10個の絵文字IDをランダム選出
+    const selectedIds = [];
     for (let i = 0; i < 10; i++) {
         const rand = Math.floor(Math.random() * Emojis.length);
-        result.push(Emojis[rand]);
+        selectedIds.push(Emojis[rand]);
     }
-    return result.join(" ");
-}
 
-// 2. ガチャの埋め込みメッセージとボタンを生成するヘルパー
-function buildGachaMessage() {
-    const embed = new EmbedBuilder()
-        .setColor("#0099ff")
-        .setTitle("うゆゆガチャ結果")
-        .setDescription(drawGacha());
+    // 2. レイアウトのパラメータ設定
+    const emojiSize = 128; // 1つの絵文字の解像度（ピクセル）
+    const padding = 16;   // 絵文字同士の間隔（余白）
+    const columns = 5;    // 横5列
+    const rows = 2;       // 縦2行
 
-    const rerollButton = new ButtonBuilder()
-        .setCustomId("reroll")
-        .setLabel("もう一度回す")
-        .setStyle(ButtonStyle.Primary);
+    // 全体のキャンバスサイズ計算
+    const width = columns * emojiSize + (columns + 1) * padding;
+    const height = rows * emojiSize + (rows + 1) * padding;
 
-    const row = new ActionRowBuilder().addComponents(rerollButton);
+    // 3. Canvasの作成と背景描画
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
 
-    return { embeds: [embed], components: [row] };
-}
+    // 背景（ダークモード風の背景色、透過にしたい場合はコメントアウト）
+    ctx.fillStyle = '#2f3136';
+    ctx.fillRect(0, 0, width, height);
 
-// 3. メッセージに対してボタンの入力受け取りをセットアップする関数
-function setupCollector(responseMessage, userId) {
-    const collector = responseMessage.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 60000 // 60秒間でボタンを無効化（必要に応じて調整可能）
-    });
+    // 4. 10個の絵文字画像を順に描画
+    for (let i = 0; i < selectedIds.length; i++) {
+        const emojiId = selectedIds[i];
+        const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png`;
 
-    collector.on('collect', async i => {
-        // コマンド実行者本人のみ操作を許可する場合
-        if (i.user.id !== userId) {
-            await i.reply({ content: '実行者本人のみ操作できます。', flags: 64 });
-            return;
+        try {
+            // CDNから絵文字画像を読み込み
+            const img = await loadImage(emojiUrl);
+
+            // グリッド位置（列 index, 行 index）の計算
+            const col = i % columns;
+            const row = Math.floor(i / columns);
+
+            // 描画座標（X, Y）の計算
+            const x = padding + col * (emojiSize + padding);
+            const y = padding + row * (emojiSize + padding);
+
+            // Canvasへ描画
+            ctx.drawImage(img, x, y, emojiSize, emojiSize);
+        } catch (error) {
+            console.error(`絵文字画像 (${emojiId}) の読み込みに失敗しました:`, error);
         }
+    }
 
-        // 元のメッセージのボタンを無効化
-        const disabledButton = new ButtonBuilder()
-            .setCustomId("reroll_disabled")
-            .setLabel("もう一度回す")
-            .setStyle(ButtonStyle.Primary)
-            .setDisabled(true);
-
-        await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
-
-        // 新しいガチャ結果を「新規メッセージ（返信）」として投稿
-        const newPayload = buildGachaMessage();
-        const newResponse = await i.followUp({
-            ...newPayload,
-            fetchReply: true
-        });
-
-        // 新しく投稿されたメッセージに対して監視を開始
-        setupCollector(newResponse, userId);
-    });
-
-    // タイムアウト時にボタンを無効化する処理（任意）
-    collector.on('end', async (collected, reason) => {
-        if (reason === 'time') {
-            const disabledButton = new ButtonBuilder()
-                .setCustomId("reroll_disabled")
-                .setLabel("もう一度回す")
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(true);
-
-            await responseMessage.edit({ components: [new ActionRowBuilder().addComponents(disabledButton)] }).catch(() => {});
-        }
-    });
+    // PNG画像バッファとして出力
+    return await canvas.encode('png');
 }
 
+// --- スラッシュコマンド等での使用例 ---
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName("uyuyu-gacha")
-        .setDescription("うゆゆガチャを回します。")
-        .setIntegrationTypes([
-            ApplicationIntegrationType.GuildInstall,
-            ApplicationIntegrationType.UserInstall
-        ])
-        .setContexts([
-            InteractionContextType.Guild,
-            InteractionContextType.BotDM,
-            InteractionContextType.PrivateChannel
-        ]),
-
+    // execute(interaction) 等の中で呼び出す場合
     async execute(interaction) {
-        const payload = buildGachaMessage();
+        await interaction.deferReply(); // 画像作成処理のため一時応答
 
-        const response = await interaction.reply({
-            ...payload,
-            fetchReply: true
+        // 5x2の合成画像を生成
+        const imageBuffer = await generateEmojiGridImage();
+
+        // Discord送信用の添付ファイルオブジェクトを作成
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'gacha-result.png' });
+
+        // Embedに画像をセットして送信する場合
+        const embed = new EmbedBuilder()
+            .setTitle('うゆゆガチャ結果')
+            .setColor('#0099ff')
+            .setImage('attachment://gacha-result.png');
+
+        await interaction.editReply({
+            embeds: [embed],
+            files: [attachment] // 添付ファイルとして送信
         });
-
-        // ボタン待機の開始
-        setupCollector(response, interaction.user.id);
     }
 };
