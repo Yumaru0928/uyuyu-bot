@@ -26,17 +26,17 @@ const Emojis = [
     '<:uyuyu_take:1539487778553729064>'
 ];
 
-// ガチャ結果の文字列を生成する関数（修正後）
+// 1. ガチャ結果の文字列を生成する関数（定義を追加）
 function drawGacha() {
     const result = [];
     for (let i = 0; i < 10; i++) {
         const rand = Math.floor(Math.random() * Emojis.length);
-        result.push(Emojis[rand]); // 配列要素をそのまま追加するだけ
+        result.push(Emojis[rand]);
     }
     return result.join(" ");
 }
 
-// ガチャの埋め込みメッセージとボタンを生成するヘルパー
+// 2. ガチャの埋め込みメッセージとボタンを生成するヘルパー
 function buildGachaMessage() {
     const embed = new EmbedBuilder()
         .setColor("#0099ff")
@@ -53,20 +53,21 @@ function buildGachaMessage() {
     return { embeds: [embed], components: [row] };
 }
 
-// メッセージに対してボタンの入力受け取りをセットアップする再帰関数
-async function setupCollector(targetInteraction, responseMessage, userId) {
+// 3. メッセージに対してボタンの入力受け取りをセットアップする関数
+function setupCollector(responseMessage, userId) {
     const collector = responseMessage.createMessageComponentCollector({
-        componentType: ComponentType.Button
+        componentType: ComponentType.Button,
+        time: 60000 // 60秒間でボタンを無効化（必要に応じて調整可能）
     });
 
     collector.on('collect', async i => {
-        // 実行者本人以外のボタン操作を弾きたい場合は以下のコメントアウトを解除
-        // if (i.user.id !== userId) {
-        //     await i.reply({ content: '実行者本人のみ操作できます。', ephemeral: true });
-        //     return;
-        // }
+        // コマンド実行者本人のみ操作を許可する場合
+        if (i.user.id !== userId) {
+            await i.reply({ content: '実行者本人のみ操作できます。', flags: 64 });
+            return;
+        }
 
-        // 1. 元のメッセージのボタンを無効化
+        // 元のメッセージのボタンを無効化
         const disabledButton = new ButtonBuilder()
             .setCustomId("reroll_disabled")
             .setLabel("もう一度回す")
@@ -75,15 +76,28 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
 
         await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
 
-        // 2. 新しいガチャ結果を「新規メッセージ（返信）」として投稿
+        // 新しいガチャ結果を「新規メッセージ（返信）」として投稿
         const newPayload = buildGachaMessage();
         const newResponse = await i.followUp({
             ...newPayload,
             fetchReply: true
         });
 
-        // 3. 新しく投稿されたメッセージにボタンの監視を引き継ぐ
-        setupCollector(i, newResponse, userId);
+        // 新しく投稿されたメッセージに対して監視を開始
+        setupCollector(newResponse, userId);
+    });
+
+    // タイムアウト時にボタンを無効化する処理（任意）
+    collector.on('end', async (collected, reason) => {
+        if (reason === 'time') {
+            const disabledButton = new ButtonBuilder()
+                .setCustomId("reroll_disabled")
+                .setLabel("もう一度回す")
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(true);
+
+            await responseMessage.edit({ components: [new ActionRowBuilder().addComponents(disabledButton)] }).catch(() => {});
+        }
     });
 }
 
@@ -110,6 +124,6 @@ module.exports = {
         });
 
         // ボタン待機の開始
-        setupCollector(interaction, response, interaction.user.id);
+        setupCollector(response, interaction.user.id);
     }
 };
