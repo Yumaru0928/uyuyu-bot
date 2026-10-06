@@ -3,18 +3,31 @@ const {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
+    ButtonStyle,
     ComponentType,
+    ApplicationIntegrationType,
+    InteractionContextType
 } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('high-low') 
-        .setDescription('High&Lowゲームを開始します。'),
+        .setName('high-low')
+        .setDescription('High&Lowゲームを開始します。')
+        // User Install (Bot不在環境) 対応設定
+        .setIntegrationTypes([
+            ApplicationIntegrationType.GuildInstall,
+            ApplicationIntegrationType.UserInstall
+        ])
+        .setContexts([
+            InteractionContextType.Guild,
+            InteractionContextType.BotDM,
+            InteractionContextType.PrivateChannel
+        ]),
+
     async execute(interaction) {
         const collectnumber = Math.floor(Math.random() * 100) + 1;
         let firstnumber = Math.floor(Math.random() * 100) + 1;
-        
-        // 重複防止処理
+
         if (collectnumber === firstnumber) {
             firstnumber = Math.floor(Math.random() * 100) + 1;
         }
@@ -22,7 +35,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle('High&Lowゲーム')
-            .setDescription('1~100の数字が表示されます。次の数字が「High（大きい）」か「Low（小さい）」かを予想してください。')
+            .setDescription('1~100のランダム数字が表示されます。次の数字がHigh(大きい)かLow(小さい)かを予想してください。')
             .addFields(
                 { name: '最初の数字', value: `${firstnumber}`, inline: true },
                 { name: '正解の数字', value: `???`, inline: true }
@@ -31,25 +44,31 @@ module.exports = {
         const highButton = new ButtonBuilder()
             .setCustomId('high')
             .setLabel('High')
-            .setStyle('Primary');
+            .setStyle(ButtonStyle.Primary);
 
         const lowButton = new ButtonBuilder()
             .setCustomId('low')
             .setLabel('Low')
-            .setStyle('Danger');
+            .setStyle(ButtonStyle.Danger);
 
         const row = new ActionRowBuilder().addComponents(highButton, lowButton);
 
-        await interaction.reply({ embeds: [embed], components: [row] });
+        // ★ fetchReply: true を追加し、返り値を取得する
+        const response = await interaction.reply({
+            embeds: [embed],
+            components: [row],
+            fetchReply: true
+        });
 
-        const collector = interaction.channel.createMessageComponentCollector({
+        // ★ interaction.channel ではなく response からコレクターを作成する
+        const collector = response.createMessageComponentCollector({
             componentType: ComponentType.Button,
             time: 30000,
         });
 
         collector.on('collect', async i => {
             if (i.user.id !== interaction.user.id) {
-                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', ephemeral: true });
+                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', flags: 64 });
                 return;
             }
 
@@ -91,6 +110,6 @@ module.exports = {
 
                 interaction.editReply({ embeds: [timeoutEmbed], components: [row] }).catch(() => {});
             }
-        }); 
+        });
     },
 };
