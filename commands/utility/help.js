@@ -25,7 +25,7 @@ module.exports = {
             .addFields(commandFields)
             .setTimestamp()
             .setFooter({ 
-                text: `${interaction.client.user.username} Help System`, 
+                text: `${interaction.client.user.username}`, 
                 iconURL: interaction.client.user.displayAvatarURL() 
             });
 

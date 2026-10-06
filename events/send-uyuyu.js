@@ -5,8 +5,8 @@ module.exports = {
     async execute(message) {
         if (message.author.bot) return; // ボットのメッセージは無視
         
-        if (message.content.includes('うゆゆ')) {
-            await message.channel.send('うゆゆ<:uyuyu:1549375294614540409>');
+        if (message.content.includes('うゆゆ') || message.content.includes('uyuyu')){
+            await message.react('1549375294614540409');
         }
     }
 };
