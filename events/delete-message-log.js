@@ -21,7 +21,8 @@ module.exports = {
             return;
         }
 
-        const logChannelId = configData[message.guild.id];
+        // オブジェクト構造から 'deleteLogChannel' のIDを取得
+        const logChannelId = configData[message.guild.id]?.deleteLogChannel;
         if (!logChannelId) return; // ログチャンネルが未設定の場合は終了
 
         const logChannel = message.guild.channels.cache.get(logChannelId);
