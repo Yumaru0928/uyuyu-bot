@@ -44,7 +44,7 @@ module.exports = {
         }
 
         // 2. 絵文字ランダム選出とリアクション処理
-        if (message.content.includes('うゆゆ') || message.content.includes('uyuyu') || message.content.includes('myumyumyu') || message.content.includes('suyarunn')) {
+        if (message.content.includes('うゆゆ') || message.content.includes('uyuyu') || message.content.includes('myumyumyu') || message.content.includes('suyarunn') || message.content.includes('ウユユ')) {
             const rand = Math.floor(Math.random() * Emojis.length);
             await message.react(Emojis[rand]);
         }
