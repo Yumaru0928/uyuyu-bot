@@ -26,17 +26,12 @@ const Emojis = [
     '<:uyuyu_take:1539487778553729064>'
 ];
 
-// ガチャ結果の文字列を生成する関数
+// ガチャ結果の文字列を生成する関数（修正後）
 function drawGacha() {
     const result = [];
     for (let i = 0; i < 10; i++) {
         const rand = Math.floor(Math.random() * Emojis.length);
-        const item = Emojis[rand];
-        if (item.startsWith('a:')) {
-            result.push(`<${item}>`);
-        } else {
-            result.push(`<:emoji:${item}>`);
-        }
+        result.push(Emojis[rand]); // 配列要素をそのまま追加するだけ
     }
     return result.join(" ");
 }
@@ -65,6 +60,11 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
     });
 
     collector.on('collect', async i => {
+        // 実行者本人以外のボタン操作を弾きたい場合は以下のコメントアウトを解除
+        // if (i.user.id !== userId) {
+        //     await i.reply({ content: '実行者本人のみ操作できます。', ephemeral: true });
+        //     return;
+        // }
 
         // 1. 元のメッセージのボタンを無効化
         const disabledButton = new ButtonBuilder()
@@ -85,20 +85,16 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
         // 3. 新しく投稿されたメッセージにボタンの監視を引き継ぐ
         setupCollector(i, newResponse, userId);
     });
-
-
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("uyuyu-gacha")
         .setDescription("うゆゆガチャを回します。")
-        // サーバーインストール & ユーザー個人の連携アプリ(ユーザーインストール)の両方に対応
         .setIntegrationTypes([
             ApplicationIntegrationType.GuildInstall,
             ApplicationIntegrationType.UserInstall
         ])
-        // サーバー内、BotのDM、ユーザーの個人DMなど全コンテキストで実行可能にする
         .setContexts([
             InteractionContextType.Guild,
             InteractionContextType.BotDM,
