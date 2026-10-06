@@ -61,15 +61,10 @@ function buildGachaMessage() {
 // メッセージに対してボタンの入力受け取りをセットアップする再帰関数
 async function setupCollector(targetInteraction, responseMessage, userId) {
     const collector = responseMessage.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 15000
+        componentType: ComponentType.Button
     });
 
     collector.on('collect', async i => {
-        if (i.user.id !== userId) {
-            await i.reply({ content: 'このボタンは実行した本人のみ使用できます。', ephemeral: true });
-            return;
-        }
 
         // 1. 元のメッセージのボタンを無効化
         const disabledButton = new ButtonBuilder()
@@ -77,7 +72,7 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
             .setLabel("もう一度回す")
             .setStyle(ButtonStyle.Primary)
             .setDisabled(true);
-        
+
         await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
 
         // 2. 新しいガチャ結果を「新規メッセージ（返信）」として投稿
@@ -91,20 +86,7 @@ async function setupCollector(targetInteraction, responseMessage, userId) {
         setupCollector(i, newResponse, userId);
     });
 
-    collector.on('end', async (collected, reason) => {
-        // 時間切れ等の場合、ボタンを無効化
-        if (reason === 'time') {
-            const disabledButton = new ButtonBuilder()
-                .setCustomId("reroll_disabled")
-                .setLabel("もう一度回す")
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(true);
 
-            await targetInteraction.editReply({
-                components: [new ActionRowBuilder().addComponents(disabledButton)]
-            }).catch(() => {});
-        }
-    });
 }
 
 module.exports = {
