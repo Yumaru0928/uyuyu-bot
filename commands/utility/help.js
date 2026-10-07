@@ -29,8 +29,16 @@ module.exports = {
 
         // フォルダ（カテゴリ）ごとに Embed フィールドを作成して追加
         categories.forEach((cmdList, category) => {
-            // 見出し用の表記（先頭文字を大文字にするなどの装飾）
-            const categoryTitle = `📁 ${category.toUpperCase()}`;
+
+            // 見出しの日本語マッピング（例）
+            const categoryNames = {
+                utility: '⚙️ ユーティリティ',
+                moderation: '🛡️ サーバー管理',
+                games: '🎮 ゲーム',
+            };
+
+            // Embed作成時のタイトル取得部分
+            const categoryTitle = categoryNames[category] || `📁 ${category}`;
 
             // コマンド一覧を文字列として整形
             const descriptionList = cmdList
