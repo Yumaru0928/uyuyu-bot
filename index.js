@@ -71,9 +71,9 @@ client.on(Events.InteractionCreate, async interaction => {
     } catch (error) {
         console.error(error);
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'このコマンドの実行中にエラーが発生しました！' + error.message, flags: MessageFlags.Ephemeral });
+            await interaction.followUp({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
         } else {
-            await interaction.reply({ content: 'このコマンドの実行中にエラーが発生しました！' + error.message, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
         }
     }
 });
