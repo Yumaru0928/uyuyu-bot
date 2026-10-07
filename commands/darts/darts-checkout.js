@@ -76,7 +76,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
-            .setTitle(`🎯 ダーツ チェックアウト結果`)
+            .setTitle(`🎯 チェックアウト計算結果`)
             .addFields(
                 { name: '残りスコア', value: `${score}点`, inline: true },
                 { name: 'ブル設定', value: typeLabel, inline: true },
