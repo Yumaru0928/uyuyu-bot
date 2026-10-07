@@ -3,7 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 // JSONデータの読み込み（3通り対応版のJSONを指定）
-const jsonPath = path.join(__dirname, 'darts_checkout_3.json');
+const jsonPath = path.join(__dirname, 'darts_checkout.json');
 let checkoutData = null;
 
 try {
@@ -11,7 +11,7 @@ try {
         checkoutData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     }
 } catch (error) {
-    console.error('darts_checkout_3.json の読み込みに失敗しました:', error);
+    console.error('darts_checkout.json の読み込みに失敗しました:', error);
 }
 
 module.exports = {
@@ -54,7 +54,7 @@ module.exports = {
     async execute(interaction) {
         if (!checkoutData) {
             return await interaction.reply({
-                content: 'データファイル (darts_checkout_3.json) が読み込めていません。管理者にお問い合わせください。',
+                content: 'データファイル (darts_checkout.json) が読み込めていません。管理者にお問い合わせください。',
                 flags: MessageFlags.Ephemeral
             });
         }
