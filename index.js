@@ -1,7 +1,7 @@
 // index.js
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags } = require('discord.js');
+const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const { token } = require('./config.json');
 const deployCommands = require('./deploy-commands.js');
 
@@ -20,8 +20,8 @@ client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
     const activities = [
         { name: `ping | ${client.ws.ping}ms`, type: ActivityType.Playing },
-        { name: 'うゆゆ', type: ActivityType.Playing },
-        { name: 'うゆゆガチャ', type: ActivityType.Playing }
+        { name: 'うゆゆ をプレイ中', type: ActivityType.Playing },
+        { name: 'うゆゆガチャ：/uyuyu-gacha をプレイ中', type: ActivityType.Playing }
     ];
 
     let index = 0;
