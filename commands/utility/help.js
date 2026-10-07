@@ -35,6 +35,8 @@ module.exports = {
                 utility: '⚙️ ユーティリティ',
                 moderation: '🛡️ サーバー管理',
                 games: '🎮 ゲーム',
+                tools: '🛠️ ツール',
+                darts: '🎯 ダーツ',
             };
 
             // Embed作成時のタイトル取得部分
