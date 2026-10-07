@@ -18,6 +18,18 @@ client.commands = new Collection();
 
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
+    const activities = [
+        { name: `ping | ${client.ws.ping}ms`, type: ActivityType.Playing },
+        { name: 'うゆゆ', type: ActivityType.Playing },
+        { name: 'うゆゆガチャ', type: ActivityType.Playing }
+    ];
+
+    let index = 0;
+    // 10秒ごとにステータスを変更
+    setInterval(() => {
+        client.user.setActivity(activities[index]);
+        index = (index + 1) % activities.length;
+    }, 10000);
 });
 
 // index.js のコマンド読み込みループ部分
