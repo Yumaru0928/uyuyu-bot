@@ -19,7 +19,7 @@ client.commands = new Collection();
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
     const activities = [
-        { name: `ping | ${client.ws.ping}ms`, type: ActivityType.Playing },
+        { name: `/help`, type: ActivityType.Watching },
         { name: 'うゆゆ をプレイ中', type: ActivityType.Playing },
         { name: 'うゆゆガチャ：/uyuyu-gacha をプレイ中', type: ActivityType.Playing }
     ];
