@@ -3,33 +3,47 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('help')
-        .setDescription('利用可能なコマンドの一覧を表示します'),
+        .setDescription('フォルダ（カテゴリ）ごとに分類されたコマンド一覧を表示します'),
     async execute(interaction) {
-        // client.commands に登録されている全コマンドを取得
         const commands = interaction.client.commands;
 
-        // コマンド一覧のフィールドを作成
-        const commandFields = commands.map(cmd => {
-            return {
-                name: `/${cmd.data.name}`,
-                value: cmd.data.description || '説明なし',
-                inline: false, // 縦に並べる場合
-            };
+        // フォルダ（カテゴリ）ごとにコマンドをグループ化するマップ
+        const categories = new Map();
+
+        commands.forEach(cmd => {
+            // フォルダ名を取得（設定されていない場合は 'uncategorized'）
+            const categoryName = cmd.category || 'その他';
+
+            if (!categories.has(categoryName)) {
+                categories.set(categoryName, []);
+            }
+            categories.get(categoryName).push(cmd);
         });
 
-        // Embed メッセージの作成
+        // Embed の作成
         const helpEmbed = new EmbedBuilder()
-            .setColor(0x0099FF) // メインカラー
-            .setTitle('📖 コマンド一覧・ヘルプ')
-            .setDescription('利用できるスラッシュコマンドの一覧です。')
-            .addFields(commandFields)
-            .setTimestamp()
-            .setFooter({ 
-                text: `${interaction.client.user.username}`, 
-                iconURL: interaction.client.user.displayAvatarURL() 
-            });
+            .setColor(0x0099FF)
+            .setTitle('📖 コマンド一覧')
+            .setDescription('利用可能なコマンドをカテゴリごとに一覧表示しています。')
+            .setTimestamp();
 
-        // 自分にだけ見える非公開メッセージ（Ephemeral）で送信したい場合は flags: 64 を指定
+        // フォルダ（カテゴリ）ごとに Embed フィールドを作成して追加
+        categories.forEach((cmdList, category) => {
+            // 見出し用の表記（先頭文字を大文字にするなどの装飾）
+            const categoryTitle = `📁 ${category.toUpperCase()}`;
+
+            // コマンド一覧を文字列として整形
+            const descriptionList = cmdList
+                .map(cmd => `• **/${cmd.data.name}**: ${cmd.data.description || '説明なし'}`)
+                .join('\n');
+
+            helpEmbed.addFields({
+                name: categoryTitle,
+                value: descriptionList || 'コマンドはありません',
+                inline: false, // 見出しごとに改行
+            });
+        });
+
         await interaction.reply({ embeds: [helpEmbed] });
     },
 };

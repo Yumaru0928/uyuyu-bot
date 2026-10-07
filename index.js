@@ -20,7 +20,7 @@ client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
 });
 
-// コマンドファイルの読み込み
+// index.js のコマンド読み込みループ部分
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -31,6 +31,8 @@ for (const folder of commandFolders) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
+            // ★ コマンドオブジェクトに所属フォルダ名をセット
+            command.category = folder; 
             client.commands.set(command.data.name, command);
         } else {
             console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
