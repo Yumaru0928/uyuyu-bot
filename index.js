@@ -5,7 +5,7 @@ const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, A
 const { token } = require('./config.json');
 const deployCommands = require('./deploy-commands.js');
 
-// ★ 削除ログ処理モジュールを読み込み
+// eventファイルの読み込み
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
 
