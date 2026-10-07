@@ -18,17 +18,22 @@ module.exports = {
         const match = dices.match(dicePattern);
         let results = [];
         let total = 0;
-        for (let i = 0; i < dicemultiple; i++) {
-            if (!match) {
-                await interaction.reply('正しい形式でサイコロを指定してください。例: 1d6, 2d10, 3d20');
-                return;
+        try {
+            for (let i = 0; i < dicemultiple; i++) {
+                if (!match) {
+                    await interaction.reply('正しい形式でサイコロを指定してください。例: 1d6, 2d10, 3d20');
+                    return;
+                }
+                const sides = parseInt(match[2]);
+                const roll = Math.floor(Math.random() * sides) + 1;
+                results.push(roll);
+                total += roll;
             }
-            const sides = parseInt(match[2]);
-            const roll = Math.floor(Math.random() * sides) + 1;
-            results.push(roll);
-            total += roll;
+        } catch (error) {
+            console.error(error);
+            await interaction.reply('サイズが大きすぎます。', { flags: MessageFlags.Ephemeral });
+            return;
         }
-        
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle(dices)
