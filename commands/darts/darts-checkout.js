@@ -2,8 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const path = require('node:path');
 const fs = require('node:fs');
 
-// JSONデータの読み込み
-const jsonPath = path.join(__dirname, 'darts_checkout.json');
+// JSONデータの読み込み（3通り対応版のJSONを指定）
+const jsonPath = path.join(__dirname, 'darts_checkout_3.json');
 let checkoutData = null;
 
 try {
@@ -11,7 +11,7 @@ try {
         checkoutData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     }
 } catch (error) {
-    console.error('darts_checkout.json の読み込みに失敗しました:', error);
+    console.error('darts_checkout_3.json の読み込みに失敗しました:', error);
 }
 
 module.exports = {
@@ -54,7 +54,7 @@ module.exports = {
     async execute(interaction) {
         if (!checkoutData) {
             return await interaction.reply({
-                content: 'データファイル (darts_checkout.json) が読み込めていません。管理者にお問い合わせください。',
+                content: 'データファイル (darts_checkout_3.json) が読み込めていません。管理者にお問い合わせください。',
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -67,8 +67,8 @@ module.exports = {
         const typeKey = type === 'fat' ? 'fat_bull' : 'separate_bull';
         const outKey = `${out}_out`;
 
-        // ルートの取得
-        const routeList = checkoutData.checkout?.[typeKey]?.[outKey]?.[String(score)];
+        // ルートのリストを取得 (例: [["T20", "D20"], ["BULL", "BULL"]])
+        const routes = checkoutData.checkout?.[typeKey]?.[outKey]?.[String(score)];
 
         // 表示用のラベル
         const typeLabel = type === 'fat' ? 'ファットブル' : 'セパレートブル';
@@ -84,17 +84,29 @@ module.exports = {
             )
             .setTimestamp();
 
-        if (routeList === undefined) {
+        if (routes === undefined) {
             embed.setDescription('指定された条件のデータが見つかりませんでした。');
-        } else if (routeList === null) {
+        } else if (routes === null) {
             embed.setColor('#ff4b4b')
                 .addFields({ name: 'チェックアウト', value: '⚠️ **3投以内でチェックアウト不可能** です' });
         } else {
-            embed.setColor('#0000ff')
+            // 第1推奨ルート（最優先）
+            const mainRoute = routes[0];
+            
+            embed.setColor('#00ff00')
                 .addFields(
-                    { name: '推奨ルート', value: `\`${routeList.join(' ➔ ')}\`` },
-                    { name: '必要本数', value: `${routeList.length}本`, inline: true }
+                    { name: '推奨ルート (第1候補)', value: `\`${mainRoute.join(' ➔ ')}\`` },
+                    { name: '必要本数', value: `${mainRoute.length}本`, inline: true }
                 );
+
+            // 代替ルート（2通り目以降）が存在する場合に追加表示
+            if (routes.length > 1) {
+                const subRoutesFormatted = routes.slice(1)
+                    .map((r, index) => `候補${index + 2}: \`${r.join(' ➔ ')}\``)
+                    .join('\n');
+
+                embed.addFields({ name: 'その他のアレンジ候補', value: subRoutesFormatted });
+            }
         }
 
         await interaction.reply({ embeds: [embed] });
