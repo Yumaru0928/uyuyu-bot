@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
-const token = process.env.DISCORD_BOT_TOKEN || require('./config.json').token;
+const token = process.env.DISCORD_BOT_TOKEN 
 const deployCommands = require('./deploy-commands.js');
 
 // eventファイルの読み込み
