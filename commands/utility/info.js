@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, version: djsVersion } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, version: djsVersion, ButtonBuilder, ButtonStyle, ActionRowBuilder} = require('discord.js');
 const process = require('node:process');
 
 module.exports = {
@@ -43,6 +43,13 @@ module.exports = {
                 iconURL: interaction.user.displayAvatarURL()
             });
 
-        await interaction.reply({ embeds: [embed] });
+            const websiteButton = new ButtonBuilder()
+                .setLabel('公式サイト')
+                .setURL('https://uyuyu-bot.onrender.com/')
+                .setStyle(ButtonStyle.Link);
+            const row = new ActionRowBuilder().addComponents(websiteButton);
+        
+        
+            await interaction.reply({ embeds: [embed], components: [row] });
     },
 };
