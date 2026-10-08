@@ -152,8 +152,13 @@ async function main() {
 main();
 
 const express = require('express');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get('/', (req, res) => res.send('Bot is running!'));
+// public フォルダ（HTML/CSS/画像など）を静的ファイルとして公開
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+
+// --- ここから下に Discord.js の Bot 起動処理などを記述 ---
