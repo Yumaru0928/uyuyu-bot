@@ -4,6 +4,12 @@
 <head>
   <meta charset=utf8>
   <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+  <meta property="og:title" content="うゆゆBot - Discord Bot" />
+  <meta property="og:description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/index.html" />
+  <meta name="theme-color" content="#0E7A5C" />
   <style>
     :root {
       color-scheme: light;
@@ -134,7 +140,22 @@
       color: var(--fg);
       text-decoration: none;
       margin-right: auto;
-      padding-block: .35rem
+      padding-block: .35rem;
+
+      /* ▼ 画像とテキストを横並び＆中央揃えにする設定を追加 ▼ */
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      /* 画像と文字の間のすき間 */
+    }
+
+    .brand-logo {
+      width: 1.8rem;
+      /* アイコンの幅（文字サイズに合わせて適宜調整してください） */
+      height: 1.8rem;
+      /* アイコンの高さ */
+      object-fit: contain;
+      display: block;
     }
 
     .nav {
@@ -518,7 +539,10 @@
 
   <header class="top">
     <div class="top-in">
-      <a class="brand" href="index.html">うゆゆBot</a>
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
       <nav class="nav" aria-label="メインメニュー">
         <a href="index.html" aria-current="page">機能</a>
         <a href="terms.html">利用規約</a>
