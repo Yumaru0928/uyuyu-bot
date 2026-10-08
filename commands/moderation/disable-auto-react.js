@@ -43,21 +43,35 @@ module.exports = {
             });
         }
 
-        // 5. 配列へIDを追加して書き込み
+        // 5. 配列へIDを追加
         channelsData[guildId].disableAutoReact.push(channel.id);
 
         try {
+            // ① メモリ/一時ディスク用にローカルファイルへ書き込み
             fs.writeFileSync(filePath, JSON.stringify(channelsData, null, 4), 'utf8');
+
+            // ② ユーザーへ返信
             await interaction.reply({
                 content: `このチャンネル (${channel}) をAuto-React無効化リストに追加しました！`,
                 flags: MessageFlags.Ephemeral
             });
+
+            // ③ GitHub APIへ自動コミット
+            if (interaction.client.commitJsonToGitHub) {
+                await interaction.client.commitJsonToGitHub(
+                    'config-channels.json',
+                    channelsData,
+                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip ci]`
+                );
+            }
         } catch (error) {
             console.error('JSON保存エラー:', error);
-            await interaction.reply({
-                content: 'データの保存処理中にエラーが発生しました。',
-                flags: MessageFlags.Ephemeral
-            });
+            if (!interaction.replied) {
+                await interaction.reply({
+                    content: 'データの保存処理中にエラーが発生しました。',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
         }
     },
 };

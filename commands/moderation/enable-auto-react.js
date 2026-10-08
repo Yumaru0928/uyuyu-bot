@@ -6,7 +6,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('enable-auto-react-channel')
         .setDescription('実行したチャンネルのAuto-Reactを再有効化します')
-        // チャンネル管理権限を持つユーザーのみ実行可能
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
     async execute(interaction) {
@@ -37,22 +36,35 @@ module.exports = {
             });
         }
 
-        // 3. 配列から現在のチャンネルIDを除外 (filter を利用)
+        // 3. 配列から現在のチャンネルIDを除外
         channelsData[guildId].disableAutoReact = disabledChannels.filter(id => id !== channel.id);
 
-        // 4. 更新後のデータをJSONファイルへ書き込み
         try {
+            // ① ローカルディスク（一時環境）へ保存
             fs.writeFileSync(filePath, JSON.stringify(channelsData, null, 4), 'utf8');
+
+            // ② ユーザーへ返信
             await interaction.reply({
                 content: `このチャンネル (${channel}) のAuto-Reactを再有効化しました！`,
                 flags: MessageFlags.Ephemeral
             });
+
+            // ③ GitHub APIを使って自動コミット
+            if (interaction.client.commitJsonToGitHub) {
+                await interaction.client.commitJsonToGitHub(
+                    'config-channels.json',
+                    channelsData,
+                    `auto: enable auto-react for channel ${channel.id} in guild ${guildId} [skip ci]`
+                );
+            }
         } catch (error) {
             console.error('JSON保存エラー:', error);
-            await interaction.reply({
-                content: 'データの保存処理中にエラーが発生しました。',
-                flags: MessageFlags.Ephemeral
-            });
+            if (!interaction.replied) {
+                await interaction.reply({
+                    content: 'データの保存処理中にエラーが発生しました。',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
         }
     },
 };
