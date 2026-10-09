@@ -54,7 +54,7 @@ module.exports = {
                 await interaction.client.commitJsonToGitHub(
                     'config-channels.json',
                     channelsData,
-                    `auto: enable auto-react for channel ${channel.id} in guild ${guildId} [skip ci]`
+                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
                 );
             }
         } catch (error) {

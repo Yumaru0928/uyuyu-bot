@@ -11,31 +11,29 @@ module.exports = {
     async execute(interaction) {
         const channel = interaction.channel;
         const guildId = interaction.guild.id;
-
         const filePath = path.join(__dirname, '..', '..', 'config-channels.json');
 
-        // 1. JSONファイルを読み込み
         let channelsData = {};
+
+        // 1. まずローカルの JSON ファイルを確認して読み込み
         if (fs.existsSync(filePath)) {
             try {
                 const rawData = fs.readFileSync(filePath, 'utf8');
                 channelsData = JSON.parse(rawData);
             } catch (error) {
-                console.error('JSON読み込みエラー:', error);
+                console.error('JSON読み込みエラー (ローカル):', error);
             }
         }
 
-        // 2. サーバー用のオブジェクト初期化
+        // 2. サーバー用のオブジェクト・配列の初期化
         if (!channelsData[guildId]) {
             channelsData[guildId] = {};
         }
-
-        // 3. disableAutoReact 用の配列初期化
         if (!Array.isArray(channelsData[guildId].disableAutoReact)) {
             channelsData[guildId].disableAutoReact = [];
         }
 
-        // 4. 重複チェック
+        // 3. 重複チェック
         if (channelsData[guildId].disableAutoReact.includes(channel.id)) {
             return await interaction.reply({
                 content: `${channel} は既に無効化リストに追加されています。`,
@@ -43,7 +41,7 @@ module.exports = {
             });
         }
 
-        // 5. 配列へIDを追加
+        // 4. 配列へIDを追加
         channelsData[guildId].disableAutoReact.push(channel.id);
 
         try {
@@ -56,12 +54,12 @@ module.exports = {
                 flags: MessageFlags.Ephemeral
             });
 
-            // ③ GitHub APIへ自動コミット
+            // ③ GitHub APIへ自動コミット（dataブランチ対応 & [skip render] 追加）
             if (interaction.client.commitJsonToGitHub) {
                 await interaction.client.commitJsonToGitHub(
                     'config-channels.json',
                     channelsData,
-                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip ci]`
+                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
                 );
             }
         } catch (error) {

@@ -46,12 +46,11 @@ module.exports = {
             });
 
             // ③ GitHub APIを使ってリポジトリへ自動コミット
-            // ※ GitHubリポジトリ上のルート（トップ）にある config-channels.json を更新します
             if (interaction.client.commitJsonToGitHub) {
                 await interaction.client.commitJsonToGitHub(
                     'config-channels.json',
-                    configData,
-                    `auto: update deleteLogChannel for guild ${guildId} [skip ci]`
+                    channelsData,
+                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
                 );
             }
 

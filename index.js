@@ -1,11 +1,24 @@
 // index.js
 const fs = require('node:fs');
 const path = require('node:path');
+const express = require('express');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
-const token = process.env.DISCORD_BOT_TOKEN
+const token = process.env.DISCORD_BOT_TOKEN;
 const deployCommands = require('./deploy-commands.js');
 
-// eventファイルの読み込み
+// ===================================================
+// ★ Express サーバー（Renderポート開口用）
+// ===================================================
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+
+// ===================================================
+// ★ Discord Client 設定 & イベント読み込み
+// ===================================================
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
 
@@ -25,7 +38,6 @@ client.on('ready', () => {
     ];
 
     let index = 0;
-    // 10秒ごとにステータスを変更
     setInterval(() => {
         client.user.setActivity(activities[index]);
         index = (index + 1) % activities.length;
@@ -33,12 +45,13 @@ client.on('ready', () => {
 });
 
 // ===================================================
-// ★ GitHubコミット用関数
+// ★ GitHubコミット用関数（dataブランチ対応版）
 // ===================================================
-async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip ci]") {
+async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    const GITHUB_REPO = process.env.GITHUB_REPO; // 例: "user/repo"
-    const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
+    const GITHUB_REPO = process.env.GITHUB_REPO; // 例: "Yumaru0928/uyuyu-bot"
+    // デフォルトの保存先ブランチを "data" に設定
+    const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "data";
 
     if (!GITHUB_TOKEN || !GITHUB_REPO) {
         console.error("[GitHub Sync] GITHUB_TOKEN または GITHUB_REPO が設定されていません。");
@@ -53,7 +66,7 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
     };
 
     try {
-        // 1. 最新ファイルのSHAを取得（上書きに必要）
+        // 1. 最新ファイルのSHAを取得（データブランチから取得）
         let sha = null;
         const getRes = await fetch(`${url}?ref=${GITHUB_BRANCH}`, { headers });
         if (getRes.ok) {
@@ -80,7 +93,7 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
         });
 
         if (putRes.ok) {
-            console.log(`[GitHub Sync] ${filePath} のコミットに成功しました。`);
+            console.log(`[GitHub Sync] ${GITHUB_BRANCH} ブランチの ${filePath} へのコミットに成功しました。`);
         } else {
             const err = await putRes.text();
             console.error("[GitHub Sync Error]", err);
@@ -90,10 +103,11 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
     }
 }
 
-// 他のコマンド等から client.commitJsonToGitHub(...) として呼び出せるように client に生やしておく
 client.commitJsonToGitHub = commitJsonToGitHub;
 
-// index.js のコマンド読み込みループ部分
+// ===================================================
+// ★ コマンドファイルの読み込み
+// ===================================================
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -104,7 +118,6 @@ for (const folder of commandFolders) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
-            // ★ コマンドオブジェクトに所属フォルダ名をセット
             command.category = folder;
             client.commands.set(command.data.name, command);
         } else {
@@ -113,10 +126,12 @@ for (const folder of commandFolders) {
     }
 }
 
+// ===================================================
+// ★ イベント・インタラクション処理
+// ===================================================
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
 client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 
-// コマンド実行（InteractionCreate）
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -139,7 +154,9 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// Botの起動・デプロイ実行処理
+// ===================================================
+// ★ Bot起動処理
+// ===================================================
 async function main() {
     try {
         await deployCommands();
@@ -150,15 +167,3 @@ async function main() {
 }
 
 main();
-
-const express = require('express');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// public フォルダ（HTML/CSS/画像など）を静的ファイルとして公開
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
-
-// --- ここから下に Discord.js の Bot 起動処理などを記述 ---
