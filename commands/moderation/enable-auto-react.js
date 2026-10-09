@@ -49,12 +49,12 @@ module.exports = {
                 flags: MessageFlags.Ephemeral
             });
 
-            // ③ GitHub APIを使って自動コミット
+            // ③ GitHub APIを使って自動コミット（コミットメッセージを enable に修正）
             if (interaction.client.commitJsonToGitHub) {
                 await interaction.client.commitJsonToGitHub(
                     'config-channels.json',
                     channelsData,
-                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
+                    `auto: enable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
                 );
             }
         } catch (error) {

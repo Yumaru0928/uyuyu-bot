@@ -45,12 +45,12 @@ module.exports = {
                 flags: MessageFlags.Ephemeral,
             });
 
-            // ③ GitHub APIを使ってリポジトリへ自動コミット
+            // ③ GitHub APIを使ってリポジトリへ自動コミット（configData を渡すよう修正）
             if (interaction.client.commitJsonToGitHub) {
                 await interaction.client.commitJsonToGitHub(
                     'config-channels.json',
-                    channelsData,
-                    `auto: disable auto-react for channel ${channel.id} in guild ${guildId} [skip render]`
+                    configData,
+                    `auto: set delete log channel to ${channelId} in guild ${guildId} [skip render]`
                 );
             }
 
