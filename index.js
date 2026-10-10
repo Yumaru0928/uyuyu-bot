@@ -2,9 +2,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
+const rl = require('node:readline');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
-const token = process.env.DISCORD_BOT_TOKEN;
 const deployCommands = require('./deploy-commands.js');
+
+const readline = rl.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
 
 // ===================================================
 // ★ Express サーバー（Renderポート開口用）
@@ -154,12 +159,20 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// ===================================================
-// ★ Bot起動処理
-// ===================================================
+// index.js のトークン取得・ログイン部分のイメージ
+let token;
+const configPath = path.join(__dirname, 'config.json');
+
+if (fs.existsSync(configPath)) {
+    const config = require('./config.json');
+    token = config.token;
+} else {
+    token = process.env.DISCORD_TOKEN;
+}
+
 async function main() {
     try {
-        await deployCommands();
+        await deployCommands(); // 先ほど修正した関数
         await client.login(token);
     } catch (error) {
         console.error('起動時にエラーが発生しました:', error);
