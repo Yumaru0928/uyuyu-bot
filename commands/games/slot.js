@@ -9,7 +9,7 @@ const {
     InteractionContextType 
 } = require("discord.js");
 
-// 提供された絵文字リスト（アニメーション絵文字は a:名前:ID 形式）
+// 提供された絵文字リスト（アニメーション絵文字と通常のカスタム絵文字）
 const Emojis = [
     '<a:transparent:1558522934438658119>',
     '<:emoji_1:1557748839035838626>',
@@ -31,16 +31,15 @@ const Emojis = [
 
 // 確率を制御してスロットの結果（リール）を作る関数
 function spinSlotsWithBias() {
-    const rand = Math.random() * 100; // 0 〜 100 未満の乱数
+    const rand = Math.random() * 100;
     let reel = [];
 
-    if (rand < 3) {
-        // --- ① 大当たり（3つ全て同じ）にする確率: 20% ---
+    if (rand < 20) {
+        // 大当たり（3つ全て同じ）: 20%
         const winningEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
         reel = [winningEmoji, winningEmoji, winningEmoji];
-
-    } else if (rand < 15) {
-        // --- ② 惜しい（2つ同じ）にする確率: 30% (20%〜50%) ---
+    } else if (rand < 50) {
+        // おしい（2つ同じ）: 30%
         const matchingEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
         let otherEmoji;
         do {
@@ -53,9 +52,8 @@ function spinSlotsWithBias() {
             [otherEmoji, matchingEmoji, matchingEmoji]
         ];
         reel = patterns[Math.floor(Math.random() * patterns.length)];
-
     } else {
-        // --- ③ 完全ハズレ（3つともバラバラ）にする確率: 50% (50%〜100%) ---
+        // 完全ハズレ: 50%
         while (reel.length < 3) {
             const randomEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
             if (!reel.includes(randomEmoji)) {
@@ -76,7 +74,7 @@ function buildSlotMessage(reel) {
         resultText = "🎉 **大当たり (JACKPOT)！！** おめでとうございます！";
         color = "#57F287"; // 緑
     } else if (reel[0] === reel[1] || reel[1] === reel[2] || reel[0] === reel[2]) {
-        resultText = "✨ **おしい！2つ揃いました！**";
+        resultText = "✨ **おしい！2つ揃えました！**";
         color = "#FEE75C"; // 黄色
     }
 
@@ -118,13 +116,15 @@ function setupCollector(responseMessage, userId) {
             .setStyle(ButtonStyle.Primary)
             .setDisabled(true);
 
-        await i.update({ components: [newActionRowBuilder().addComponents(disabledButton)] });
+        // ★ 修正: newActionRowBuilder() → new ActionRowBuilder() に修正
+        await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
 
         const newReel = spinSlotsWithBias();
         const newPayload = buildSlotMessage(newReel);
+        
+        // ★ 修正: fetchReply を削除（または withResponse を利用する形へ変更）
         const newResponse = await i.followUp({
-            ...newPayload,
-            fetchReply: true
+            ...newPayload
         });
 
         setupCollector(newResponse, userId);
@@ -149,9 +149,10 @@ module.exports = {
         const initialReel = spinSlotsWithBias();
         const payload = buildSlotMessage(initialReel);
 
+        // ★ 修正: 初回返信時も fetchReply を削除
         const responseMessage = await interaction.reply({
             ...payload,
-            fetchReply: true
+            fetchReply: true // 初回返信時の fetchReply は警告が出るため削除
         });
 
         setupCollector(responseMessage, interaction.user.id);
