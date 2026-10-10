@@ -56,13 +56,13 @@ function buildSlotMessage(reel) {
         resultText = "🎉 **大当たり (JACKPOT)！！** おめでとうございます！";
         color = "#57F287"; // 緑（大当たり）
     } else if (reel[0] === reel[1] || reel[1] === reel[2] || reel[0] === reel[2]) {
-        resultText = "✨ **しい！2つ揃いました！**";
+        resultText = "✨ **おしい！2つ揃いました！**";
         color = "#FEE75C"; // 黄色（リーチ）
     }
 
     const embed = new EmbedBuilder()
         .setColor(color)
-        .setTitle("🎰 ースロットゲーム 🎰")
+        .setTitle("🎰 うゆゆスロット 🎰")
         .setDescription(`### 【 ${formattedReel.join(" | ")} 】\n\n${resultText}`)
         .addFields(
             { name: '遊び方', value: '下の「スピンする」ボタンを押して再挑戦できます。', inline: false }
@@ -118,7 +118,7 @@ function setupCollector(responseMessage, userId) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("slot")
-        .setDescription("提供された絵文字でスロットゲームを遊べます！")
+        .setDescription("うゆゆでスロットを回す")
         .setIntegrationTypes([
             ApplicationIntegrationType.GuildInstall,
             ApplicationIntegrationType.UserInstall
