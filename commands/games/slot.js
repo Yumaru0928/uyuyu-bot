@@ -34,12 +34,12 @@ function spinSlotsWithBias() {
     const rand = Math.random() * 100;
     let reel = [];
 
-    if (rand < 20) {
-        // 大当たり（3つ全て同じ）: 20%
+    if (rand < 5) {
+        // 大当たり（3つ全て同じ）: 5%
         const winningEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
         reel = [winningEmoji, winningEmoji, winningEmoji];
-    } else if (rand < 50) {
-        // おしい（2つ同じ）: 30%
+    } else if (rand < 25) {
+        // おしい（2つ同じ）: 20%
         const matchingEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
         let otherEmoji;
         do {
@@ -80,7 +80,7 @@ function buildSlotMessage(reel) {
 
     const embed = new EmbedBuilder()
         .setColor(color)
-        .setTitle("🎰 カスタム絵文字スロット 🎰")
+        .setTitle("🎰 うゆゆスロット 🎰")
         .setDescription(`### 【 ${reel.join(" | ")} 】\n\n${resultText}`)
         .addFields(
             { name: '操作', value: '下のボタンを押してもう一度スピンできます。', inline: false }
