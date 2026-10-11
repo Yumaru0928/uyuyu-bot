@@ -1,10 +1,12 @@
 // index.js
 const fs = require('node:fs');
 const path = require('node:path');
-const express = require('express');
 const rl = require('node:readline');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const deployCommands = require('./deploy-commands.js');
+
+// 分離したWebサーバー（web.js）を読み込む
+const app = require('./web.js');
 
 const readline = rl.createInterface({
     input: process.stdin,
@@ -12,14 +14,10 @@ const readline = rl.createInterface({
 });
 
 // ===================================================
-// ★ Express サーバー（Renderポート開口用）
+// ★ Express サーバーの起動（Renderポート開口用）
 // ===================================================
-const app = express();
 const PORT = process.env.PORT || 3000;
-
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 
 // ===================================================
 // ★ Discord Client 設定 & イベント読み込み
@@ -54,8 +52,7 @@ client.on('ready', () => {
 // ===================================================
 async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    const GITHUB_REPO = process.env.GITHUB_REPO; // 例: "Yumaru0928/uyuyu-bot"
-    // デフォルトの保存先ブランチを "data" に設定
+    const GITHUB_REPO = process.env.GITHUB_REPO; 
     const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "data";
 
     if (!GITHUB_TOKEN || !GITHUB_REPO) {
@@ -71,7 +68,6 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
     };
 
     try {
-        // 1. 最新ファイルのSHAを取得（データブランチから取得）
         let sha = null;
         const getRes = await fetch(`${url}?ref=${GITHUB_BRANCH}`, { headers });
         if (getRes.ok) {
@@ -79,11 +75,9 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
             sha = fileData.sha;
         }
 
-        // 2. データをBase64変換
         const jsonString = JSON.stringify(contentData, null, 2);
         const contentBase64 = Buffer.from(jsonString, 'utf-8').toString('base64');
 
-        // 3. GitHub APIへ送信
         const body = {
             message: commitMessage,
             content: contentBase64,
@@ -159,7 +153,9 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
-// index.js のトークン取得・ログイン部分のイメージ
+// ===================================================
+// ★ トークン取得・Bot起動処理（ローカル/環境変数両対応）
+// ===================================================
 let token;
 const configPath = path.join(__dirname, 'config.json');
 
@@ -172,7 +168,7 @@ if (fs.existsSync(configPath)) {
 
 async function main() {
     try {
-        await deployCommands(); // 先ほど修正した関数
+        await deployCommands();
         await client.login(token);
     } catch (error) {
         console.error('起動時にエラーが発生しました:', error);

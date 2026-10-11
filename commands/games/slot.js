@@ -134,7 +134,7 @@ function setupCollector(responseMessage, userId) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("slot")
-        .setDescription("アニメーション絵文字対応の確率制御スロットで遊びます！")
+        .setDescription("スロットを回す")
         .setIntegrationTypes([
             ApplicationIntegrationType.GuildInstall,
             ApplicationIntegrationType.UserInstall
