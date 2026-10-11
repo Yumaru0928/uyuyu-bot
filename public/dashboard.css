@@ -256,6 +256,22 @@ img {
     object-fit: cover;
 }
 
+.me-logout {
+    margin: 0;
+}
+
+/* リンクのように見えるボタン（ログアウト用） */
+.link-btn {
+    padding: .4rem .2rem;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: .2em;
+    cursor: pointer;
+}
+
 .lead {
     max-width: 36rem;
     margin-bottom: 1.5rem;

@@ -3,4 +3,7 @@
     <a class="link" href="/index.html">サイトに戻る</a>
     <% if (user.avatar) { %><img class="me-avatar" src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64" alt=""><% } %>
     <span class="me-name"><%= user.global_name || user.username %></span>
+    <form class="me-logout" method="post" action="/logout">
+        <button class="link-btn" type="submit">ログアウト</button>
+    </form>
 </div>

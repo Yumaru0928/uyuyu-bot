@@ -5,6 +5,7 @@ const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const path = require('node:path');
 const fs = require('node:fs');
+const createRemember = require('./remember.js');
 
 const app = express();
 
@@ -40,6 +41,14 @@ passport.deserializeUser((obj, done) => done(null, obj));
 //    未設定ならログインだけ無効にして Bot とサイトは動かし続ける。
 const discordAuthEnabled = Boolean(process.env.CLIENT_ID && process.env.CLIENT_SECRET);
 
+// ログイン状態の保持（トークンを暗号化した httpOnly Cookie に保存）。詳細は remember.js
+const remember = createRemember({
+    secret: process.env.SESSION_SECRET,
+    clientId: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    isProd: process.env.NODE_ENV === 'production'
+});
+
 if (discordAuthEnabled) {
     passport.use(new DiscordStrategy({
         clientID: process.env.CLIENT_ID,
@@ -47,8 +56,13 @@ if (discordAuthEnabled) {
         callbackURL: process.env.CALLBACK_URL || 'http://localhost:3000/auth/discord/callback',
         scope: ['identify', 'guilds']
     }, (accessToken, refreshToken, profile, done) => {
-        return done(null, profile);
+        // トークンはセッションと保持用 Cookie に使う。画面（テンプレート）には渡さない
+        return done(null, { ...profile, auth: { accessToken, refreshToken } });
     }));
+
+    if (!remember.enabled) {
+        console.warn('[Web] SESSION_SECRET が未設定のため、ログイン状態の保持（Cookie保存）を無効にしています。');
+    }
 } else {
     console.warn('[Web] CLIENT_ID または CLIENT_SECRET が未設定のため、Discordログインを無効にしています。');
 }
@@ -81,18 +95,44 @@ function requireAuthEnabled(req, res, next) {
 }
 
 // 5. 認証ルート
-app.get('/auth/discord', requireAuthEnabled, passport.authenticate('discord', {
-    scope: ['identify', 'guilds']
-}));
+//    保存済みのログイン情報があれば、Discord の画面を経由せずそのままダッシュボードへ進む。
+//    アカウントを切り替えたいとき用に ?force=1 を付けると、毎回 Discord の認証へ進む。
+const isForced = req => req.query.force === '1';
+
+app.get('/auth/discord',
+    requireAuthEnabled,
+    (req, res, next) => (isForced(req) ? next() : remember.restoreLogin(req, res, next)),
+    (req, res, next) => (!isForced(req) && req.isAuthenticated() ? res.redirect('/dashboard') : next()),
+    passport.authenticate('discord', { scope: ['identify', 'guilds'] })
+);
 
 app.get('/auth/discord/callback',
     requireAuthEnabled,
     passport.authenticate('discord', { failureRedirect: '/' }),
-    (req, res) => res.redirect('/dashboard')
+    (req, res) => {
+        remember.set(res, req.user && req.user.auth);
+        res.redirect('/dashboard');
+    }
 );
 
+// ログアウト。保存した Cookie の削除と、Discord 側の認可の取り消しも行う。
+// 外部サイトから勝手に実行されないよう POST のみ受け付ける。
+app.post('/logout', async (req, res, next) => {
+    const tokens = (req.user && req.user.auth) || remember.read(req);
+    remember.clear(res);
+    await remember.revoke(tokens);
+
+    req.logout(err => {
+        if (err) return next(err);
+        req.session.destroy(() => {
+            res.clearCookie('connect.sid');
+            res.redirect('/');
+        });
+    });
+});
+
 // 6. ダッシュボード（管理できるサーバー一覧画面）
-app.get('/dashboard', (req, res) => {
+app.get('/dashboard', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/auth/discord');
     }
@@ -105,7 +145,7 @@ app.get('/dashboard', (req, res) => {
 });
 
 // 7. 個別サーバーの設定画面
-app.get('/dashboard/:guildId', (req, res) => {
+app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/auth/discord');
     }
