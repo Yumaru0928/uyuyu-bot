@@ -1,5 +1,6 @@
 // web.js
 const express = require('express');
+const { client } = require('./index.js');
 const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
