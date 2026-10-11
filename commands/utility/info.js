@@ -48,8 +48,14 @@ module.exports = {
                 .setURL('https://uyuyu-bot.onrender.com/')
                 .setStyle(ButtonStyle.Link);
             const row = new ActionRowBuilder().addComponents(websiteButton);
+
+            const dashboardButton = new ButtonBuilder()
+                .setLabel('ダッシュボード')
+                .setURL('https://uyuyu-bot.onrender.com/dashboard')
+                .setStyle(ButtonStyle.Link);
+            const row2 = new ActionRowBuilder().addComponents(dashboardButton);
         
         
-            await interaction.reply({ embeds: [embed], components: [row] });
+            await interaction.reply({ embeds: [embed], components: [row, row2] });
     },
 };

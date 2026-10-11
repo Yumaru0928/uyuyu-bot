@@ -19,6 +19,11 @@ app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 // ===================================================
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
+const memberLogEvents = require('./events/member-log.js');
+
+for (const event of memberLogEvents) {
+    client.on(event.name, (...args) => event.execute(...args));
+}
 
 const client = new Client({
     intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
