@@ -56,7 +56,7 @@ app.get('/dashboard', (req, res) => {
         return res.redirect('/auth/discord');
     }
     
-    // req.user.guilds がない場合にクラッシュしないよう安全に対策
+    // req.user.guilds が undefined の場合にクラッシュしないよう安全に保護
     const userGuilds = req.user.guilds || [];
     
     // 管理者権限（Administrator = 0x8）を持つサーバーを抽出
