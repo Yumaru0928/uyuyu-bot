@@ -1,22 +1,86 @@
 // web.js
 const express = require('express');
+const session = require('express-session');
+const passport = require('passport');
+const DiscordStrategy = require('passport-discord').Strategy;
 const path = require('node:path');
+const fs = require('node:fs');
 
 const app = express();
 
-// public フォルダの静的ファイルを公開
-app.use(express.static(path.join(__dirname, 'public')));
+// 1. Passport とセッションの設定
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(obj, null));
+
+passport.use(new DiscordStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    // パスベースのコールバックURL（Renderの本番URLまたはローカル）
+    callbackURL: process.env.CALLBACK_URL || 'http://localhost:3000/auth/discord/callback',
+    scopes: ['identify', 'guilds']
+}, (accessToken, refreshToken, profile, done) => {
+    return done(null, profile);
+}));
+
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'uyuyu_session_secret',
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ビューエンジンの設定（EJS等を使う場合）
+// ビューエンジンの設定（EJSを使う場合）
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'public'));
 
-// ルート設定（Renderのヘルスチェック用・ホームページ）
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// 2. 認証ルート
+app.get('/auth/discord', passport.authenticate('discord'));
+
+app.get('/auth/discord/callback', 
+    passport.authenticate('discord', { failureRedirect: '/' }),
+    (req, res) => res.redirect('/dashboard')
+);
+
+// 3. ダッシュボード（管理できるサーバー一覧画面）
+app.get('/dashboard', (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/auth/discord');
+    }
+    
+    // 管理者権限（Administrator = 0x8）を持つサーバーを抽出
+    const guilds = req.user.guilds.filter(guild => (guild.permissions & 0x8) === 0x8);
+    
+    // dashboard.ejs を表示
+    res.render('dashboard', { user: req.user, guilds });
 });
 
-// TODO: ここにDiscord OAuth2認証やサーバー設定用のルーティングを追加していく
-// 例: app.get('/dashboard', (req, res) => { ... });
+// 4. 個別サーバーの設定画面
+app.get('/dashboard/:guildId', (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/auth/discord');
+    }
+    const guildId = req.params.guildId;
+
+    // ユーザーが本当にそのサーバーの管理者かチェックするロジックを挟むとより安全です
+    const hasPermission = req.user.guilds.some(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
+    if (!hasPermission) {
+        return res.status(403).send('このサーバーを管理する権限がありません。');
+    }
+
+    // 設定ファイルから読み込み
+    const filePath = path.join(__dirname, 'config-channels.json');
+    let configData = {};
+    if (fs.existsSync(filePath)) {
+        configData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+
+    const guildConfig = configData[guildId] || {};
+    res.render('guild-settings', { guildId, guildConfig });
+});
 
 module.exports = app;
