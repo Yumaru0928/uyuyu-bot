@@ -4,7 +4,6 @@ const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const deployCommands = require('./deploy-commands.js');
 
-
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
 
@@ -15,25 +14,34 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 
 // ===================================================
-// ★ Discord Client 設定 & イベント読み込み
+// ★ ① 先に Discord Client を初期化する（ここが重要！）
 // ===================================================
-const messageDeleteEvent = require('./events/delete-message-log.js');
-const senduyuyu = require('./events/send-uyuyu.js');
-const memberLogEvents = require('./events/member-log.js');
-
-for (const event of memberLogEvents) {
-    client.on(event.name, (...args) => event.execute(...args));
-}
-
 const client = new Client({
     intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
     partials: [Partials.Message, Partials.Channel],
 });
 
+// ===================================================
+// ★ ② client が定義されたあとに各種イベントを読み込む
+// ===================================================
+const messageDeleteEvent = require('./events/delete-message-log.js');
+const senduyuyu = require('./events/send-uyuyu.js');
+const memberLogEvents = require('./events/member-log.js');
+
+// 入退室ログのイベント登録
+for (const event of memberLogEvents) {
+    client.on(event.name, (...args) => event.execute(...args));
+}
+
+// その他の個別イベント登録
+client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
+client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
+
 // ★ Express に client インスタンスを登録
 app.set('client', client);
 
 client.commands = new Collection();
+// 以降のコードはそのまま...
 
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
