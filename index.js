@@ -35,7 +35,7 @@ const memberLogEvents = require('./events/member-log.js');
 
 // その他の個別イベント登録
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
-client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
+//client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 
 // ★ Express に client インスタンスを登録
 app.set('client', client);
