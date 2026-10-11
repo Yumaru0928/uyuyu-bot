@@ -180,7 +180,7 @@ if (fs.existsSync(configPath)) {
 async function main() {
     try {
         await deployCommands();
-        // await client.login(token);
+         await client.login(token);
     } catch (error) {
         console.error('起動時にエラーが発生しました:', error);
     }
