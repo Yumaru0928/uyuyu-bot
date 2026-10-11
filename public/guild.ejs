@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title><%= guild.name %> | ダッシュボード | うゆゆBot</title>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <header class="top">
+        <div class="top-in">
+            <a class="brand" href="/index.html">
+                <img src="/uyuyu.png" alt="" class="brand-logo">
+                うゆゆBot
+            </a>
+            <nav class="nav" aria-label="メインメニュー">
+                <a href="/index.html">機能</a>
+                <a href="/terms.html">利用規約</a>
+                <a href="/privacy.html">プライバシー</a>
+                <a href="/credits.html">クレジット</a>
+                <a href="/invite.html" class="join">招待</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <h1 class="page-title"><%= guild.name %></h1>
+        <p class="meta"><a href="/dashboard">&larr; サーバー一覧に戻る</a></p>
+
+        <section>
+            <h2>現在の設定</h2>
+            <ul>
+                <li>削除ログの送信先チャンネルID:
+                    <%= guildConfig.deleteLogChannel ? guildConfig.deleteLogChannel : '未設定' %>
+                </li>
+                <li>自動リアクションを無効にしているチャンネル:
+                    <%= (guildConfig.disableAutoReact && guildConfig.disableAutoReact.length)
+                        ? guildConfig.disableAutoReact.join(', ')
+                        : 'なし' %>
+                </li>
+            </ul>
+            <p class="meta">設定の変更は、Discord上の <code>/set-delete-channel</code>、<code>/enable-auto-react</code>、<code>/disable-auto-react</code> コマンドから行えます。</p>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <div class="foot-in">
+            <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+            <p>&copy; 2026 ゆまる All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

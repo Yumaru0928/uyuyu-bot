@@ -1,17 +1,11 @@
 // index.js
 const fs = require('node:fs');
 const path = require('node:path');
-const rl = require('node:readline');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const deployCommands = require('./deploy-commands.js');
 
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
-
-const readline = rl.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
 
 // ===================================================
 // ★ Express サーバーの起動（Renderポート開口用）
