@@ -166,6 +166,18 @@ a:focus-visible {
     border-radius: .5rem;
 }
 
+/* 管理画面へのボタン。「招待」(塗り)と区別できるよう、枠線のみにしている */
+.nav a.admin {
+    color: var(--accent);
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.nav a.admin:hover {
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
 /* メインコンテンツレイアウト */
 .wrap {
     max-width: 46rem;
