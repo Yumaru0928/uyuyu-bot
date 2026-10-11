@@ -56,8 +56,11 @@ app.get('/dashboard', (req, res) => {
         return res.redirect('/auth/discord');
     }
     
+    // req.user.guilds がない場合にクラッシュしないよう安全に対策
+    const userGuilds = req.user.guilds || [];
+    
     // 管理者権限（Administrator = 0x8）を持つサーバーを抽出
-    const guilds = req.user.guilds.filter(guild => (guild.permissions & 0x8) === 0x8);
+    const guilds = userGuilds.filter(guild => (guild.permissions & 0x8) === 0x8);
     
     // dashboard.ejs を表示
     res.render('dashboard', { user: req.user, guilds });
@@ -69,9 +72,10 @@ app.get('/dashboard/:guildId', (req, res) => {
         return res.redirect('/auth/discord');
     }
     const guildId = req.params.guildId;
+    const userGuilds = req.user.guilds || [];
 
     // ユーザーが本当にそのサーバーの管理者かチェック
-    const hasPermission = req.user.guilds.some(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
+    const hasPermission = userGuilds.some(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
     if (!hasPermission) {
         return res.status(403).send('このサーバーを管理する権限がありません。');
     }
@@ -84,7 +88,6 @@ app.get('/dashboard/:guildId', (req, res) => {
     }
 
     const guildConfig = configData[guildId] || {};
-    res.render('guild-settings', { guildId, guildConfig });
+    res.render('dashboard', { guildId, guildConfig }); // もし個別設定画面用テンプレートがあれば適宜変更
 });
-
 module.exports = app;
