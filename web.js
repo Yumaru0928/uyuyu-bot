@@ -139,11 +139,19 @@ app.get('/dashboard', remember.restoreLogin, (req, res) => {
 
     // req.user.guilds が undefined の場合にクラッシュしないよう安全に保護
     const userGuilds = req.user.guilds || [];
-    const guilds = userGuilds.filter(isAdmin);
+    
+    // 1. ユーザーが管理者権限を持っているサーバーを抽出
+    const adminGuilds = userGuilds.filter(isAdmin);
+
+    // 2. Botが加入しているサーバーのIDリストを取得
+    // ※ client は Discord.Client のインスタンスです。環境に合わせてインポートまたは参照してください。
+    const botGuildIds = client.guilds.cache.map(guild => guild.id);
+
+    // 3. 「管理者権限がある」かつ「Botが加入している」サーバーに絞り込む
+    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
 
     res.render('dashboard', { user: req.user, guilds, guildId: null });
 });
-
 // 7. 個別サーバーの設定画面
 app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated()) {
