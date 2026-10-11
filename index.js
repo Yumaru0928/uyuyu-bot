@@ -29,9 +29,9 @@ const senduyuyu = require('./events/send-uyuyu.js');
 const memberLogEvents = require('./events/member-log.js');
 
 // 入退室ログのイベント登録
-for (const event of memberLogEvents) {
+/*for (const event of memberLogEvents) {
     client.on(event.name, (...args) => event.execute(...args));
-}
+}*/
 
 // その他の個別イベント登録
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
