@@ -63,7 +63,7 @@ client.on('ready', () => {
 // ===================================================
 async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    const GITHUB_REPO = process.env.GITHUB_REPO; 
+    const GITHUB_REPO = process.env.GITHUB_REPO;
     const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "data";
 
     if (!GITHUB_TOKEN || !GITHUB_REPO) {
@@ -139,8 +139,6 @@ for (const folder of commandFolders) {
 // ===================================================
 // ★ イベント・インタラクション処理
 // ===================================================
-client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
-client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
@@ -180,7 +178,7 @@ if (fs.existsSync(configPath)) {
 async function main() {
     try {
         await deployCommands();
-         await client.login(token);
+        await client.login(token);
     } catch (error) {
         console.error('起動時にエラーが発生しました:', error);
     }
