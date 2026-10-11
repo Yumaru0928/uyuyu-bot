@@ -1,0 +1,64 @@
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const fs = require("node:fs");
+const path = require("node:path");
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName("set-member-log-channel")
+        .setDescription("メンバー参加・退出ログを送信するチャンネルを設定します。")
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild), // 管理者権限が必要
+    async execute(interaction) {
+        const guildId = interaction.guildId;
+        const channelId = interaction.channelId;
+
+        // 設定保存ファイルのローカルパス
+        const filePath = path.join(__dirname, '../../config-channels.json');
+        // 1. 既存のJSONデータを読み込み
+        let configData = {};
+        if (fs.existsSync(filePath)) {
+            try {
+                configData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            } catch (error) {
+                console.error('JSON読み込みエラー:', error);
+            }
+        }
+
+        // 2. 該当サーバーのオブジェクト構造を初期化
+        if (!configData[guildId] || typeof configData[guildId] !== 'object') {
+            configData[guildId] = {};
+        }
+
+        // 3. 「メンバーログ用」のキー（memberLogChannel）にチャンネルIDを保存
+        configData[guildId].memberLogChannel = channelId;
+
+        // 4. ローカルとGitHubの両方に書き込み
+        try {
+            // ① Renderの現在実行中のメモリ/一時ファイルシステム用に保存
+            fs.writeFileSync(filePath, JSON.stringify(configData, null, 4), 'utf8');
+
+            // ② ユーザーに返信（GitHub通信に数秒かかるため先にレスポンス）
+            await interaction.reply({
+                content: `メンバー参加・退出ログ送信用チャンネルとして <#${channelId}> を保存しました！`,
+                flags: MessageFlags.Ephemeral,
+            });
+
+            // ③ GitHub APIを使ってリポジトリへ自動コミット（configData を渡すよう修正）
+            if (interaction.client.commitJsonToGitHub) {
+                await interaction.client.commitJsonToGitHub(
+                    'config-channels.json',
+                    configData,
+                    `auto: set member log channel to ${channelId} in guild ${guildId} [skip render]`
+                );
+            }
+
+        } catch (error) {
+            console.error('JSON保存エラー:', error);
+            if (!interaction.replied) {
+                await interaction.reply({
+                    content: '設定の保存中にエラーが発生しました。',
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+        }
+    },
+};  
