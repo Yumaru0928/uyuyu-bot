@@ -1,0 +1,18 @@
+<%# 引数: guilds（管理できるサーバーの配列）、guildId（表示中のサーバーID。一覧画面では null） %>
+<% const current = locals.guildId || null; %>
+<nav class="rail" aria-label="サーバー">
+    <a class="rail-item" href="/dashboard" title="サーバー一覧" aria-label="サーバー一覧"<% if (!current) { %> aria-current="page"<% } %>>
+        <span class="glyph glyph--home"><img src="/uyuyu.png" alt=""></span>
+    </a>
+    <span class="rail-sep" role="separator"></span>
+    <% guilds.forEach(g => { %>
+    <a class="rail-item" href="/dashboard/<%= g.id %>" title="<%= g.name %>" aria-label="<%= g.name %>"<% if (current === g.id) { %> aria-current="page"<% } %>>
+        <span class="glyph">
+            <% if (g.icon) { %><img src="https://cdn.discordapp.com/icons/<%= g.id %>/<%= g.icon %>.png?size=96" alt="" loading="lazy"><% } else { %><%= Array.from(g.name)[0] %><% } %>
+        </span>
+    </a>
+    <% }) %>
+    <a class="rail-item rail-add" href="/invite.html" title="Botを招待" aria-label="Botを招待">
+        <span class="glyph" aria-hidden="true">+</span>
+    </a>
+</nav>

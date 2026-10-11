@@ -58,7 +58,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ビューエンジンの設定（EJS）
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'public'));
+// テンプレートは public の外に置く（public は静的配信されるため、.ejs が生のまま見えてしまう）
+app.set('views', path.join(__dirname, 'views'));
 
 // 管理者権限（Administrator = 0x8）かどうか
 // permissions は数値・文字列どちらで来ても扱えるよう BigInt で判定する
@@ -100,7 +101,7 @@ app.get('/dashboard', (req, res) => {
     const userGuilds = req.user.guilds || [];
     const guilds = userGuilds.filter(isAdmin);
 
-    res.render('dashboard', { user: req.user, guilds });
+    res.render('dashboard', { user: req.user, guilds, guildId: null });
 });
 
 // 7. 個別サーバーの設定画面
@@ -112,7 +113,8 @@ app.get('/dashboard/:guildId', (req, res) => {
     const userGuilds = req.user.guilds || [];
 
     // ユーザーが本当にそのサーバーの管理者かチェック
-    const guild = userGuilds.find(g => g.id === guildId && isAdmin(g));
+    const guilds = userGuilds.filter(isAdmin);
+    const guild = guilds.find(g => g.id === guildId);
     if (!guild) {
         return res.status(403).send('このサーバーを管理する権限がありません。');
     }
@@ -132,7 +134,7 @@ app.get('/dashboard/:guildId', (req, res) => {
 
     // ★修正点: 以前は dashboard.ejs（guilds 変数が必須）を流用していたため、
     //   guilds が未定義で ReferenceError → 500 になっていた。専用テンプレート guild.ejs を使う。
-    res.render('guild', { user: req.user, guild, guildId, guildConfig });
+    res.render('guild', { user: req.user, guilds, guild, guildId, guildConfig });
 });
 
 // 8. エラーハンドラ（原因を Render のログに残し、画面には詳細を出さない）

@@ -1,0 +1,6 @@
+<%# 引数: user（ログイン中のDiscordユーザー） %>
+<div class="me">
+    <a class="link" href="/index.html">サイトに戻る</a>
+    <% if (user.avatar) { %><img class="me-avatar" src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64" alt=""><% } %>
+    <span class="me-name"><%= user.global_name || user.username %></span>
+</div>

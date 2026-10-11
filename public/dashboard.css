@@ -1,0 +1,640 @@
+/* ==========================================================
+   dashboard.css — ダッシュボード専用のスタイル
+   style.css（紹介サイト用）には依存しません。単体で読み込めます。
+
+   構成: トークン → 基本 → シェル（レール＋本文）→ 部品 → レスポンシブ
+   色・書体を変えたいときは、先頭の :root の値だけ触れば足ります。
+   ========================================================== */
+
+:root {
+    color-scheme: light dark;
+
+    /* 色 */
+    --rail: #0B3D31;
+    --rail-hover: #14574A;
+    --rail-fg: #D5EBE1;
+    --canvas: #F4F6F2;
+    --surface: #FFFFFF;
+    --ink: #17231D;
+    --muted: #5A6B62;
+    --line: #DDE3DC;
+    --track: #73857B;
+    --accent: #0E7A5C;
+    --on-accent: #FFFFFF;
+    --accent-soft: #E2F1EA;
+    --sun: #FFD84D;
+    --danger: #B3303F;
+    --danger-soft: #FCEEF0;
+
+    /* 書体 */
+    --font-display: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+    --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* 形 */
+    --radius-s: .5rem;
+    --radius-m: .9rem;
+    --squircle: 32%;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --rail: #06201A;
+        --rail-hover: #0F3A2F;
+        --rail-fg: #BFD9CE;
+        --canvas: #0F1713;
+        --surface: #16211B;
+        --ink: #E6F0EA;
+        --muted: #9DB1A6;
+        --line: #25362D;
+        --track: #5E7468;
+        --accent: #4FD1A5;
+        --on-accent: #06261B;
+        --accent-soft: #143027;
+        --danger: #FF8794;
+        --danger-soft: #33181C;
+    }
+}
+
+/* ---------- 基本 ---------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body.dash {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font: 400 1rem/1.75 var(--font-body);
+}
+
+h1,
+h2,
+p {
+    margin: 0;
+}
+
+img {
+    max-width: 100%;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.link {
+    color: var(--accent);
+    text-underline-offset: .2em;
+}
+
+/* ---------- シェル（左レール＋本文） ---------- */
+.shell {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/* サーバー切り替えレール。選択中は左端の黄色いバーと、角が丸四角に変わる形で示す */
+.rail {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .6rem;
+    padding: .9rem 0;
+    background: var(--rail);
+}
+
+.rail::-webkit-scrollbar {
+    display: none;
+}
+
+.rail-sep {
+    flex: none;
+    width: 2rem;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--rail-fg);
+    opacity: .25;
+}
+
+.rail-item {
+    --ind-len: 0;
+    position: relative;
+    flex: none;
+    display: block;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--squircle);
+    text-decoration: none;
+}
+
+.rail-item::before {
+    content: "";
+    position: absolute;
+    left: -.875rem;
+    top: 50%;
+    width: .3rem;
+    height: var(--ind-len);
+    border-radius: 0 .3rem .3rem 0;
+    background: var(--sun);
+    transform: translateY(-50%);
+}
+
+.rail-item:hover {
+    --ind-len: 1rem;
+}
+
+.rail-item[aria-current="page"] {
+    --ind-len: 1.8rem;
+}
+
+.rail-item:focus-visible {
+    outline-color: var(--sun);
+}
+
+.rail-item .glyph {
+    width: 100%;
+    height: 100%;
+}
+
+.rail-item:hover .glyph,
+.rail-item:focus-visible .glyph,
+.rail-item[aria-current="page"] .glyph {
+    border-radius: var(--squircle);
+}
+
+.rail-item:hover .glyph {
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
+.rail-add {
+    margin-top: auto;
+}
+
+.rail .rail-add .glyph {
+    background: transparent;
+    border: 2px dashed var(--rail-fg);
+    color: var(--rail-fg);
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.rail .rail-add:hover .glyph {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+}
+
+/* 本文 */
+.main {
+    min-width: 0;
+    width: 100%;
+    max-width: 64rem;
+    padding: 1.25rem clamp(1rem, 4vw, 3rem) 4rem;
+}
+
+.bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1rem;
+    padding-bottom: 1.25rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.bar-title {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+.crumb {
+    display: inline-block;
+    font-size: .85rem;
+    line-height: 1.4;
+}
+
+.page-title {
+    font: 800 clamp(1.4rem, 3.5vw, 1.9rem)/1.3 var(--font-display);
+    overflow-wrap: anywhere;
+}
+
+.me {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .9rem;
+    color: var(--muted);
+}
+
+.me-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.lead {
+    max-width: 36rem;
+    margin-bottom: 1.5rem;
+    color: var(--muted);
+}
+
+/* ---------- 部品 ---------- */
+
+/* サーバーのアイコン。画像が無いときは頭文字を出す */
+.glyph {
+    flex: none;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font: 800 1.2rem/1 var(--font-display);
+}
+
+.glyph img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.glyph--m {
+    width: 3.5rem;
+    height: 3.5rem;
+}
+
+.rail .glyph {
+    background: var(--rail-hover);
+    color: var(--rail-fg);
+}
+
+.rail .glyph--home {
+    background: #F4F6F2;
+}
+
+.glyph--home img {
+    object-fit: contain;
+    padding: .35rem;
+}
+
+/* サーバー選択のタイル */
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.tile:hover {
+    border-color: var(--accent);
+}
+
+.tile:hover .glyph,
+.tile:focus-visible .glyph {
+    border-radius: var(--squircle);
+}
+
+.tile-body {
+    min-width: 0;
+}
+
+.tile-name {
+    display: block;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile-go {
+    display: block;
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+/* 設定パネル */
+.stack {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 44rem;
+}
+
+.panel {
+    padding: 1.25rem 1.4rem 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+}
+
+.panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+}
+
+.panel-title {
+    font: 700 1.1rem/1.5 var(--font-display);
+}
+
+.panel-lead {
+    margin-top: .15rem;
+    font-size: .92rem;
+    color: var(--muted);
+}
+
+.status {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .15rem .7rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: .82rem;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+.status::before {
+    content: "";
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status--off {
+    background: var(--canvas);
+    border-color: var(--line);
+    color: var(--muted);
+}
+
+.note {
+    max-width: 44rem;
+    font-size: .88rem;
+    color: var(--muted);
+}
+
+.field {
+    display: grid;
+    gap: .4rem;
+}
+
+.field + .field {
+    margin-top: 1.1rem;
+}
+
+.field-label {
+    font-size: .95rem;
+    font-weight: 600;
+}
+
+.field-help {
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+.values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.chip {
+    padding: .2rem .6rem;
+    border-radius: .4rem;
+    background: var(--accent-soft);
+    color: var(--ink);
+    font: 500 .88rem/1.5 var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.unset {
+    color: var(--muted);
+}
+
+/* 何も無いとき */
+.empty {
+    max-width: 36rem;
+    padding: 1.75rem 1.5rem;
+    border: 2px dashed var(--line);
+    border-radius: var(--radius-m);
+}
+
+.empty-title {
+    font: 700 1.1rem/1.5 var(--font-display);
+}
+
+.empty-text {
+    margin-top: .3rem;
+    color: var(--muted);
+}
+
+.empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-top: 1.1rem;
+}
+
+/* ボタン・入力（設定を編集する画面で使う） */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    min-height: 2.75rem;
+    padding: .55rem 1.2rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-s);
+    font: 600 .95rem/1.2 var(--font-body);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn--primary {
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
+.btn--ghost {
+    border-color: var(--line);
+    background: transparent;
+    color: var(--ink);
+}
+
+.btn--primary:hover {
+    filter: brightness(1.08);
+}
+
+.btn--ghost:hover {
+    border-color: var(--accent);
+}
+
+.input,
+.select {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: .55rem .85rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--canvas);
+    color: var(--ink);
+    font: 400 1rem/1.5 var(--font-body);
+}
+
+.input:focus-visible,
+.select:focus-visible {
+    border-color: var(--accent);
+    outline-offset: 1px;
+}
+
+.switch {
+    display: inline-flex;
+    align-items: center;
+    gap: .7rem;
+    cursor: pointer;
+}
+
+.switch-input {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 2.75rem;
+    height: 1.6rem;
+    margin: 0;
+    border-radius: 999px;
+    background: var(--track);
+    cursor: pointer;
+}
+
+.switch-input::after {
+    content: "";
+    position: absolute;
+    top: .2rem;
+    left: .2rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.switch-input:checked {
+    background: var(--accent);
+}
+
+.switch-input:checked::after {
+    transform: translateX(1.15rem);
+}
+
+/* ---------- 動き（動きを減らす設定のときは付けない） ---------- */
+@media (prefers-reduced-motion: no-preference) {
+
+    .rail-item::before,
+    .glyph,
+    .tile,
+    .btn,
+    .switch-input,
+    .switch-input::after {
+        transition: width .18s ease, height .18s ease, border-radius .18s ease,
+            background-color .15s, border-color .15s, transform .15s;
+    }
+}
+
+/* ---------- スマホ幅: レールを画面上部の横並びに ---------- */
+@media (max-width: 47.99rem) {
+    .shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rail {
+        z-index: 5;
+        height: auto;
+        flex-direction: row;
+        align-items: center;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: .7rem;
+        padding: .6rem .9rem;
+    }
+
+    .rail-sep {
+        width: 2px;
+        height: 2rem;
+    }
+
+    .rail-add {
+        margin-top: 0;
+        margin-left: auto;
+    }
+
+    /* 選択バーは下端に出し、長さは横方向に伸ばす */
+    .rail-item::before {
+        left: 50%;
+        top: auto;
+        bottom: -.6rem;
+        width: var(--ind-len);
+        height: .3rem;
+        border-radius: .3rem .3rem 0 0;
+        transform: translateX(-50%);
+    }
+
+    .main {
+        padding-top: 1.5rem;
+    }
+}
+
+@media (max-width: 30rem) {
+    .me-name {
+        display: none;
+    }
+
+    .panel-head {
+        flex-direction: column;
+        gap: .5rem;
+    }
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<%- include('partials/head', { title: guild.name }) %>
+<% const deleteLog = guildConfig.deleteLogChannel || null; %>
+<% const noReact = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : []; %>
+
+<body class="dash">
+    <div class="shell">
+        <%- include('partials/rail') %>
+
+        <main class="main">
+            <header class="bar">
+                <div class="bar-title">
+                    <span class="glyph glyph--m">
+                        <% if (guild.icon) { %><img src="https://cdn.discordapp.com/icons/<%= guild.id %>/<%= guild.icon %>.png?size=128" alt=""><% } else { %><%= Array.from(guild.name)[0] %><% } %>
+                    </span>
+                    <div>
+                        <a class="crumb link" href="/dashboard">サーバー一覧</a>
+                        <h1 class="page-title"><%= guild.name %></h1>
+                    </div>
+                </div>
+                <%- include('partials/me') %>
+            </header>
+
+            <div class="stack">
+                <section class="panel" aria-labelledby="p-log">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title" id="p-log">メッセージ削除ログ</h2>
+                            <p class="panel-lead">削除されたメッセージの内容を、指定したチャンネルに投稿します。</p>
+                        </div>
+                        <% if (deleteLog) { %><span class="status">オン</span><% } else { %><span class="status status--off">オフ</span><% } %>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">投稿先のチャンネル</span>
+                        <div class="values">
+                            <% if (deleteLog) { %><span class="chip"><%= deleteLog %></span><% } else { %><span class="unset">未設定</span><% } %>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="p-react">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title" id="p-react">うゆゆ絵文字のリアクション</h2>
+                            <p class="panel-lead">「うゆゆ」などを含むメッセージに、うゆゆ絵文字で反応します。</p>
+                        </div>
+                        <% if (noReact.length) { %><span class="status status--off"><%= noReact.length %>チャンネルでオフ</span><% } else { %><span class="status">すべてのチャンネルでオン</span><% } %>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">オフにしているチャンネル</span>
+                        <div class="values">
+                            <% if (noReact.length) { %><% noReact.forEach(id => { %><span class="chip"><%= id %></span><% }) %><% } else { %><span class="unset">なし</span><% } %>
+                        </div>
+                    </div>
+                </section>
+
+                <p class="note">設定の変更は、いまのところDiscordのコマンド（/set-delete-log-channel、/enable-auto-react-channel、/disable-auto-react-channel）から行います。</p>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<%- include('partials/head', { title: 'サーバーを選ぶ' }) %>
+
+<body class="dash">
+    <div class="shell">
+        <%- include('partials/rail') %>
+
+        <main class="main">
+            <header class="bar">
+                <div class="bar-title">
+                    <h1 class="page-title">サーバーを選ぶ</h1>
+                </div>
+                <%- include('partials/me') %>
+            </header>
+
+            <% if (guilds.length) { %>
+            <p class="lead">設定を変えるサーバーを選んでください。管理者権限を持つサーバーだけが表示されます。</p>
+            <ul class="tiles">
+                <% guilds.forEach(guild => { %>
+                <li>
+                    <a class="tile" href="/dashboard/<%= guild.id %>">
+                        <span class="glyph glyph--m">
+                            <% if (guild.icon) { %><img src="https://cdn.discordapp.com/icons/<%= guild.id %>/<%= guild.icon %>.png?size=128" alt="" loading="lazy"><% } else { %><%= Array.from(guild.name)[0] %><% } %>
+                        </span>
+                        <span class="tile-body">
+                            <span class="tile-name"><%= guild.name %></span>
+                            <span class="tile-go">設定を開く</span>
+                        </span>
+                    </a>
+                </li>
+                <% }) %>
+            </ul>
+            <% } else { %>
+            <div class="empty">
+                <h2 class="empty-title">管理できるサーバーがありません</h2>
+                <p class="empty-text">管理者権限を持つサーバーがあると、ここに表示されます。権限のあるアカウントでログインし直してください。</p>
+                <div class="empty-actions">
+                    <a class="btn btn--primary" href="/auth/discord">ログインし直す</a>
+                    <a class="btn btn--ghost" href="/invite.html">Botを招待</a>
+                </div>
+            </div>
+            <% } %>
+        </main>
+    </div>
+</body>
+
+</html>

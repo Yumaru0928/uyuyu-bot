@@ -449,115 +449,6 @@ h2 {
     margin: 0;
 }
 
-/* ダッシュボード固有のスタイル */
-.guild-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.guild-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: .8rem;
-    padding: 1.2rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    text-decoration: none;
-    color: var(--fg);
-    transition: border-color .15s, transform .15s;
-}
-
-.guild-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-}
-
-.guild-icon {
-    width: 3.2rem;
-    height: 3.2rem;
-    border-radius: 50%;
-    background: var(--chip);
-    object-fit: cover;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: var(--muted);
-    flex-shrink: 0;
-}
-
-.guild-info {
-    min-width: 0;
-}
-
-.guild-name {
-    font-weight: 700;
-    font-size: 1.05rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.guild-status {
-    font-size: 0.85rem;
-    color: var(--muted);
-}
-
-.settings-box {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 1rem;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.8rem;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
-
-label {
-    font-weight: 700;
-    font-size: 0.95rem;
-}
-
-.form-desc {
-    color: var(--muted);
-    font-size: 0.88rem;
-    margin: 0;
-}
-
-select,
-input[type="text"] {
-    width: 100%;
-    padding: .75rem 1rem;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: .5rem;
-    color: var(--fg);
-    font-family: var(--font-body);
-    font-size: 1rem;
-}
-
-select:focus,
-input:focus {
-    outline: 2px solid var(--accent);
-    border-color: transparent;
-}
-
-.back-link {
-    display: inline-block;
-    margin-bottom: 1.2rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
 /* フッター */
 .foot {
     border-top: 1px solid var(--line);
@@ -588,8 +479,7 @@ input:focus {
 @media (prefers-reduced-motion: no-preference) {
 
     .btn,
-    .nav a,
-    .guild-card {
+    .nav a {
         transition: filter .15s, background .15s, color .15s, border-color .15s, transform .15s;
     }
 }
