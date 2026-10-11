@@ -134,21 +134,28 @@ app.post('/logout', async (req, res, next) => {
 
 // 6. ダッシュボード（管理できるサーバー一覧画面）
 app.get('/dashboard', remember.restoreLogin, (req, res) => {
-    if (!req.isAuthenticated()) {
+    if (!req.isAuthenticated() || !req.user) {
         return res.redirect('/auth/discord');
     }
 
     // req.user.guilds が undefined の場合にクラッシュしないよう安全に保護
     const userGuilds = req.user.guilds || [];
     
-    // 1. ユーザーが管理者権限を持っているサーバーを抽出
+    // 1. ユーザーが管理者権限（Administrator = 0x8）を持っているサーバーを抽出
     const adminGuilds = userGuilds.filter(isAdmin);
 
-    // 2. Botが加入しているサーバーのIDリストを取得
-    // ※ client は Discord.Client のインスタンスです。環境に合わせてインポートまたは参照してください。
+    // 2. Express アプリから client インスタンスを取得
+    const client = req.app.get('client');
+
+    // client がまだ準備できていない場合のガード
+    if (!client || !client.guilds) {
+        return res.render('dashboard', { user: req.user, guilds: [], guildId: null });
+    }
+
+    // 3. Botが加入しているサーバーのIDリストを取得
     const botGuildIds = client.guilds.cache.map(guild => guild.id);
 
-    // 3. 「管理者権限がある」かつ「Botが加入している」サーバーに絞り込む
+    // 4. 「管理者権限がある」かつ「Botが加入している」サーバーに絞り込む
     const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
 
     res.render('dashboard', { user: req.user, guilds, guildId: null });

@@ -4,6 +4,7 @@ const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const deployCommands = require('./deploy-commands.js');
 
+
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
 
@@ -23,6 +24,9 @@ const client = new Client({
     intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
     partials: [Partials.Message, Partials.Channel],
 });
+
+// ★ Express に client インスタンスを登録
+app.set('client', client);
 
 client.commands = new Collection();
 
