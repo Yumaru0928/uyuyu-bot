@@ -1,19 +1,22 @@
 <!doctype html>
-<html>
+<html lang="ja">
 
 <head>
-  <meta charset=utf8>
-  <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta property="og:title" content="うゆゆBot - Discord Bot" />
   <meta property="og:description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uyuyu-bot.onrender.com/index.html" />
   <meta name="theme-color" content="#0E7A5C" />
   <title>うゆゆBot - Discord Bot</title>
-  <link rel="stylesheet"href="style.css">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
   <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
   <header class="top">
     <div class="top-in">
       <a class="brand" href="index.html">
@@ -29,8 +32,8 @@
       </nav>
     </div>
   </header>
-  <main class="wrap">
 
+  <main class="wrap">
     <section class="hero">
       <p class="eyebrow">Discord Bot</p>
       <h1><span class="hl">うゆゆ</span>Bot</h1>
@@ -88,7 +91,12 @@
       <p class="perm-note">サーバー管理のコマンドは、「チャンネルの管理」権限を持つ人だけが実行できます。</p>
     </section>
 
+    <!-- ダッシュボードへのログインボタンをここに配置すると綺麗です -->
+    <section style="text-align: center; margin-top: 2rem;">
+      <a href="/auth/discord" class="btn">Discordでログインしてサーバーを管理する</a>
+    </section>
   </main>
+
   <footer class="foot">
     <div class="foot-in">
       <nav aria-label="フッターメニュー">
@@ -97,15 +105,11 @@
         <a href="privacy.html">プライバシー</a>
         <a href="credits.html">クレジット</a>
         <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
-        <!-- Expressのサーバー側でスコープを自動付与してDiscordに飛ばしてくれるエンドポイントを指定します -->
-<a href="/auth/discord" class="btn">Discordでログインして管理する</a>
       </nav>
       <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
       <p>&copy; 2026 ゆまる All rights reserved.</p>
     </div>
   </footer>
-
-
 </body>
 
 </html>
