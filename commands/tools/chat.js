@@ -37,11 +37,11 @@ module.exports = {
                     "Authorization": `Bearer hki_v1_JzmkA36NgaSXiTObiG3Khinpfk6_-hphGYfdA9iH7MM`
                 },
                 body: JSON.stringify({
-                    model: "sarashina3-mini", // ※ 正式なモデル名
-                    messages: [
-                        { role: "user", content: userPrompt }
+                    "model": "sarashina3-mini", // ※ 正式なモデル名
+                    "messages": [
+                        { "role": "user", "content": userPrompt }
                     ],
-                    temperature: 0.7
+                    "temperature": 0.7
                 })
             });
 
