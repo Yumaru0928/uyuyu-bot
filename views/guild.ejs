@@ -2,89 +2,76 @@
 <html lang="ja">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>
-        <%= guild.name %> の設定 | うゆゆBot
-    </title>
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
-    <link rel="stylesheet" href="/style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title><%= guild.name %> の設定 | うゆゆBot</title>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
-    <header class="top">
-        <div class="top-in">
-            <a class="brand" href="/dashboard">
-                <img src="/uyuyu.png" alt="" class="brand-logo">
-                うゆゆBot ダッシュボード
-            </a>
-            <nav class="nav" aria-label="メインメニュー">
-                <a href="/dashboard">サーバー一覧に戻る</a>
-                <form action="/logout" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn--ghost"
-                        style="background: none; border: none; cursor: pointer; color: inherit; font: inherit;">ログアウト</button>
-                </form>
-            </nav>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="/dashboard">
+        <img src="/uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot ダッシュボード
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="/dashboard">サーバー一覧に戻る</a>
+        <form action="/logout" method="POST" style="display: inline;">
+          <button type="submit" class="btn btn--ghost" style="background: none; border: none; cursor: pointer; color: inherit; font: inherit;">ログアウト</button>
+        </form>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <div class="bar" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+        <div class="bar-title">
+          <h1 class="page-title"><%= guild.name %> の設定</h1>
         </div>
-    </header>
+        <a class="btn btn--ghost" href="/dashboard">← サーバー選択に戻る</a>
+      </div>
 
-    <main class="wrap">
-        <section>
-            <div class="bar"
-                style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
-                <div class="bar-title">
-                    <h1 class="page-title">
-                        <%= guild.name %> の設定
-                    </h1>
-                </div>
-                <a class="btn btn--ghost" href="/dashboard">← サーバー選択に戻る</a>
-            </div>
-
-            <!-- 保存成功時のアラート表示 -->
-            <% if (query && query.saved) { %>
-                <div class="alert alert--success"
-                    style="margin-bottom: 20px; padding: 14px; background: rgba(74, 222, 128, 0.1); border: 1px solid #4ade80; color: #4ade80; border-radius: 8px;">
-                    設定を正常に保存しました！
-                </div>
-                <% } %>
-
-                    <!-- 設定変更用フォーム -->
-                    <form action="/dashboard/<%= guildId %>" method="POST" class="settings-form"
-                        style="background: rgba(255, 255, 255, 0.03); padding: 24px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
-
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label for="logChannel"
-                                style="display: block; margin-bottom: 8px; font-weight: bold;">ログ出力チャンネル</label>
-                            <p class="hint" style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">
-                                Botの通知やログを送信するチャンネルを選択してください。</p>
-
-                            <!-- テキストチャンネルの一覧から選べるセレクトボックス -->
-                            <select id="logChannel" name="logChannel"
-                                style="padding: 12px; width: 100%; max-width: 400px; background: #121214; border: 1px solid #333; color: #fff; border-radius: 6px;">
-                                <option value="">(未設定 / 無効)</option>
-                                <% channels.forEach(channel=> { %>
-                                    <option value="<%= channel.id %>" <%=guildConfig.logChannel===channel.id
-                                        ? 'selected' : '' %>>
-                                        #<%= channel.name %>
-                                    </option>
-                                    <% }) %>
-                            </select>
-                        </div>
-
-                        <div class="form-actions" style="margin-top: 24px;">
-                            <button type="submit" class="btn btn--primary"
-                                style="padding: 12px 24px; background: #5865F2; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">変更を保存</button>
-                        </div>
-                    </form>
-        </section>
-    </main>
-
-    <footer class="foot">
-        <div class="foot-in">
-            <p>&copy; 2026 ゆまる All rights reserved.</p>
+      <!-- 保存成功時のアラート表示 -->
+      <% if (query && query.saved) { %>
+        <div class="alert alert--success" style="margin-bottom: 20px; padding: 14px; background: rgba(74, 222, 128, 0.1); border: 1px solid #4ade80; color: #4ade80; border-radius: 8px;">
+          設定を正常に保存しました！
         </div>
-    </footer>
+      <% } %>
+
+      <!-- 設定変更用フォーム -->
+      <form action="/dashboard/<%= guildId %>" method="POST" class="settings-form" style="background: rgba(255, 255, 255, 0.03); padding: 24px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label for="logChannel" style="display: block; margin-bottom: 8px; font-weight: bold;">ログ出力チャンネル</label>
+          <p class="hint" style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">Botの通知やログを送信するチャンネルを選択してください。</p>
+          
+          <!-- テキストチャンネルの一覧から選べるセレクトボックス -->
+          <select id="logChannel" name="logChannel" style="padding: 12px; width: 100%; max-width: 400px; background: #121214; border: 1px solid #333; color: #fff; border-radius: 6px;">
+            <option value="">(未設定 / 無効)</option>
+            <% channels.forEach(channel => { %>
+              <option value="<%= channel.id %>" <%= guildConfig.logChannel === channel.id ? 'selected' : '' %>>
+                #<%= channel.name %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-actions" style="margin-top: 24px;">
+          <button type="submit" class="btn btn--primary" style="padding: 12px 24px; background: #5865F2; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">変更を保存</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
 </body>
 
 </html>
