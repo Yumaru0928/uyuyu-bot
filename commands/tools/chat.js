@@ -34,7 +34,7 @@ module.exports = {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${process.env.SARASHINA_API_KEY}`
+                    "Authorization": `Bearer hki_v1_JzmkA36NgaSXiTObiG3Khinpfk6_-hphGYfdA9iH7MM`
                 },
                 body: JSON.stringify({
                     model: "sarashina3-mini", // ※ 正式なモデル名
