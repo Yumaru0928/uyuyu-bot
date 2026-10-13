@@ -47,7 +47,9 @@ module.exports = {
             });
 
             if (!response.ok) {
-                throw new Error(`APIエラー: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error("APIエラーの詳細:", errorText);
+                throw new Error(`APIエラー: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
