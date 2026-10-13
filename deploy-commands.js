@@ -49,7 +49,7 @@ async function deployCommands() {
 
         const data = await rest.put(
             // guildId がある場合はギルドコマンド、無い場合（グローバル）は applicationCommands に変更可能
-            guildId ? Routes.applicationGuildCommands(clientId, guildId) : Routes.applicationCommands(clientId),
+           Routes.applicationCommands(clientId),
             { body: commands },
         );
 
