@@ -1,64 +1,90 @@
 <!doctype html>
 <html lang="ja">
-<%- include('partials/head', { title: guild.name }) %>
-<% const deleteLog = guildConfig.deleteLogChannel || null; %>
-<% const noReact = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : []; %>
 
-<body class="dash">
-    <div class="shell">
-        <%- include('partials/rail') %>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>
+        <%= guild.name %> の設定 | うゆゆBot
+    </title>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+    <link rel="stylesheet" href="/style.css">
+</head>
 
-        <main class="main">
-            <header class="bar">
+<body>
+    <header class="top">
+        <div class="top-in">
+            <a class="brand" href="/dashboard">
+                <img src="/uyuyu.png" alt="" class="brand-logo">
+                うゆゆBot ダッシュボード
+            </a>
+            <nav class="nav" aria-label="メインメニュー">
+                <a href="/dashboard">サーバー一覧に戻る</a>
+                <form action="/logout" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn--ghost"
+                        style="background: none; border: none; cursor: pointer; color: inherit; font: inherit;">ログアウト</button>
+                </form>
+            </nav>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <section>
+            <div class="bar"
+                style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
                 <div class="bar-title">
-                    <span class="glyph glyph--m">
-                        <% if (guild.icon) { %><img src="https://cdn.discordapp.com/icons/<%= guild.id %>/<%= guild.icon %>.png?size=128" alt=""><% } else { %><%= Array.from(guild.name)[0] %><% } %>
-                    </span>
-                    <div>
-                        <a class="crumb link" href="/dashboard">サーバー一覧</a>
-                        <h1 class="page-title"><%= guild.name %></h1>
-                    </div>
+                    <h1 class="page-title">
+                        <%= guild.name %> の設定
+                    </h1>
                 </div>
-                <%- include('partials/me') %>
-            </header>
-
-            <div class="stack">
-                <section class="panel" aria-labelledby="p-log">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title" id="p-log">メッセージ削除ログ</h2>
-                            <p class="panel-lead">削除されたメッセージの内容を、指定したチャンネルに投稿します。</p>
-                        </div>
-                        <% if (deleteLog) { %><span class="status">オン</span><% } else { %><span class="status status--off">オフ</span><% } %>
-                    </div>
-                    <div class="field">
-                        <span class="field-label">投稿先のチャンネル</span>
-                        <div class="values">
-                            <% if (deleteLog) { %><span class="chip"><%= deleteLog %></span><% } else { %><span class="unset">未設定</span><% } %>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="panel" aria-labelledby="p-react">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title" id="p-react">うゆゆ絵文字のリアクション</h2>
-                            <p class="panel-lead">「うゆゆ」などを含むメッセージに、うゆゆ絵文字で反応します。</p>
-                        </div>
-                        <% if (noReact.length) { %><span class="status status--off"><%= noReact.length %>チャンネルでオフ</span><% } else { %><span class="status">すべてのチャンネルでオン</span><% } %>
-                    </div>
-                    <div class="field">
-                        <span class="field-label">オフにしているチャンネル</span>
-                        <div class="values">
-                            <% if (noReact.length) { %><% noReact.forEach(id => { %><span class="chip"><%= id %></span><% }) %><% } else { %><span class="unset">なし</span><% } %>
-                        </div>
-                    </div>
-                </section>
-
-                <p class="note">設定の変更は、いまのところDiscordのコマンド（/set-delete-log-channel、/enable-auto-react-channel、/disable-auto-react-channel）から行います。</p>
+                <a class="btn btn--ghost" href="/dashboard">← サーバー選択に戻る</a>
             </div>
-        </main>
-    </div>
+
+            <!-- 保存成功時のアラート表示 -->
+            <% if (query && query.saved) { %>
+                <div class="alert alert--success"
+                    style="margin-bottom: 20px; padding: 14px; background: rgba(74, 222, 128, 0.1); border: 1px solid #4ade80; color: #4ade80; border-radius: 8px;">
+                    設定を正常に保存しました！
+                </div>
+                <% } %>
+
+                    <!-- 設定変更用フォーム -->
+                    <form action="/dashboard/<%= guildId %>" method="POST" class="settings-form"
+                        style="background: rgba(255, 255, 255, 0.03); padding: 24px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="logChannel"
+                                style="display: block; margin-bottom: 8px; font-weight: bold;">ログ出力チャンネル</label>
+                            <p class="hint" style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">
+                                Botの通知やログを送信するチャンネルを選択してください。</p>
+
+                            <!-- テキストチャンネルの一覧から選べるセレクトボックス -->
+                            <select id="logChannel" name="logChannel"
+                                style="padding: 12px; width: 100%; max-width: 400px; background: #121214; border: 1px solid #333; color: #fff; border-radius: 6px;">
+                                <option value="">(未設定 / 無効)</option>
+                                <% channels.forEach(channel=> { %>
+                                    <option value="<%= channel.id %>" <%=guildConfig.logChannel===channel.id
+                                        ? 'selected' : '' %>>
+                                        #<%= channel.name %>
+                                    </option>
+                                    <% }) %>
+                            </select>
+                        </div>
+
+                        <div class="form-actions" style="margin-top: 24px;">
+                            <button type="submit" class="btn btn--primary"
+                                style="padding: 12px 24px; background: #5865F2; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">変更を保存</button>
+                        </div>
+                    </form>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <div class="foot-in">
+            <p>&copy; 2026 ゆまる All rights reserved.</p>
+        </div>
+    </footer>
 </body>
 
 </html>

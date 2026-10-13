@@ -160,7 +160,7 @@ app.get('/dashboard', remember.restoreLogin, (req, res) => {
 
     res.render('dashboard', { user: req.user, guilds, guildId: null });
 });
-// 7. 個別サーバーの設定画面
+// 7. 個別サーバーの設定画面 (GET)
 app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/auth/discord');
@@ -197,7 +197,70 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
 
     const guildConfig = configData[guildId] || {};
 
-    res.render('guild', { user: req.user, guilds, guild, guildId, guildConfig });
+    // 5. ボットの client からそのサーバーのテキストチャンネル一覧を取得する（セレクトボックス等で選択させたい場合）
+    const targetGuildObj = client ? client.guilds.cache.get(guildId) : null;
+    const channels = targetGuildObj ? Array.from(targetGuildObj.channels.cache.values()).filter(c => c.type === 0) : [];
+
+    res.render('guild', { 
+        user: req.user, 
+        guilds, 
+        guild, 
+        guildId, 
+        guildConfig, 
+        channels,
+        query: req.query // 保存完了メッセージなどの判定用
+    });
+});
+
+// ★【新規追加】個別サーバーの設定保存処理 (POST)
+app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/auth/discord');
+    }
+    const guildId = req.params.guildId;
+    const userGuilds = req.user.guilds || [];
+
+    // 権限チェック（GETと同様に安全性を担保）
+    const adminGuilds = userGuilds.filter(isAdmin);
+    const client = req.app.get('client');
+    const botGuildIds = client && client.guilds ? client.guilds.cache.map(guild => guild.id) : [];
+    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
+    const guild = guilds.find(g => g.id === guildId);
+
+    if (!guild) {
+        return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
+    }
+
+    // フォームから送信されたデータを受け取る（例: logChannel）
+    const { logChannel } = req.body;
+
+    const filePath = path.join(__dirname, 'config-channels.json');
+    let configData = {};
+    try {
+        if (fs.existsSync(filePath)) {
+            configData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        }
+    } catch (error) {
+        console.error('[Web] config-channels.json の読み込みに失敗しました:', error);
+    }
+
+    // データの更新
+    if (!configData[guildId]) {
+        configData[guildId] = {};
+    }
+    configData[guildId].logChannel = logChannel;
+    // 必要に応じて他の設定項目もここに追加可能
+
+    // ファイルへ書き込み
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(configData, null, 2));
+    } catch (error) {
+        console.error('[Web] config-channels.json の保存に失敗しました:', error);
+        return res.status(500).send('設定の保存に失敗しました。');
+    }
+
+    // 保存完了後にクエリ付きでリダイレクト（画面に「保存しました」と表示するため）
+    res.redirect(`/dashboard/${guildId}?saved=true`);
 });
 
 // 8. エラーハンドラ（原因を Render のログに残し、画面には詳細を出さない）
