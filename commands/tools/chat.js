@@ -7,7 +7,7 @@ const {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("chat")
-        .setDescription("対話テスト モデル：sarashina3-mini")
+        .setDescription("sarashina3-mini モデルと対話します")
         .addStringOption(option =>
             option.setName("prompt")
                 .setDescription("AIに送るメッセージを入力してください")
@@ -26,7 +26,7 @@ module.exports = {
     async execute(interaction) {
         const userPrompt = interaction.options.getString("prompt");
 
-        // 生成や通信に数秒かかるため、タイムアウト（3秒）を防ぐために一時応答を行う
+        // Discordの3秒タイムアウトを防ぐため、一時応答（思考中）にする
         await interaction.deferReply();
 
         try {
@@ -37,7 +37,7 @@ module.exports = {
                     "Authorization": `Bearer ${process.env.SARASHINA_API_KEY}`
                 },
                 body: JSON.stringify({
-                    model: "sarashina3-mini", // ※ ハイフンを抜いた正式なモデル名に変更
+                    model: "sarashina3-mini", // ※ 正式なモデル名
                     messages: [
                         { role: "user", content: userPrompt }
                     ],
