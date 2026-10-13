@@ -168,11 +168,20 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
     const guildId = req.params.guildId;
     const userGuilds = req.user.guilds || [];
 
-    // ユーザーが本当にそのサーバーの管理者かチェック
-    const guilds = userGuilds.filter(isAdmin);
+    // 1. ユーザーが管理者権限を持っているサーバーを抽出
+    const adminGuilds = userGuilds.filter(isAdmin);
+
+    // 2. Express アプリから client インスタンスを取得
+    const client = req.app.get('client');
+    const botGuildIds = client && client.guilds ? client.guilds.cache.map(guild => guild.id) : [];
+
+    // 3. 「管理者権限がある」かつ「Botが加入している」サーバーのみに絞り込む
+    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
+
+    // 4. 指定された guildId が、絞り込み後のリストに存在するかチェック
     const guild = guilds.find(g => g.id === guildId);
     if (!guild) {
-        return res.status(403).send('このサーバーを管理する権限がありません。');
+        return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
     }
 
     // 設定ファイルから読み込み（壊れていても落ちないようにする）
@@ -188,8 +197,6 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
 
     const guildConfig = configData[guildId] || {};
 
-    // ★修正点: 以前は dashboard.ejs（guilds 変数が必須）を流用していたため、
-    //   guilds が未定義で ReferenceError → 500 になっていた。専用テンプレート guild.ejs を使う。
     res.render('guild', { user: req.user, guilds, guild, guildId, guildConfig });
 });
 
