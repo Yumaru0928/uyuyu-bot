@@ -55,7 +55,7 @@ async function generateWithFallback(contents, interaction) {
             if (error.status === 404 || error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('not found') || error.message.includes('overloaded')))) {
                 console.warn(`[chat] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
                 try {
-                    await interaction.editReply(`<a:loading:1559775162734219284> モデル ${modelName} が混雑中のため、次のモデルに切り替えています...`);
+                    await interaction.editReply(`<a:load:1559811422261747783> モデル ${modelName} が混雑中のため、次のモデルに切り替えています...`);
                 } catch (e) {}
                 continue;
             }
@@ -99,7 +99,7 @@ module.exports = {
         const slowTimer = setTimeout(async () => {
             if (!isCompleted) {
                 try {
-                    await interaction.editReply("<a:loading:1559775162734219284> AIが考え込んでいます…（少々お時間がかかります）");
+                    await interaction.editReply("<a:load:1559811422261747783> AIが考え込んでいます…（少々お時間がかかります）");
                 } catch (e) {}
             }
         }, 5000);
