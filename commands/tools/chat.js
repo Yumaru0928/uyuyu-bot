@@ -15,6 +15,7 @@ if (fs.existsSync(configPath)) {
     apiKey = config.GEMINI_API_KEY || config.apiKey || apiKey;
 }
 
+
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
 function splitMessage(text, maxLength = 1900) {
@@ -41,7 +42,6 @@ async function generateWithFallback(prompt) {
             lastError = error;
             if (error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('overloaded')))) {
                 console.warn(`モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
-                await interaction.editReply(`<a:loading:1559775162734219284>モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
                 continue;
             }
             throw error;
@@ -73,6 +73,16 @@ module.exports = {
         const userPrompt = interaction.options.getString("prompt");
 
         await interaction.deferReply();
+        let isCompleted = false;
+        const slowTimer = setTimeout(async () => {
+            if (!isCompleted) {
+                try {
+                    await interaction.editReply("<a:loading:1559775162734219284>AIの応答を待っています...");
+                } catch (e) {
+                    // すでに返信が終わっている場合などのエラーを無視
+                }
+            }
+        }, 5000);
 
         try {
             const response = await generateWithFallback(userPrompt);
