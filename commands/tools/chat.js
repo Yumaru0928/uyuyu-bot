@@ -41,6 +41,7 @@ async function generateWithFallback(prompt) {
             lastError = error;
             if (error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('overloaded')))) {
                 console.warn(`モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
+                await interaction.editReply(`<a:loading:1559775162734219284>モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
                 continue;
             }
             throw error;
