@@ -60,8 +60,8 @@ async function buildChatHistory(message) {
     return history;
 }
 
-// フォールバック付きでGeminiにチャットを送信する共通関数
-async function generateWithFallback(prompt, history) {
+// ご指定のモデルリストを使ってフォールバックしながら送信する関数
+async function generateWithFallback(prompt, history, initialMessage) {
     const modelsToTry = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
     let lastError = null;
 
@@ -74,8 +74,13 @@ async function generateWithFallback(prompt, history) {
             return await chat.sendMessage({ message: prompt });
         } catch (error) {
             lastError = error;
-            if (error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('overloaded')))) {
-                console.warn(`モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
+            if (error.status === 404 || error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('not found') || error.message.includes('overloaded')))) {
+                console.warn(`[リプライ] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
+                try {
+                    await initialMessage.edit(`<a:loading:1559775162734219284> モデル '${modelName}' が混雑中のため、次のモデル${modelsToTry[modelsToTry.indexOf(modelName) + 1]}に切り替えています...`);
+                } catch (e) {
+                    // 編集エラー無視
+                }
                 continue;
             }
             throw error;
@@ -97,15 +102,28 @@ module.exports = {
             // 2. 返信先がこのボットのメッセージではない場合は無視
             if (repliedMessage.author.id !== message.client.user.id) return;
 
-            // タイピングインジケータを表示
-            await message.channel.sendTyping();
+            // ① まず応答を待っている状態のメッセージを一度送る
+            const initialReply = await message.reply("<a:loading:1559775162734219284> AIの応答を待っています...");
+
+            // 30秒以上かかった場合のタイマー演出
+            let isCompleted = false;
+            const slowTimer = setTimeout(async () => {
+                if (!isCompleted) {
+                    try {
+                        await initialReply.edit("<a:loading:1559775162734219284> AIが考え込んでいます…（少々お時間がかかります）");
+                    } catch (e) {}
+                }
+            }, 30000);
 
             // 3. 過去の会話履歴を構築（最新の入力以外を履歴にする）
             const fullHistory = await buildChatHistory(message);
             const history = fullHistory.slice(0, -1);
 
-            // 4. Geminiへ送信して返信を取得
-            const result = await generateWithFallback(message.content, history);
+            // 4. Geminiへ送信して返信を取得（指定されたモデルリストでフォールバック付き）
+            const result = await generateWithFallback(message.content, history, initialReply);
+
+            isCompleted = true;
+            clearTimeout(slowTimer);
 
             const replyText = result.text || "応答を取得できませんでした。";
             const textChunks = splitMessage(replyText);
@@ -113,10 +131,10 @@ module.exports = {
             // 5. 分割して返信
             for (let i = 0; i < textChunks.length; i++) {
                 const chunk = textChunks[i];
-                const content = (i === 0) ? `**Gemini:**\n${chunk}` : `(続き)\n${chunk}`;
+                const content = (i === 0) ? chunk : `(続き)\n${chunk}`;
 
                 if (i === 0) {
-                    await message.reply({ content: content });
+                    await initialReply.edit({ content: content });
                 } else {
                     await message.channel.send({ content: content });
                 }
@@ -124,7 +142,9 @@ module.exports = {
 
         } catch (error) {
             console.error("Gemini Reply Chat Error:", error);
-            await message.reply("エラーが発生したため、応答を取得できませんでした。");
+            try {
+                await message.reply("現在、すべてのGeminiモデルが混雑しているか一時的に利用できません。少し時間をおいてから再度お試しください。");
+            } catch (e) {}
         }
     }
 };
