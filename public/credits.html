@@ -55,6 +55,11 @@
               <td>Discordとの通信、コマンド、リアクション</td>
             </tr>
             <tr>
+              <td>@google/genai</td>
+              <td>Apache-2.0</td>
+              <td>Gemini APIの呼び出し(AIとの会話)</td>
+            </tr>
+            <tr>
               <td>@napi-rs/canvas</td>
               <td>MIT</td>
               <td>ガチャ結果の画像の作成</td>
@@ -62,7 +67,27 @@
             <tr>
               <td>express</td>
               <td>MIT</td>
-              <td>稼働確認用のWebサーバー</td>
+              <td>このサイトと管理画面の配信、稼働確認</td>
+            </tr>
+            <tr>
+              <td>express-session</td>
+              <td>MIT</td>
+              <td>ダッシュボードのログイン中の情報の管理</td>
+            </tr>
+            <tr>
+              <td>passport</td>
+              <td>MIT</td>
+              <td>ダッシュボードのログイン処理</td>
+            </tr>
+            <tr>
+              <td>passport-discord</td>
+              <td>ISC</td>
+              <td>Discordアカウントでのログイン</td>
+            </tr>
+            <tr>
+              <td>ejs</td>
+              <td>Apache-2.0</td>
+              <td>管理画面の画面の組み立て</td>
             </tr>
           </tbody>
         </table>
@@ -70,10 +95,12 @@
 
       <h2>使用しているサービス</h2>
       <ul>
-        <li><a href="https://discord.com/">Discord</a></li>
+        <li><a href="https://discord.com/">Discord</a>(Botの動作とダッシュボードのログイン)</li>
         <li><a href="https://github.com/">GitHub</a>(ソースコードと設定情報の保存)</li>
-        <li><a href="https://singlecolorimage.com/">Single Color Image</a>(/color の色見本)</li>
+        <li><a href="https://ai.google.dev/">Google Gemini API</a>(AIとの会話)</li>
         <li><a href="https://render.com/">Render</a>(ホスティング)</li>
+        <li><a href="https://singlecolorimage.com/">Single Color Image</a>(/color の色見本)</li>
+        <li><a href="https://fonts.google.com/">Google Fonts</a>(このサイトのフォント)</li>
       </ul>
 
       <h2>運用方法について</h2>
@@ -84,7 +111,7 @@
       </p>
 
       <h2>権利について</h2>
-      <p>絵文字などの素材の権利は、それぞれの制作者に帰属します。Discordは Discord Inc. の商標です。</p>
+      <p>絵文字などの素材の権利は、それぞれの制作者に帰属します。Discordは Discord Inc.、Geminiは Google LLC の商標です。</p>
     </section>
 
   </main>
