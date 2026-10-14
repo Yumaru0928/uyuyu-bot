@@ -3,11 +3,56 @@ const {
     ApplicationIntegrationType,
     InteractionContextType
 } = require("discord.js");
+const { GoogleGenAI } = require("@google/genai");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const configPath = path.join(__dirname, "../../config.json");
+let apiKey = process.env.GEMINI_API_KEY;
+
+if (fs.existsSync(configPath)) {
+    const config = require(configPath);
+    apiKey = config.GEMINI_API_KEY || config.apiKey || apiKey;
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
+
+function splitMessage(text, maxLength = 1900) {
+    const chunks = [];
+    let currentIndex = 0;
+    while (currentIndex < text.length) {
+        chunks.push(text.slice(currentIndex, currentIndex + maxLength));
+        currentIndex += maxLength;
+    }
+    return chunks;
+}
+
+async function generateWithFallback(prompt) {
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-1.5-flash'];
+    let lastError = null;
+
+    for (const modelName of modelsToTry) {
+        try {
+            return await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+            });
+        } catch (error) {
+            lastError = error;
+            if (error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('overloaded')))) {
+                console.warn(`モデル ${modelName} が混雑中のため、次のモデルにフォールバックします...`);
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("chat")
-        .setDescription("sarashina3-mini モデルと対話します")
+        .setDescription("Gemini モデルと対話します")
         .addStringOption(option =>
             option.setName("prompt")
                 .setDescription("AIに送るメッセージを入力してください")
@@ -26,45 +71,28 @@ module.exports = {
     async execute(interaction) {
         const userPrompt = interaction.options.getString("prompt");
 
-        // Discordの3秒タイムアウトを防ぐため、一時応答（思考中）にする
         await interaction.deferReply();
 
         try {
-            const response = await fetch("https://api.sarashina.ai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer hki_v1_JzmkA36NgaSXiTObiG3Khinpfk6_-hphGYfdA9iH7MM`
-                },
-                body: JSON.stringify({
-                    "model": "sarashina3-mini", // ※ 正式なモデル名
-                    "messages": [
-                        { "role": "user", "content": userPrompt }
-                    ],
-                    "temperature": 0.7
-                })
-            });
+            const response = await generateWithFallback(userPrompt);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error("APIエラーの詳細:", errorText);
-                throw new Error(`APIエラー: ${response.status} ${response.statusText}`);
-            }
+            const replyText = response.text || "応答を取得できませんでした。";
+            const textChunks = splitMessage(replyText);
 
-            const data = await response.json();
-            const replyText = data.choices?.[0]?.message?.content || "応答を取得できませんでした。";
+            for (let i = 0; i < textChunks.length; i++) {
+                const chunk = textChunks[i];
+                const content = (i === 0) ? `**Gemini:**\n${chunk}` : `(続き)\n${chunk}`;
 
-            // Discordのメッセージ文字数制限（2000文字）に配慮して返答
-            const finalContent = `**質問:** ${userPrompt}\n\n**sarashina3-mini:**\n${replyText}`;
-            if (finalContent.length > 2000) {
-                await interaction.editReply(finalContent.slice(0, 1990) + "...");
-            } else {
-                await interaction.editReply(finalContent);
+                if (i === 0) {
+                    await interaction.editReply({ content: content });
+                } else {
+                    await interaction.followUp({ content: content });
+                }
             }
 
         } catch (error) {
-            console.error("Sarashina API Call Error:", error);
-            await interaction.editReply("エラーが発生したため、sarashina3-miniからの応答を取得できませんでした。");
+            console.error("Gemini API Call Error:", error);
+            await interaction.editReply("現在、すべてのGeminiモデルが混雑しているか一時的に利用できません。少し時間をおいてから再度お試しください。");
         }
     }
 };
