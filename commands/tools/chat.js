@@ -27,7 +27,7 @@ function splitMessage(text, maxLength = 1900) {
     return chunks;
 }
 
-// URLからファイルをダウンロードして、Geminiが扱えるInlineData形式に変換する関数（画像・PDF・テキスト等に対応）
+// URLからファイルをダウンロードして、Geminiが扱えるInlineData形式に変換する関数
 async function urlToGenerativePart(url, mimeType) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`ファイルの取得に失敗しました: ${response.statusText}`);
@@ -40,8 +40,10 @@ async function urlToGenerativePart(url, mimeType) {
     };
 }
 
-async function generateWithFallback(contents, interaction) {
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+async function generateWithFallback(selectedModel, contents, interaction) {
+    // 選択されたモデルを最初に試し、ダメだったら他のモデルに順次フォールバックする配列を作成
+    const defaultModels = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-4-argon'];
+    const modelsToTry = [selectedModel, ...defaultModels.filter(m => m !== selectedModel)];
     let lastError = null;
 
     for (const modelName of modelsToTry) {
@@ -55,7 +57,7 @@ async function generateWithFallback(contents, interaction) {
             if (error.status === 404 || error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('not found') || error.message.includes('overloaded')))) {
                 console.warn(`[chat] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
                 try {
-                    await interaction.editReply(`<a:load:1559811422261747783> モデル ${modelName} が混雑中のため、次のモデルに切り替えています...`);
+                    await interaction.editReply(`<a:load:1559811422261747783> モデル ${modelName} がレート制限か混雑中のため、次のモデルに切り替えています...`);
                 } catch (e) {}
                 continue;
             }
@@ -74,6 +76,20 @@ module.exports = {
                 .setDescription("AIに送るメッセージを入力してください")
                 .setRequired(true)
         )
+        .addStringOption(option =>
+            option.setName("model")
+                .setDescription("使用するGeminiモデルを選択してください（省略時はデフォルト）")
+                .setRequired(false)
+                .addChoices(
+                    { name: 'Gemini 3.8 Flash', value: 'gemini-3.8-flash' },
+                    { name: 'Gemini 3.7 Flash', value: 'gemini-3.7-flash' },
+                    { name: 'Gemini 3.6 Flash', value: 'gemini-3.6-flash' },
+                    { name: 'Gemini 3.5 Flash Lite', value: 'gemini-3.5-flash-lite' },
+                    { name: 'Gemini 3.1 Flash Lite', value: 'gemini-3.1-flash-lite' },
+                    { name: 'Gemini 3.1 Pro Preview', value: 'gemini-3.1-pro-preview' },
+                    { name: 'Gemini 4 Argon', value: 'gemini-4-argon' }
+                )
+        )
         .addAttachmentOption(option =>
             option.setName("attachment")
                 .setDescription("一緒に送信するファイル（画像、PDF、テキストなど）")
@@ -91,6 +107,7 @@ module.exports = {
 
     async execute(interaction) {
         const userPrompt = interaction.options.getString("prompt");
+        const selectedModel = interaction.options.getString("model") || 'gemini-3.8-flash';
         const attachment = interaction.options.getAttachment("attachment");
 
         await interaction.deferReply();
@@ -113,7 +130,7 @@ module.exports = {
                 contents = [userPrompt, filePart];
             }
 
-            const response = await generateWithFallback(contents, interaction);
+            const response = await generateWithFallback(selectedModel, contents, interaction);
 
             isCompleted = true;
             clearTimeout(slowTimer);
@@ -123,7 +140,6 @@ module.exports = {
 
             for (let i = 0; i < textChunks.length; i++) {
                 const chunk = textChunks[i];
-                // **Gemini:** を除き、本文のみを出力
                 const content = (i === 0) ? `${chunk}` : `(続き)\n${chunk}`;
 
                 if (i === 0) {
@@ -137,7 +153,7 @@ module.exports = {
             isCompleted = true;
             clearTimeout(slowTimer);
             console.error("Gemini API Call Error:", error);
-            await interaction.editReply("現在、すべてのGeminiモデルが混雑しているか一時的に利用できません。少し時間をおいてから再度お試しください。");
+            await interaction.editReply("現在、すべてのGeminiモデルがAPI/レート制限のため一時的に利用できません。少し時間をおいてから再度お試しください。");
         }
     }
 };
