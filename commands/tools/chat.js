@@ -27,7 +27,7 @@ function splitMessage(text, maxLength = 1900) {
     return chunks;
 }
 
-// URLからファイルをダウンロードして、Geminiが扱えるInlineData形式に変換する関数
+// URLからファイルをダウンロードして、Geminiが扱えるInlineData形式に変換する関数（画像・PDF・テキスト等に対応）
 async function urlToGenerativePart(url, mimeType) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`ファイルの取得に失敗しました: ${response.statusText}`);
@@ -68,16 +68,15 @@ async function generateWithFallback(contents, interaction) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("chat")
-        .setDescription("Gemini モデルと対話します（画像等の添付ファイル対応）")
+        .setDescription("Gemini モデルと対話します")
         .addStringOption(option =>
             option.setName("prompt")
                 .setDescription("AIに送るメッセージを入力してください")
                 .setRequired(true)
         )
-        // 添付ファイルを受け取るオプションを追加
         .addAttachmentOption(option =>
             option.setName("attachment")
-                .setDescription("一緒に送信する画像やファイル（任意）")
+                .setDescription("一緒に送信するファイル（画像、PDF、テキストなど）")
                 .setRequired(false)
         )
         .setIntegrationTypes([
@@ -108,18 +107,8 @@ module.exports = {
         try {
             let contents = userPrompt;
 
-            // 添付ファイルがある場合の処理（主に画像などを想定）
             if (attachment) {
-                // サポートされているMIMEタイプかチェック（例: 画像など）
-                const mimeType = attachment.contentType;
-                if (!mimeType || (!mimeType.startsWith('image/') && !mimeType.startsWith('application/pdf'))) {
-                    isCompleted = true;
-                    clearTimeout(slowTimer);
-                    await interaction.editReply("❌ サポートされていないファイル形式です（画像やPDFなどを添付してください）。");
-                    return;
-                }
-
-                // 添付ファイルをBase64データに変換してテキストと一緒に配列でGeminiに渡す
+                const mimeType = attachment.contentType || "application/octet-stream";
                 const filePart = await urlToGenerativePart(attachment.url, mimeType);
                 contents = [userPrompt, filePart];
             }
@@ -134,7 +123,8 @@ module.exports = {
 
             for (let i = 0; i < textChunks.length; i++) {
                 const chunk = textChunks[i];
-                const content = (i === 0) ? `**Gemini:**\n${chunk}` : `(続き)\n${chunk}`;
+                // **Gemini:** を除き、本文のみを出力
+                const content = (i === 0) ? `${chunk}` : `(続き)\n${chunk}`;
 
                 if (i === 0) {
                     await interaction.editReply({ content: content });
@@ -147,7 +137,7 @@ module.exports = {
             isCompleted = true;
             clearTimeout(slowTimer);
             console.error("Gemini API Call Error:", error);
-            await interaction.editReply("エラーが発生したため、Geminiからの応答を取得できませんでした。");
+            await interaction.editReply("現在、すべてのGeminiモデルが混雑しているか一時的に利用できません。少し時間をおいてから再度お試しください。");
         }
     }
 };
