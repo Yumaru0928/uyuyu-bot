@@ -95,7 +95,7 @@ async function urlToGenerativePart(url, mimeType) {
 }
 
 async function generateWithFallback(selectedModel, contents, interaction) {
-    const defaultModels = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-4-argon'];
+    const defaultModels = ['gemini-3.5-flash-lite','gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',  'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-4-argon'];
     const modelsToTry = [selectedModel, ...defaultModels.filter(m => m !== selectedModel)];
     let lastError = null;
 
