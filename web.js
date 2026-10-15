@@ -231,8 +231,22 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res) => {
         return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
     }
 
-    // フォームから送信されたデータを受け取る（例: logChannel）
-    const { logChannel } = req.body;
+    // 設定できるのは、このサーバーのテキストチャンネルだけ（フォームを書き換えられても他のIDは受け付けない）
+    const targetGuildObj = client.guilds.cache.get(guildId);
+    const channelIds = new Set(
+        targetGuildObj
+            ? Array.from(targetGuildObj.channels.cache.values()).filter(c => c.type === 0).map(c => c.id)
+            : []
+    );
+
+    // フォームの値を取り出す。チェックボックスは 0件→undefined / 1件→文字列 / 複数→配列 で届く
+    const toArray = v => (v === undefined ? [] : Array.isArray(v) ? v : [v]).map(String);
+    const deleteLogChannel = String(req.body.deleteLogChannel || '');
+    const reactOn = new Set(toArray(req.body.autoReact));
+
+    if (deleteLogChannel && !channelIds.has(deleteLogChannel)) {
+        return res.status(400).send('削除ログの送信先に指定できないチャンネルです。');
+    }
 
     const filePath = path.join(__dirname, 'config-channels.json');
     let configData = {};
@@ -248,12 +262,25 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res) => {
     if (!configData[guildId]) {
         configData[guildId] = {};
     }
-    configData[guildId].logChannel = logChannel;
-    // 必要に応じて他の設定項目もここに追加可能
+    const guildConfig = configData[guildId];
 
-    // ファイルへ書き込み
+    // 削除ログの送信先（空なら設定を消す）
+    if (deleteLogChannel) {
+        guildConfig.deleteLogChannel = deleteLogChannel;
+    } else {
+        delete guildConfig.deleteLogChannel;
+    }
+
+    // Auto-React を無効にするチャンネル = 「画面に出ていてオフにされたもの」
+    // 画面に出ていない（削除済みなど）既存のIDは、そのまま残す
+    const previouslyDisabled = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : [];
+    const keptHidden = previouslyDisabled.filter(id => !channelIds.has(id));
+    const nowDisabled = Array.from(channelIds).filter(id => !reactOn.has(id));
+    guildConfig.disableAutoReact = [...keptHidden, ...nowDisabled];
+
+    // ファイルへ書き込み（コマンド側の保存と同じ字下げ4）
     try {
-        fs.writeFileSync(filePath, JSON.stringify(configData, null, 2));
+        fs.writeFileSync(filePath, JSON.stringify(configData, null, 4), 'utf8');
     } catch (error) {
         console.error('[Web] config-channels.json の保存に失敗しました:', error);
         return res.status(500).send('設定の保存に失敗しました。');
@@ -261,6 +288,20 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res) => {
 
     // 保存完了後にクエリ付きでリダイレクト（画面に「保存しました」と表示するため）
     res.redirect(`/dashboard/${guildId}?saved=true`);
+
+    // Render は再起動で設定ファイルが消えるため、コマンド側と同じく GitHub の data ブランチにも反映する
+    // （通信に数秒かかるので、画面への応答を先に返してから行う）
+    if (client.commitJsonToGitHub) {
+        try {
+            await client.commitJsonToGitHub(
+                'config-channels.json',
+                configData,
+                `auto: update settings from dashboard in guild ${guildId} [skip render]`
+            );
+        } catch (error) {
+            console.error('[Web] GitHubへの設定の反映に失敗しました:', error);
+        }
+    }
 });
 
 // 8. エラーハンドラ（原因を Render のログに残し、画面には詳細を出さない）

@@ -2,6 +2,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
+
+// console.log / console.warn / console.error をDiscordのチャンネルにも転送する（詳細は console-forward.js）
+// 他のファイルを読み込む前に差し替えておくと、events や commands の console もすべて対象になる
+const consoleForward = require('./console-forward.js');
+consoleForward.install();
+
 const deployCommands = require('./deploy-commands.js');
 
 // 分離したWebサーバー（web.js）を読み込む
@@ -20,6 +26,11 @@ const client = new Client({
     intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
     partials: [Partials.Message, Partials.Channel],
 });
+
+// ログを流したいDiscordチャンネルのID（Renderの環境変数 CONSOLE_LOG_CHANNEL_ID があればそちらを優先）
+// Botがログインする前の出力も、ログイン後にまとめて送られる
+const targetLogChannelId = process.env.CONSOLE_LOG_CHANNEL_ID || '1558496985315672085';
+consoleForward.attach(client, targetLogChannelId);
 
 // ===================================================
 // ★ ② client が定義されたあとに各種イベントを読み込む
@@ -44,34 +55,6 @@ client.commands = new Collection();
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
 
-    // 送信先のログチャンネルIDを指定
-    const targetLogChannelId = '1558496985315672085'; // ここにログを流したいDiscordチャンネルのIDを入れる
-    const logChannel = client.channels.cache.get(targetLogChannelId);
-
-    if (logChannel) {
-        // console.log をフック（上書き）する
-        const originalConsoleLog = console.log;
-        console.log = function (...args) {
-            originalConsoleLog.apply(console, args); // 通常通りRenderのコンソールにも出す
-            
-            // Discordに送信（文字数が長すぎないように調整）
-            const messageText = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            if (messageText.trim()) {
-                logChannel.send(`ℹ️ [LOG]: \`\`\`${messageText.slice(0, 1900)}\`\`\``).catch(() => {});
-            }
-        };
-
-        // console.error も同様にフックして通知させたい場合
-        const originalConsoleError = console.error;
-        console.error = function (...args) {
-            originalConsoleError.apply(console, args);
-            
-            const errorText = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            if (errorText.trim()) {
-                logChannel.send(`🚨 [ERROR]: \`\`\`${errorText.slice(0, 1900)}\`\`\``).catch(() => {});
-            }
-        };
-    }
     const activities = [
         { name: `/help`, type: ActivityType.Watching },
         { name: 'うゆゆ をプレイ中', type: ActivityType.Playing },

@@ -435,6 +435,51 @@ img {
     color: var(--muted);
 }
 
+/* 保存しましたの表示 */
+.alert {
+    max-width: 44rem;
+    margin-bottom: 1.25rem;
+    padding: .7rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-s);
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* スイッチを縦に並べた一覧（チャンネルごとのオン・オフ） */
+.switch-list {
+    display: grid;
+    gap: .15rem;
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.switch-list .switch {
+    display: flex;
+    padding: .45rem .3rem;
+    border-radius: var(--radius-s);
+}
+
+.switch-list .switch:hover {
+    background: var(--canvas);
+}
+
+.switch-name {
+    min-width: 0;
+    font: 500 .92rem/1.5 var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+
 .field {
     display: grid;
     gap: .4rem;
