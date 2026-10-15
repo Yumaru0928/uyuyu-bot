@@ -17,11 +17,8 @@ const ai = new GoogleGenAI({ apiKey: apiKey });
 
 // フォールバック順: Pro → 2 → 2 Lite → 2.1
 // モデルIDが変わった場合はここだけ直せばOK。
-// プレビュー版/正式版でIDが異なる可能性があるものは両方並べてあり、存在しない(404)IDは黙ってスキップされる。
 const MODELS = [
-    { label: "Nano Banana Pro", id: "gemini-3-pro-image-preview" },
     { label: "Nano Banana Pro", id: "gemini-3-pro-image" },
-    { label: "Nano Banana 2", id: "gemini-3.1-flash-image-preview" },
     { label: "Nano Banana 2", id: "gemini-3.1-flash-image" },
     { label: "Nano Banana 2 Lite", id: "gemini-3.1-flash-lite-image" },
     { label: "Nano Banana 2.1", id: "gemini-nano-banana-2.1" }
