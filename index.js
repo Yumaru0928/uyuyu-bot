@@ -47,6 +47,35 @@ client.commands = new Collection();
 
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
+
+    // 送信先のログチャンネルIDを指定
+    const targetLogChannelId = '1557198844113068102'; // ここにログを流したいDiscordチャンネルのIDを入れる
+    const logChannel = client.channels.cache.get(targetLogChannelId);
+
+    if (logChannel) {
+        // console.log をフック（上書き）する
+        const originalConsoleLog = console.log;
+        console.log = function (...args) {
+            originalConsoleLog.apply(console, args); // 通常通りRenderのコンソールにも出す
+            
+            // Discordに送信（文字数が長すぎないように調整）
+            const messageText = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+            if (messageText.trim()) {
+                logChannel.send(`ℹ️ [LOG]: \`\`\`${messageText.slice(0, 1900)}\`\`\``).catch(() => {});
+            }
+        };
+
+        // console.error も同様にフックして通知させたい場合
+        const originalConsoleError = console.error;
+        console.error = function (...args) {
+            originalConsoleError.apply(console, args);
+            
+            const errorText = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+            if (errorText.trim()) {
+                logChannel.send(`🚨 [ERROR]: \`\`\`${errorText.slice(0, 1900)}\`\`\``).catch(() => {});
+            }
+        };
+    }
     const activities = [
         { name: `/help`, type: ActivityType.Watching },
         { name: 'うゆゆ をプレイ中', type: ActivityType.Playing },
