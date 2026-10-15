@@ -160,7 +160,7 @@ module.exports = {
 
     async execute(interaction) {
         const userPrompt = interaction.options.getString("prompt");
-        const selectedModel = interaction.options.getString("model") || 'gemini-3.8-flash';
+        const selectedModel = interaction.options.getString("model") || 'gemini-3.5-flash-lite';
         const attachment = interaction.options.getAttachment("attachment");
 
         await interaction.deferReply();
