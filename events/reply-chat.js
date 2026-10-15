@@ -2,6 +2,7 @@ const { Events, AttachmentBuilder } = require('discord.js');
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("node:fs");
 const path = require("node:path");
+const { GENERATED_FILE_PREFIX } = require("../image-generate.js");
 
 const configPath = path.join(__dirname, "..", "config.json");
 let apiKey = process.env.GEMINI_API_KEY;
@@ -158,6 +159,9 @@ module.exports = {
         try {
             const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
             if (repliedMessage.author.id !== message.client.user.id) return;
+
+            // /generate の生成画像への返信は reply-generate.js が担当するので、ここでは何もしない
+            if (repliedMessage.attachments.some(a => (a.name || "").startsWith(GENERATED_FILE_PREFIX))) return;
 
             const initialReply = await message.reply("<a:load:1559811422261747783> AIの応答を待っています...");
 
