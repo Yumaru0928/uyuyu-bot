@@ -103,6 +103,9 @@ async function generateWithFallback(selectedModel, contents, interaction) {
         try {
             return await ai.models.generateContent({
                 model: modelName,
+                config: {
+                    systemInstruction: "あなたはDiscordのbotとして動作するAIです。botの名称は「うゆゆ」。回答は必ず日本語で、口調は少し砕けても大丈夫です。画像生成をお願いされたときは、/generateを使用することを促してください。同時にGemini Nano Banana用にプロンプトを考えてあげて、```/generate prompt:[gemini-nano-banana用のプロンプト]```を出力させてあげてください。"
+                },
                 contents: contents,
             });
         } catch (error) {

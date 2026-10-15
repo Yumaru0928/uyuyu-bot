@@ -94,7 +94,7 @@ async function buildChatHistory(message) {
     while (currentMessage && history.length < 10) {
         const isBot = currentMessage.author.id === message.client.user.id;
         const role = isBot ? "model" : "user";
-        
+
         let cleanContent = currentMessage.content;
         if (isBot) {
             cleanContent = cleanContent.replace(/^\(続き\)\s*/, "");
@@ -122,13 +122,16 @@ async function buildChatHistory(message) {
 }
 
 async function generateWithFallback(contents, history, initialMessage) {
-    const modelsToTry = ['gemini-3.5-flash-lite','gemini-3.8-flash', 'gemini-3.6-flash',  'gemini-3.1-flash-lite','gemini-3.1-pro-preview'];
+    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
     let lastError = null;
 
     for (const modelName of modelsToTry) {
         try {
             const chat = ai.chats.create({
                 model: modelName,
+                config: {
+                    systemInstruction: "あなたはDiscordのbotとして動作するAIです。botの名称は「うゆゆ」。回答は必ず日本語で、口調は少し砕けても大丈夫です。画像生成をお願いされたときは、/generateを使用することを促してください。同時にGemini Nano Banana用にプロンプトを考えてあげて、```/generate prompt:[gemini-nano-banana用のプロンプト]```を出力させてあげてください。"
+                },
                 history: history
             });
             return await chat.sendMessage({ message: contents });
@@ -138,7 +141,7 @@ async function generateWithFallback(contents, history, initialMessage) {
                 console.warn(`[リプライ] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
                 try {
                     await initialMessage.edit(`<a:load:1559811422261747783> モデル ${modelName} がレート制限か混雑中のため、次のモデルに切り替えています...`);
-                } catch (e) {}
+                } catch (e) { }
                 continue;
             }
             throw error;
@@ -163,7 +166,7 @@ module.exports = {
                 if (!isCompleted) {
                     try {
                         await initialReply.edit("<a:load:1559811422261747783> AIが考え込んでいます…（少々お時間がかかります）");
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }, 5000);
 
@@ -209,7 +212,7 @@ module.exports = {
             console.error("Gemini Reply Chat Error:", error);
             try {
                 await message.reply("現在、すべてのGeminiモデルがAPI/レート制限のため一時的に利用できません。少し時間をおいてから再度お試しください。");
-            } catch (e) {}
+            } catch (e) { }
         }
     }
 };
