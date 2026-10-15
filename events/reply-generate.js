@@ -1,4 +1,4 @@
-const { Events, AttachmentBuilder } = require("discord.js");
+const { Events, AttachmentBuilder, MessageReferenceType } = require("discord.js");
 const {
     GENERATED_FILE_PREFIX,
     NoImageError,
@@ -18,6 +18,8 @@ module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
         if (message.author.bot || !message.reference || !message.reference.messageId) return;
+        // 転送メッセージも reference を持つため、通常の返信以外は無視する
+        if (message.reference.type === MessageReferenceType.Forward) return;
 
         try {
             const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);

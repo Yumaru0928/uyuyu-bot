@@ -1,4 +1,4 @@
-const { Events, AttachmentBuilder } = require('discord.js');
+const { Events, AttachmentBuilder, MessageReferenceType } = require('discord.js');
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -155,6 +155,8 @@ module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
         if (message.author.bot || !message.reference) return;
+        // 転送メッセージも reference を持つため、通常の返信以外は無視する
+        if (message.reference.type === MessageReferenceType.Forward) return;
 
         try {
             const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
