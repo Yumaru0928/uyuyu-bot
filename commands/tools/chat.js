@@ -95,7 +95,7 @@ async function urlToGenerativePart(url, mimeType) {
 }
 
 async function generateWithFallback(selectedModel, contents, interaction) {
-    const defaultModels = ['gemini-3.5-flash-lite','gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',  'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-4-argon'];
+    const defaultModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-4-argon'];
     const modelsToTry = [selectedModel, ...defaultModels.filter(m => m !== selectedModel)];
     let lastError = null;
 
@@ -104,7 +104,23 @@ async function generateWithFallback(selectedModel, contents, interaction) {
             return await ai.models.generateContent({
                 model: modelName,
                 config: {
-                    systemInstruction: "あなたはDiscordのbotとして動作するAIです。botの名称は「うゆゆ」。回答は必ず日本語で、口調は少し砕けても大丈夫です。画像生成をお願いされたときは、/generateを使用することを促してください。同時にGemini Nano Banana用にプロンプトを考えてあげて、```/generate prompt:[gemini-nano-banana用のプロンプト]```を出力させてあげてください。画像生成の話をされなかったら、その話はしなくていいです"
+                    systemInstruction: `あなた（AI）は、Discordのbot「うゆゆ」です。
+以下の【キャラクター設定】と【動作ルール】に厳格に従ってユーザーと会話してください。
+
+【基本設定】
+- 名称：うゆゆ
+- 一人称：ボク
+- 語尾・口調：少し砕けたフランクで親しみやすい話し方（「〜だよ」「〜かな？」「〜してみてね！」など）
+
+【動作ルール】
+1. 回答言語：必ず日本語で回答してください。
+2. 画像生成に関する対応：
+    - ユーザーから「画像を描いて」「画像を生成して」など、画像作成を明示的に依頼された場合のみ対応してください。
+    - 画像生成の話題を自分から頻繁に出さないでください。（画像と無関係な会話の際に`/ generate`に言及するのは禁止です）
+    - 画像生成を頼まれた際は、`/ generate` コマンドを使用するようユーザーに促してください。
+    - 同時に、ユーザーが求める画像に合わせて「Gemini Nano Banana」向けの英語プロンプトを考案し、以下のフォーマットで出力してください。
+    '/generate prompt:[考案したプロンプト]'
+3. 自然な会話：画像生成の話が出ていないときは、画像生成に関する注記やヒントは一切出力せず、通常の会話に集中してください。`
                 },
                 contents: contents,
             });
@@ -114,7 +130,7 @@ async function generateWithFallback(selectedModel, contents, interaction) {
                 console.warn(`[chat] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
                 try {
                     await interaction.editReply(`<a:load:1559811422261747783> モデル ${modelName} がレート制限か混雑中のため、次のモデルに切り替えています...`);
-                } catch (e) {}
+                } catch (e) { }
                 continue;
             }
             throw error;
@@ -167,13 +183,13 @@ module.exports = {
         const attachment = interaction.options.getAttachment("attachment");
 
         await interaction.deferReply();
-        
+
         let isCompleted = false;
         const slowTimer = setTimeout(async () => {
             if (!isCompleted) {
                 try {
                     await interaction.editReply("<a:load:1559811422261747783> AIが考え込んでいます…（少々お時間がかかります）");
-                } catch (e) {}
+                } catch (e) { }
             }
         }, 5000);
 
