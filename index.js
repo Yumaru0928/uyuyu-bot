@@ -26,13 +26,9 @@ const client = new Client({
 // ===================================================
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
-const memberLogEvents = require('./events/member-log.js');
 const replyChatEvent = require('./events/reply-chat.js'); 
 
-// 入退室ログのイベント登録
-for (const event of memberLogEvents) {
-    client.on(event.name, (...args) => event.execute(...args));
-}
+
 
 // その他の個別イベント登録
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
