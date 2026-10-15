@@ -45,7 +45,7 @@ client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
 
     // 送信先のログチャンネルIDを指定
-    const targetLogChannelId = '1557198844113068102'; // ここにログを流したいDiscordチャンネルのIDを入れる
+    const targetLogChannelId = '1558496985315672085'; // ここにログを流したいDiscordチャンネルのIDを入れる
     const logChannel = client.channels.cache.get(targetLogChannelId);
 
     if (logChannel) {
