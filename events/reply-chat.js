@@ -1,4 +1,4 @@
-const { Events } = require('discord.js');
+const { Events, AttachmentBuilder } = require('discord.js');
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -21,6 +21,58 @@ function splitMessage(text, maxLength = 1900) {
         currentIndex += maxLength;
     }
     return chunks;
+}
+
+// 言語名から適切な拡張子をマッピングする関数
+function getExtension(lang) {
+    if (!lang) return "txt";
+    const lowerLang = lang.toLowerCase().trim();
+    const map = {
+        javascript: "js",
+        js: "js",
+        typescript: "ts",
+        ts: "ts",
+        python: "py",
+        py: "py",
+        html: "html",
+        css: "css",
+        c: "c",
+        cpp: "cpp",
+        java: "java",
+        json: "json",
+        markdown: "md",
+        md: "md",
+        txt: "txt"
+    };
+    return map[lowerLang] || lowerLang;
+}
+
+// ページが分かれてしまうほど長いコードブロックを検出し、ファイル化する関数
+function processLongCodeBlocks(replyText) {
+    const attachments = [];
+    let processedText = replyText;
+    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+    let match;
+    let fileCount = 0;
+
+    while ((match = codeBlockRegex.exec(replyText)) !== null) {
+        const language = match[1] || "";
+        const codeContent = match[2];
+
+        if (codeContent.length > 1000) {
+            fileCount++;
+            const extension = getExtension(language);
+            const fileName = `code_${fileCount}.${extension}`;
+
+            const buffer = Buffer.from(codeContent, "utf-8");
+            attachments.push(new AttachmentBuilder(buffer, { name: fileName }));
+
+            const replacement = `\n*(※ 長いコードのため、ファイル \`${fileName}\` として添付しました)*\n`;
+            processedText = processedText.replace(match[0], replacement);
+        }
+    }
+
+    return { processedText, attachments };
 }
 
 async function urlToGenerativePart(url, mimeType) {
@@ -115,7 +167,6 @@ module.exports = {
                 }
             }, 5000);
 
-            // 添付ファイルの処理（画像、PDF、テキストなど任意の種類に対応）
             let contents = message.content;
             const attachment = message.attachments.first();
 
@@ -134,17 +185,23 @@ module.exports = {
             clearTimeout(slowTimer);
 
             const replyText = result.text || "応答を取得できませんでした。";
-            const textChunks = splitMessage(replyText);
+
+            // 長いコードのファイル化処理（プレフィックスなし）
+            const { processedText, attachments } = processLongCodeBlocks(replyText);
+            const textChunks = splitMessage(processedText);
 
             for (let i = 0; i < textChunks.length; i++) {
                 const chunk = textChunks[i];
-                // **Gemini:** を除き、本文のみを出力
-                const content = (i === 0) ? `${chunk}` : `(続き)\n${chunk}`;
+                const content = (i === 0) ? chunk : `(続き)\n${chunk}`;
+                const options = {
+                    content: content,
+                    files: (i === 0) ? attachments : []
+                };
 
                 if (i === 0) {
-                    await initialReply.edit({ content: content });
+                    await initialReply.edit(options);
                 } else {
-                    await message.channel.send({ content: content });
+                    await message.channel.send(options);
                 }
             }
 
