@@ -5,17 +5,25 @@ const {
     AttachmentBuilder,
     MessageFlags
 } = require("discord.js");
+const fs = require("node:fs");
+const path = require("node:path");
 
-// 外部の config.json を読み込む
-// ※ パスは現在のファイル位置から config.json への相対パスに合わせて調整してください
-const config = require("../../config.json");
+// config.json を安全に読み込む（存在しないRender環境などではスキップ）
+let config = {};
+const configPath = path.join(__dirname, "../../config.json"); // パスはプロジェクト構成に合わせて調整してください
+if (fs.existsSync(configPath)) {
+    try {
+        config = require(configPath);
+    } catch (e) {
+        console.warn("[Cloudflare AI] config.json の読み込みに失敗しました:", e.message);
+    }
+}
 
 const LOADING = "<a:load:1559811422261747783>";
 
-// config.json または環境変数から設定を読み込み
+// 環境変数を優先し、無ければ config.json から読み込む
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || config.CLOUDFLARE_ACCOUNT_ID;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || config.CLOUDFLARE_API_TOKEN;
-
 // 利用するモデル
 const MODELS_TO_TRY = [
     '@cf/black-forest-labs/flux-1-schnell'
