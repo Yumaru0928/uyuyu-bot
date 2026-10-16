@@ -1,6 +1,5 @@
 const { Events } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
+const { getChannelConfig } = require('../channel-config.js');
 
 // リアクション用：Discordが確実に認識できる '名前:ID' 形式に整理
 const Emojis = [
@@ -23,44 +22,28 @@ const Emojis = [
     'rolling_uyuyu:1529182253207392267'
 ];
 
+// 反応するキーワード
+const KEYWORDS = /うゆゆ|ウユユ|uyuyu|myumyumyu|suyarunn/i;
+
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
         // ボットのメッセージおよびDM（サーバー外）は無視
         if (message.author.bot || !message.guild) return;
 
-        // 1. 設定ファイル（config-channels.json）から無効化チャンネルリストを読み込み
-        const configPath = path.join(__dirname, '..', 'config-channels.json');
+        // 1. キーワードが含まれないメッセージは、設定ファイルを見るまでもなく終了（大文字小文字は区別しない）
+        if (!KEYWORDS.test(message.content)) return;
 
-        if (fs.existsSync(configPath)) {
-            try {
-                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                // 自サーバーの disableAutoReact 配列を取得
-                const disabledChannels = configData[message.guild.id]?.disableAutoReact || [];
+        // 2. 設定ファイル（config-channels.json）から、このチャンネルが無効化されていないか確認
+        const disabledChannels = getChannelConfig()[message.guild.id]?.disableAutoReact || [];
+        if (disabledChannels.includes(message.channel.id)) return;
 
-                // コマンドが実行されたチャンネルが無効化リストに含まれていれば処理終了
-                if (disabledChannels.includes(message.channel.id)) {
-                    return;
-                }
-            } catch (error) {
-                console.error('設定ファイルの読み込みエラー:', error);
-            }
-        }
-
-        // 2. 絵文字ランダム選出とリアクション処理
-        if (
-            message.content.includes('うゆゆ') || 
-            message.content.includes('uyuyu') || 
-            message.content.includes('myumyumyu') || 
-            message.content.includes('suyarunn') || 
-            message.content.includes('ウユユ')
-        ) {
-            const rand = Math.floor(Math.random() * Emojis.length);
-            try {
-                await message.react(Emojis[rand]);
-            } catch (error) {
-                console.error('リアクションの追加に失敗しました:', error);
-            }
+        // 3. 絵文字ランダム選出とリアクション処理
+        const rand = Math.floor(Math.random() * Emojis.length);
+        try {
+            await message.react(Emojis[rand]);
+        } catch (error) {
+            console.error('リアクションの追加に失敗しました:', error);
         }
     }
 };

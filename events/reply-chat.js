@@ -1,240 +1,156 @@
-const { Events, AttachmentBuilder, MessageReferenceType } = require('discord.js');
-const { GoogleGenAI } = require("@google/genai");
-const fs = require("node:fs");
-const path = require("node:path");
-const { GENERATED_FILE_PREFIX } = require("../image-generate.js");
+const { Events, MessageReferenceType } = require('discord.js');
+const {
+    LOADING,
+    NO_MENTIONS,
+    CHAT_MODELS,
+    CHAT_SYSTEM_INSTRUCTION,
+    getAI,
+    describeError,
+    withModelFallback,
+    urlToGenerativePart,
+    splitMessage,
+    processLongCodeBlocks,
+    createCooldown
+} = require('../gemini.js');
 
-const configPath = path.join(__dirname, "..", "config.json");
-let apiKey = process.env.GEMINI_API_KEY;
+// 同じ人の連続した返信は 5 秒に 1 回まで（API 枠の使い切り防止）
+const isCoolingDown = createCooldown(5000);
 
-if (fs.existsSync(configPath)) {
-    const config = require(configPath);
-    apiKey = config.GEMINI_API_KEY || config.apiKey || apiKey;
-}
+const MAX_HISTORY = 10;
 
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// 返信先から親をさかのぼって、会話履歴を作る（今回の発言は含めない）
+async function buildChatHistory(repliedMessage) {
+    const raw = [];
+    let current = repliedMessage;
 
-function splitMessage(text, maxLength = 1900) {
-    const chunks = [];
-    let currentIndex = 0;
-    while (currentIndex < text.length) {
-        chunks.push(text.slice(currentIndex, currentIndex + maxLength));
-        currentIndex += maxLength;
-    }
-    return chunks;
-}
+    while (current && raw.length < MAX_HISTORY) {
+        const isBot = current.author.id === current.client.user.id;
 
-// 言語名から適切な拡張子をマッピングする関数
-function getExtension(lang) {
-    if (!lang) return "txt";
-    const lowerLang = lang.toLowerCase().trim();
-    const map = {
-        javascript: "js",
-        js: "js",
-        typescript: "ts",
-        ts: "ts",
-        python: "py",
-        py: "py",
-        html: "html",
-        css: "css",
-        c: "c",
-        cpp: "cpp",
-        java: "java",
-        json: "json",
-        markdown: "md",
-        md: "md",
-        txt: "txt"
-    };
-    return map[lowerLang] || lowerLang;
-}
+        let text = current.content || '';
+        if (isBot) text = text.replace(/^\(続き\)\s*/, '');
+        if (text.trim()) raw.unshift({ role: isBot ? 'model' : 'user', text });
 
-// ページが分かれてしまうほど長いコードブロックを検出し、ファイル化する関数
-function processLongCodeBlocks(replyText) {
-    const attachments = [];
-    let processedText = replyText;
-    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
-    let match;
-    let fileCount = 0;
-
-    while ((match = codeBlockRegex.exec(replyText)) !== null) {
-        const language = match[1] || "";
-        const codeContent = match[2];
-
-        if (codeContent.length > 1000) {
-            fileCount++;
-            const extension = getExtension(language);
-            const fileName = `code_${fileCount}.${extension}`;
-
-            const buffer = Buffer.from(codeContent, "utf-8");
-            attachments.push(new AttachmentBuilder(buffer, { name: fileName }));
-
-            const replacement = `\n*(※ 長いコードのため、ファイル \`${fileName}\` として添付しました)*\n`;
-            processedText = processedText.replace(match[0], replacement);
-        }
-    }
-
-    return { processedText, attachments };
-}
-
-async function urlToGenerativePart(url, mimeType) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`ファイルの取得に失敗しました: ${response.statusText}`);
-    const buffer = await response.arrayBuffer();
-    return {
-        inlineData: {
-            data: Buffer.from(buffer).toString("base64"),
-            mimeType
-        },
-    };
-}
-
-async function buildChatHistory(message) {
-    const history = [];
-    let currentMessage = message;
-
-    while (currentMessage && history.length < 10) {
-        const isBot = currentMessage.author.id === message.client.user.id;
-        const role = isBot ? "model" : "user";
-
-        let cleanContent = currentMessage.content;
-        if (isBot) {
-            cleanContent = cleanContent.replace(/^\(続き\)\s*/, "");
-        }
-
-        if (cleanContent.trim()) {
-            history.unshift({
-                role: role,
-                parts: [{ text: cleanContent }]
-            });
-        }
-
-        if (currentMessage.reference && currentMessage.reference.messageId) {
-            try {
-                currentMessage = await currentMessage.channel.messages.fetch(currentMessage.reference.messageId);
-            } catch (e) {
-                break;
-            }
-        } else {
+        const ref = current.reference;
+        if (!ref || !ref.messageId || ref.type === MessageReferenceType.Forward) break;
+        try {
+            current = await current.channel.messages.fetch(ref.messageId);
+        } catch (e) {
             break;
         }
     }
 
-    return history;
-}
-
-async function generateWithFallback(contents, history, initialMessage) {
-    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
-    let lastError = null;
-
-    for (const modelName of modelsToTry) {
-        try {
-            const chat = ai.chats.create({
-                model: modelName,
-                config: {
-                    systemInstruction: `あなた（AI）は、Discordのbot「うゆゆ」です。
-以下の【キャラクター設定】と【動作ルール】に厳格に従ってユーザーと会話してください。
-
-【基本設定】
-- 名称：うゆゆ
-- 一人称：ボク
-- 語尾・口調：少し砕けたフランクで親しみやすい話し方（「〜だよ」「〜かな？」「〜してみてね！」など）
-
-【動作ルール】
-1. 回答言語：必ず日本語で回答してください。
-2. 画像生成に関する対応：
-    - ユーザーから「画像を描いて」「画像を生成して」など、画像作成を明示的に依頼された場合のみ対応してください。
-    - 画像生成の話題を自分から頻繁に出さないでください。（画像と無関係な会話の際に/generateに言及するのは禁止です）
-    - 画像生成を頼まれた際は、/ generateコマンドを使用するようユーザーに促してください。
-    - 同時に、ユーザーが求める画像に合わせて「flux 1 schnell」向けの英語プロンプトを考案し、以下のフォーマットで出力してください。`
-                        + "```/generate prompt:[考案したプロンプト]```"
-                        + `3. 自然な会話：画像生成の話が出ていないときは、画像生成に関する注記やヒントは一切出力せず、通常の会話に集中してください。`
-                },
-                history: history
-            });
-            return await chat.sendMessage({ message: contents });
-        } catch (error) {
-            lastError = error;
-            if (error.status === 404 || error.status === 503 || error.status === 429 || (error.message && (error.message.includes('503') || error.message.includes('not found') || error.message.includes('overloaded')))) {
-                console.warn(`[リプライ] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`);
-                try {
-                    await initialMessage.edit(`<a:load:1559811422261747783> モデル ${modelName} がレート制限か混雑中のため、次のモデルに切り替えています...`);
-                } catch (e) { }
-                continue;
-            }
-            throw error;
+    // Gemini は先頭が user でないとエラーになることがあるので、先頭の model は捨てる。
+    // 同じロールが続く場合は 1 つにまとめる。
+    const history = [];
+    for (const item of raw) {
+        const last = history[history.length - 1];
+        if (last && last.role === item.role) {
+            last.parts[0].text += `\n\n${item.text}`;
+        } else if (history.length === 0 && item.role === 'model') {
+            continue;
+        } else {
+            history.push({ role: item.role, parts: [{ text: item.text }] });
         }
     }
-    throw lastError;
+    return history;
 }
 
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
-        if (message.author.bot || !message.reference) return;
+        if (message.author.bot || !message.reference || !message.reference.messageId) return;
         // 転送メッセージも reference を持つため、通常の返信以外は無視する
         if (message.reference.type === MessageReferenceType.Forward) return;
 
+        let initialReply = null;
+        let slowTimer = null;
+        let finished = false;
+
         try {
-            const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+            let repliedMessage;
+            try {
+                repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+            } catch (e) {
+                return; // 返信先が削除済みなど。何もしない
+            }
             if (repliedMessage.author.id !== message.client.user.id) return;
 
-            // /generate の生成画像への返信は reply-generate.js が担当するので、ここでは何もしない
-            if (repliedMessage.attachments.some(a => (a.name || "").startsWith(GENERATED_FILE_PREFIX))) return;
-
-            const initialReply = await message.reply("<a:load:1559811422261747783> AIの応答を待っています...");
-
-            let isCompleted = false;
-            const slowTimer = setTimeout(async () => {
-                if (!isCompleted) {
-                    try {
-                        await initialReply.edit("<a:load:1559811422261747783> AIが考え込んでいます…（少々お時間がかかります）");
-                    } catch (e) { }
-                }
-            }, 5000);
-
-            let contents = message.content;
+            // 本文も添付も無い返信（スタンプだけなど）は AI に送れない
+            const text = message.content.trim();
             const attachment = message.attachments.first();
+            if (!text && !attachment) return;
 
-            if (attachment) {
-                const mimeType = attachment.contentType || "application/octet-stream";
-                const filePart = await urlToGenerativePart(attachment.url, mimeType);
-                contents = [message.content || "このファイルについて教えてください。", filePart];
+            if (isCoolingDown(message.author.id)) {
+                await message.react('⏳').catch(() => { });
+                return;
             }
 
-            const fullHistory = await buildChatHistory(message);
-            const history = fullHistory.slice(0, -1);
+            getAI(); // API キー未設定ならここで GeminiConfigError
 
-            const result = await generateWithFallback(contents, history, initialReply);
+            initialReply = await message.reply(`${LOADING} AIの応答を待っています...`);
 
-            isCompleted = true;
+            slowTimer = setTimeout(() => {
+                if (finished) return;
+                initialReply.edit(`${LOADING} AIが考え込んでいます…（少々お時間がかかります）`).catch(() => { });
+            }, 5000);
+
+            let contents = text;
+            if (attachment) {
+                const mimeType = attachment.contentType || 'application/octet-stream';
+                const filePart = await urlToGenerativePart(attachment.url, mimeType);
+                contents = [text || 'このファイルについて教えてください。', filePart];
+            }
+
+            const history = await buildChatHistory(repliedMessage);
+
+            const result = await withModelFallback(
+                CHAT_MODELS,
+                model => getAI().chats.create({
+                    model,
+                    config: { systemInstruction: CHAT_SYSTEM_INSTRUCTION },
+                    history
+                }).sendMessage({ message: contents }),
+                model => initialReply.edit({
+                    content: `${LOADING} モデル ${model} がレート制限か混雑中のため、次のモデルに切り替えています...`,
+                    allowedMentions: NO_MENTIONS
+                }),
+                'リプライ'
+            );
+
+            finished = true;
             clearTimeout(slowTimer);
 
-            const replyText = result.text || "応答を取得できませんでした。";
+            const replyText = result.text || '応答を取得できませんでした。';
 
             // 長いコードのファイル化処理（プレフィックスなし）
             const { processedText, attachments } = processLongCodeBlocks(replyText);
             const textChunks = splitMessage(processedText);
 
+            // AI の出力に含まれる @everyone / @role / @user では誰にも通知しない
             for (let i = 0; i < textChunks.length; i++) {
-                const chunk = textChunks[i];
-                const content = (i === 0) ? chunk : `(続き)\n${chunk}`;
-                const options = {
-                    content: content,
-                    files: (i === 0) ? attachments : []
-                };
-
                 if (i === 0) {
-                    await initialReply.edit(options);
+                    await initialReply.edit({ content: textChunks[0], files: attachments, allowedMentions: NO_MENTIONS });
                 } else {
-                    await message.channel.send(options);
+                    await message.channel.send({ content: `(続き)\n${textChunks[i]}`, allowedMentions: NO_MENTIONS });
                 }
             }
-
         } catch (error) {
-            console.error("Gemini Reply Chat Error:", error);
+            finished = true;
+            clearTimeout(slowTimer);
+            console.error('Gemini Reply Chat Error:', error);
+
+            const notice = describeError(error, 'AI');
             try {
-                await message.reply("現在、すべてのGeminiモデルがAPI/レート制限のため一時的に利用できません。少し時間をおいてから再度お試しください。");
+                if (initialReply) {
+                    // ローディング表示を残さず、エラー文に書き換える
+                    await initialReply.edit({ content: notice, files: [], allowedMentions: NO_MENTIONS });
+                } else {
+                    await message.reply(notice);
+                }
             } catch (e) { }
+        } finally {
+            finished = true;
+            clearTimeout(slowTimer);
         }
     }
 };

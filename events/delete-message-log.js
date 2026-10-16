@@ -1,7 +1,10 @@
 // events/delete-message-log.js
-const fs = require('node:fs');
-const path = require('node:path');
 const { Events, AuditLogEvent, EmbedBuilder } = require('discord.js');
+const { getChannelConfig } = require('../channel-config.js');
+
+// 監査ログは削除の直後にはまだ書かれていないことがあるので、少し待ってから取得する
+const AUDIT_LOG_DELAY_MS = 1000;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 module.exports = {
     name: Events.MessageDelete,
@@ -10,19 +13,8 @@ module.exports = {
         if (!message.guild) return;
 
         // 1. 設定ファイル（config-channels.json）からログ保存先チャンネルIDを読み込み
-        const configPath = path.join(__dirname, '..', 'config-channels.json'); // パス調整に注意
-        if (!fs.existsSync(configPath)) return;
-
-        let configData = {};
-        try {
-            configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        } catch (e) {
-            console.error('設定ファイルの読み込みエラー:', e);
-            return;
-        }
-
         // オブジェクト構造から 'deleteLogChannel' のIDを取得
-        const logChannelId = configData[message.guild.id]?.deleteLogChannel;
+        const logChannelId = getChannelConfig()[message.guild.id]?.deleteLogChannel;
         if (!logChannelId) return; // ログチャンネルが未設定の場合は終了
 
         const logChannel = message.guild.channels.cache.get(logChannelId);
@@ -36,14 +28,26 @@ module.exports = {
 
         // 添付ファイル（画像やファイル）のURL一覧を取得
         const attachments = message.attachments;
-        const attachmentUrls = attachments.size > 0
+        // Embed のフィールドは 1024 文字までなので、超える分は省略する
+        let attachmentUrls = attachments.size > 0
             ? attachments.map(att => att.url).join('\n')
             : null;
+        if (attachmentUrls && attachmentUrls.length > 1024) {
+            const shown = [];
+            let length = 0;
+            for (const att of attachments.values()) {
+                if (length + att.url.length + 1 > 1000) break;
+                shown.push(att.url);
+                length += att.url.length + 1;
+            }
+            attachmentUrls = `${shown.join('\n')}\n…ほか ${attachments.size - shown.length} 件`;
+        }
 
         // 削除実行者の特定（デフォルトは送信者本人）
         let executorTag = authorTag;
 
         try {
+            await sleep(AUDIT_LOG_DELAY_MS);
             const fetchedLogs = await message.guild.fetchAuditLogs({
                 limit: 1,
                 type: AuditLogEvent.MessageDelete,

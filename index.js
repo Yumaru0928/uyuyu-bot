@@ -23,14 +23,27 @@ app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
 // ===================================================
 const client = new Client({
-    intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
+    // 使う機能に必要なインテントだけを要求する（特権インテントは MessageContent のみ）
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+    ],
     partials: [Partials.Message, Partials.Channel],
+    // 既定では @everyone / @here / ロールのメンションでは通知しない（ユーザーへの返信メンションは従来どおり）
+    allowedMentions: { parse: ['users'], repliedUser: true },
 });
 
 // ログを流したいDiscordチャンネルのID（Renderの環境変数 CONSOLE_LOG_CHANNEL_ID があればそちらを優先）
 // Botがログインする前の出力も、ログイン後にまとめて送られる
 const targetLogChannelId = process.env.CONSOLE_LOG_CHANNEL_ID || '1558496985315672085';
 consoleForward.attach(client, targetLogChannelId);
+
+// 想定外のエラーでプロセスごと落ちないようにする
+client.on(Events.Error, error => console.error('[Client Error]', error));
+process.on('unhandledRejection', reason => console.error('[Unhandled Rejection]', reason));
+process.on('uncaughtException', error => console.error('[Uncaught Exception]', error));
 
 // ===================================================
 // ★ ② client が定義されたあとに各種イベントを読み込む
@@ -166,10 +179,16 @@ client.on(Events.InteractionCreate, async interaction => {
         await command.execute(interaction);
     } catch (error) {
         console.error(error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
-        } else {
-            await interaction.reply({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
+        const payload = { content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral };
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp(payload);
+            } else {
+                await interaction.reply(payload);
+            }
+        } catch (replyError) {
+            // 期限切れなどで返信できなくても、ここで落とさない
+            console.error('[Interaction] エラー応答の送信に失敗しました:', replyError.message);
         }
     }
 });
@@ -196,4 +215,4 @@ async function main() {
     }
 }
 
-main();
+main();
