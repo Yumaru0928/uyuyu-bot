@@ -142,8 +142,8 @@ module.exports = {
 
             const shortPrompt = userPrompt.length > 500 ? `${userPrompt.slice(0, 500)}…` : userPrompt;
             const lines = [
-                `-# 🎨 Cloudflare Workers AI (${result.modelLabel}) で生成`,
-                `-# プロンプト: ${shortPrompt.replace(/\n/g, " ")}`
+                `-# プロンプト: ${shortPrompt.replace(/\n/g, " ")}`,
+                '-# ヒント：`/chat`でAIにプロンプトを生成させることができます！'
             ];
 
             await interaction.editReply({
