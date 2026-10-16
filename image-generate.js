@@ -1,6 +1,4 @@
 // image-generate.js
-// /generate と events/reply-generate.js で共有する、Nano Banana（Gemini画像生成）の呼び出し処理。
-// レート制限・混雑時は MODELS の順に自動でフォールバックする。
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -9,14 +7,22 @@ const configPath = path.join(__dirname, "config.json");
 let apiKey = process.env.GEMINI_API_KEY;
 
 if (fs.existsSync(configPath)) {
-    const config = require(configPath);
-    apiKey = config.GEMINI_API_KEY || config.apiKey || apiKey;
+    try {
+        const config = require(configPath);
+        apiKey = config.GEMINI_API_KEY || config.apiKey || apiKey;
+    } catch (e) {
+        console.error("[image-generate] config.json の読み込みに失敗しました:", e);
+    }
 }
 
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// APIキーが設定されていない場合でも読み込み時点でクラッシュしないよう遅延初期化
+function getGenAIClient() {
+    if (!apiKey) {
+        throw new Error("GEMINI_API_KEY が設定されていません。環境変数または config.json を確認してください。");
+    }
+    return new GoogleGenAI({ apiKey });
+}
 
-// フォールバック順: Pro → 2 → 2 Lite → 2.1
-// モデルIDが変わった場合はここだけ直せばOK。
 const MODELS = [
     { label: "Nano Banana Pro", id: "gemini-3-pro-image" },
     { label: "Nano Banana 2", id: "gemini-3.1-flash-image" },
@@ -24,7 +30,6 @@ const MODELS = [
     { label: "Nano Banana 2.1", id: "gemini-nano-banana-2.1" }
 ];
 
-// 生成画像メッセージを見分けるためのファイル名プレフィックス（reply-generate / reply-chat が使用）
 const GENERATED_FILE_PREFIX = "uyuyu-generate-";
 
 function isNotFound(error) {
@@ -47,7 +52,6 @@ class NoImageError extends Error {
     }
 }
 
-// URLからファイルをダウンロードして、Geminiが扱えるInlineData形式に変換する
 async function urlToGenerativePart(url, mimeType) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`ファイルの取得に失敗しました: ${response.statusText}`);
@@ -60,7 +64,6 @@ async function urlToGenerativePart(url, mimeType) {
     };
 }
 
-// レスポンスから画像(最初の1枚)とテキストを取り出す
 function extractResult(response) {
     const parts = response?.candidates?.[0]?.content?.parts || [];
     let image = null;
@@ -81,18 +84,14 @@ function extractResult(response) {
 }
 
 function mimeToExtension(mimeType) {
-    if (mimeType === "image/jpeg") return "jpg";
+    if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg";
     if (mimeType === "image/webp") return "webp";
+    if (mimeType === "image/gif") return "gif";
     return "png";
 }
 
-/**
- * 画像を生成する。レート制限/混雑/モデル未提供の場合は次のモデルへフォールバック。
- * @param {Array} contents  Gemini の contents（文字列 or parts 配列）
- * @param {(label: string) => Promise<void>} [onFallback] レート制限/混雑でモデルを切り替える際に呼ばれる
- * @returns {{ image: {buffer, mimeType}, text: string, modelLabel: string, modelId: string }}
- */
 async function generateImageWithFallback(contents, onFallback) {
+    const ai = getGenAIClient();
     let lastError = null;
 
     for (const model of MODELS) {
@@ -110,7 +109,6 @@ async function generateImageWithFallback(contents, onFallback) {
 
             return { image, text, modelLabel: model.label, modelId: model.id };
         } catch (error) {
-            // 安全フィルタ等で画像が返らなかった場合は、別モデルでも同じなのでそのまま投げる
             if (error instanceof NoImageError) throw error;
 
             lastError = error;

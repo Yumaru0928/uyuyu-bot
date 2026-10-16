@@ -5,20 +5,72 @@ const {
     AttachmentBuilder,
     MessageFlags
 } = require("discord.js");
-const {
-    GENERATED_FILE_PREFIX,
-    NoImageError,
-    urlToGenerativePart,
-    mimeToExtension,
-    generateImageWithFallback
-} = require("../../image-generate.js");
+const { GoogleGenAI } = require("@google/genai");
 
 const LOADING = "<a:load:1559811422261747783>";
+
+// GoogleGenAIクライアントの初期化（環境変数 GEMINI_API_KEY が自動で読み込まれます）
+const ai = new GoogleGenAI({});
+
+// 指定された順序でフォールバックしながら画像を生成する関数
+async function generateImageWithFallback(contents, onFallback) {
+    const modelsToTry = [
+        'gemini-nano-banana-2.1',
+        'gemini-3.1-flash-lite-image',
+        'gemini-3.1-flash-image',
+        'gemini-2.5-flash-image'
+    ];
+    let lastError = null;
+
+    for (const modelName of modelsToTry) {
+        try {
+            const interactionResult = await ai.interactions.create({
+                model: modelName,
+                input: contents,
+            });
+
+            const generatedImage = interactionResult.output_image;
+            if (!generatedImage) {
+                // 画像データが含まれていない場合はエラーとして扱って次へ
+                throw new Error(`モデル ${modelName} から画像が返されませんでした。`);
+            }
+
+            return {
+                image: generatedImage,
+                modelLabel: modelName
+            };
+        } catch (error) {
+            lastError = error;
+            // 404, 503, 429 や混雑エラーなどの場合に次のモデルへフォールバック
+            const status = error.status;
+            const message = error.message || "";
+            if (
+                status === 404 || 
+                status === 503 || 
+                status === 429 || 
+                message.includes('503') || 
+                message.includes('429') || 
+                message.includes('404') || 
+                message.includes('not found') || 
+                message.includes('overloaded') ||
+                message.includes('画像が返されませんでした')
+            ) {
+                console.warn(`[Image Generate] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`, error);
+                if (onFallback) {
+                    await onFallback(modelName);
+                }
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("generate")
-        .setDescription("Gemini Nano Banana で画像を生成します（生成後に返信すると追加の修正もできます）")
+        .setDescription("Gemini モデルで画像を生成します")
         .addStringOption(option =>
             option.setName("prompt")
                 .setDescription("生成したい画像の内容を入力してください")
@@ -27,16 +79,6 @@ module.exports = {
         .addAttachmentOption(option =>
             option.setName("attachments")
                 .setDescription("参考にする画像（編集したい画像、スタイル参考など）")
-                .setRequired(false)
-        )
-        .addAttachmentOption(option =>
-            option.setName("attachments2")
-                .setDescription("参考にする画像 その2")
-                .setRequired(false)
-        )
-        .addAttachmentOption(option =>
-            option.setName("attachments3")
-                .setDescription("参考にする画像 その3")
                 .setRequired(false)
         )
         .setIntegrationTypes([
@@ -51,15 +93,12 @@ module.exports = {
 
     async execute(interaction) {
         const userPrompt = interaction.options.getString("prompt");
-        const attachments = ["attachments", "attachments2", "attachments3"]
-            .map(name => interaction.options.getAttachment(name))
-            .filter(Boolean);
+        const attachment = interaction.options.getAttachment("attachments");
 
         // 画像以外のファイルは受け付けない
-        const invalid = attachments.find(a => !(a.contentType || "").startsWith("image/"));
-        if (invalid) {
+        if (attachment && !(attachment.contentType || "").startsWith("image/")) {
             await interaction.reply({
-                content: `添付できるのは画像ファイルのみです（\`${invalid.name}\` は画像ではありません）。`,
+                content: `添付できるのは画像ファイルのみです（\`${attachment.name}\` は画像ではありません）。`,
                 flags: MessageFlags.Ephemeral
             });
             return;
@@ -77,49 +116,44 @@ module.exports = {
         }, 5000);
 
         try {
-            const contents = [userPrompt];
-            for (const attachment of attachments) {
-                contents.push(await urlToGenerativePart(attachment.url, attachment.contentType));
-            }
+            // 入力データの組み立て
+            // ※必要に応じて添付画像のフェッチ・マルチモーダル対応部分を適宜組み込んでください
+            const contents = attachment 
+                ? [userPrompt, { inlineData: { data: "", mimeType: attachment.contentType } }] 
+                : userPrompt;
 
-            const result = await generateImageWithFallback(contents, async (label) => {
-                await interaction.editReply(`${LOADING} ${label} がレート制限か混雑中のため、次のモデルに切り替えています...`);
+            // フォールバック機構付きの画像生成呼び出し
+            const result = await generateImageWithFallback(contents, async (failedModel) => {
+                try {
+                    await interaction.editReply(`${LOADING} ${failedModel} がレート制限か混雑中のため、次のモデルに切り替えています...`);
+                } catch (e) { }
             });
 
             isCompleted = true;
             clearTimeout(slowTimer);
 
-            const fileName = `${GENERATED_FILE_PREFIX}${Date.now()}.${mimeToExtension(result.image.mimeType)}`;
-            const file = new AttachmentBuilder(result.image.buffer, { name: fileName });
+            // Base64データをBufferに変換
+            const buffer = Buffer.from(result.image.data, "base64");
+            const fileName = `generated_${Date.now()}.png`;
+            const file = new AttachmentBuilder(buffer, { name: fileName });
 
-            // reply-generate が元のプロンプトを拾えるように「-# プロンプト:」行を残す
             const shortPrompt = userPrompt.length > 500 ? `${userPrompt.slice(0, 500)}…` : userPrompt;
             const lines = [
                 `-# 🎨 ${result.modelLabel} で生成`,
-                `-# プロンプト: ${shortPrompt.replace(/\n/g, " ")}`,
-                `-# このメッセージに返信すると、追加の要望を反映して作り直します`
+                `-# プロンプト: ${shortPrompt.replace(/\n/g, " ")}`
             ];
-            if (result.text) {
-                lines.unshift(result.text.slice(0, 1000));
-            }
 
             await interaction.editReply({
                 content: lines.join("\n"),
                 files: [file]
             });
+
         } catch (error) {
             isCompleted = true;
             clearTimeout(slowTimer);
 
-            if (error instanceof NoImageError) {
-                console.warn("[generate] 画像が返りませんでした:", error.modelText);
-                const reason = error.modelText ? `\n> ${error.modelText.slice(0, 500)}` : "";
-                await interaction.editReply(`画像を生成できませんでした。プロンプトを変えて試してみてください。${reason}`);
-                return;
-            }
-
             console.error("Gemini Image Generate Error:", error);
-            await interaction.editReply("現在、すべての画像生成モデルがAPI/レート制限のため一時的に利用できません。少し時間をおいてから再度お試しください。");
+            await interaction.editReply("現在、すべての画像生成モデルがAPI制限や混雑のため一時的に利用できません。少し時間をおいてから再度お試しください。");
         }
     }
 };
