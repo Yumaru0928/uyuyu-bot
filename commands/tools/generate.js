@@ -5,63 +5,67 @@ const {
     AttachmentBuilder,
     MessageFlags
 } = require("discord.js");
-const { GoogleGenAI } = require("@google/genai");
+
+// 外部の config.json を読み込む
+// ※ パスは現在のファイル位置から config.json への相対パスに合わせて調整してください
+const config = require("../../config.json");
 
 const LOADING = "<a:load:1559811422261747783>";
 
-// GoogleGenAIクライアントの初期化（環境変数 GEMINI_API_KEY が自動で読み込まれます）
-const ai = new GoogleGenAI({});
+// config.json または環境変数から設定を読み込み
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || config.CLOUDFLARE_ACCOUNT_ID;
+const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || config.CLOUDFLARE_API_TOKEN;
 
-// 指定された順序でフォールバックしながら画像を生成する関数
-async function generateImageWithFallback(contents, onFallback) {
-    const modelsToTry = [
-        'gemini-nano-banana-2.1',
-        'gemini-3.1-flash-lite-image',
-        'gemini-3.1-flash-image',
-        'gemini-2.5-flash-image'
-    ];
+// 利用するモデル
+const MODELS_TO_TRY = [
+    '@cf/black-forest-labs/flux-1-schnell'
+];
+
+// Cloudflare Workers AI を呼び出して画像を生成する関数
+async function generateImageWithCloudflare(prompt, onFallback) {
     let lastError = null;
 
-    for (const modelName of modelsToTry) {
+    for (const modelName of MODELS_TO_TRY) {
         try {
-            const interactionResult = await ai.interactions.create({
-                model: modelName,
-                input: contents,
-            });
+            const response = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${modelName}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        steps: 4 // schnellの推奨ステップ数（最大8）
+                    })
+                }
+            );
 
-            const generatedImage = interactionResult.output_image;
-            if (!generatedImage) {
-                // 画像データが含まれていない場合はエラーとして扱って次へ
-                throw new Error(`モデル ${modelName} から画像が返されませんでした。`);
+            const result = await response.json();
+
+            if (!result.success) {
+                const errorMsg = result.errors?.[0]?.message || 'APIのエラーが発生しました。';
+                throw new Error(errorMsg);
+            }
+
+            const base64Data = result.result?.image;
+            if (!base64Data) {
+                throw new Error(`モデル ${modelName} から画像データが返されませんでした。`);
             }
 
             return {
-                image: generatedImage,
+                image: base64Data,
                 modelLabel: modelName
             };
+
         } catch (error) {
             lastError = error;
-            // 404, 503, 429 や混雑エラーなどの場合に次のモデルへフォールバック
-            const status = error.status;
-            const message = error.message || "";
-            if (
-                status === 404 || 
-                status === 503 || 
-                status === 429 || 
-                message.includes('503') || 
-                message.includes('429') || 
-                message.includes('404') || 
-                message.includes('not found') || 
-                message.includes('overloaded') ||
-                message.includes('画像が返されませんでした')
-            ) {
-                console.warn(`[Image Generate] モデル ${modelName} が利用できないか混雑中のため、次のモデルにフォールバックします...`, error);
-                if (onFallback) {
-                    await onFallback(modelName);
-                }
-                continue;
+            console.warn(`[Cloudflare AI] モデル ${modelName} でエラーが発生しました:`, error.message);
+            
+            if (onFallback) {
+                await onFallback(modelName, error.message);
             }
-            throw error;
         }
     }
     throw lastError;
@@ -70,7 +74,7 @@ async function generateImageWithFallback(contents, onFallback) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("generate")
-        .setDescription("Gemini モデルで画像を生成します")
+        .setDescription("Cloudflare Workers AI (FLUX.1 schnell) で画像を生成します")
         .addStringOption(option =>
             option.setName("prompt")
                 .setDescription("生成したい画像の内容を入力してください")
@@ -78,7 +82,7 @@ module.exports = {
         )
         .addAttachmentOption(option =>
             option.setName("attachments")
-                .setDescription("参考にする画像（編集したい画像、スタイル参考など）")
+                .setDescription("参考画像（現状のAPI仕様上、テキストプロンプトが優先されます）")
                 .setRequired(false)
         )
         .setIntegrationTypes([
@@ -95,7 +99,6 @@ module.exports = {
         const userPrompt = interaction.options.getString("prompt");
         const attachment = interaction.options.getAttachment("attachments");
 
-        // 画像以外のファイルは受け付けない
         if (attachment && !(attachment.contentType || "").startsWith("image/")) {
             await interaction.reply({
                 content: `添付できるのは画像ファイルのみです（\`${attachment.name}\` は画像ではありません）。`,
@@ -110,36 +113,28 @@ module.exports = {
         const slowTimer = setTimeout(async () => {
             if (!isCompleted) {
                 try {
-                    await interaction.editReply(`${LOADING} 画像を生成しています…（少々お時間がかかります）`);
+                    await interaction.editReply(`${LOADING} Cloudflareで画像を生成しています…（少々お時間がかかります）`);
                 } catch (e) { }
             }
         }, 5000);
 
         try {
-            // 入力データの組み立て
-            // ※必要に応じて添付画像のフェッチ・マルチモーダル対応部分を適宜組み込んでください
-            const contents = attachment 
-                ? [userPrompt, { inlineData: { data: "", mimeType: attachment.contentType } }] 
-                : userPrompt;
-
-            // フォールバック機構付きの画像生成呼び出し
-            const result = await generateImageWithFallback(contents, async (failedModel) => {
+            const result = await generateImageWithCloudflare(userPrompt, async (failedModel, msg) => {
                 try {
-                    await interaction.editReply(`${LOADING} ${failedModel} がレート制限か混雑中のため、次のモデルに切り替えています...`);
+                    await interaction.editReply(`${LOADING} モデル \`${failedModel}\` が混雑中またはエラーのため切り替えています...`);
                 } catch (e) { }
             });
 
             isCompleted = true;
             clearTimeout(slowTimer);
 
-            // Base64データをBufferに変換
-            const buffer = Buffer.from(result.image.data, "base64");
-            const fileName = `generated_${Date.now()}.png`;
+            const buffer = Buffer.from(result.image, "base64");
+            const fileName = `generated_${Date.now()}.jpg`;
             const file = new AttachmentBuilder(buffer, { name: fileName });
 
             const shortPrompt = userPrompt.length > 500 ? `${userPrompt.slice(0, 500)}…` : userPrompt;
             const lines = [
-                `-# 🎨 ${result.modelLabel} で生成`,
+                `-# 🎨 Cloudflare Workers AI (${result.modelLabel}) で生成`,
                 `-# プロンプト: ${shortPrompt.replace(/\n/g, " ")}`
             ];
 
@@ -152,8 +147,8 @@ module.exports = {
             isCompleted = true;
             clearTimeout(slowTimer);
 
-            console.error("Gemini Image Generate Error:", error);
-            await interaction.editReply("現在、すべての画像生成モデルがAPI制限や混雑のため一時的に利用できません。少し時間をおいてから再度お試しください。");
+            console.error("Cloudflare Image Generate Error:", error);
+            await interaction.editReply("現在、画像生成APIの制限や混雑のため画像を生成できませんでした。設定ファイルの値やアカウントの状態を確認して再度お試しください。");
         }
     }
 };
