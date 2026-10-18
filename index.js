@@ -52,7 +52,6 @@ process.on('uncaughtException', error => console.error('[Uncaught Exception]', e
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
 const replyChatEvent = require('./events/reply-chat.js');
-const replyGenerateEvent = require('./events/reply-generate.js');
 
 
 
@@ -60,7 +59,6 @@ const replyGenerateEvent = require('./events/reply-generate.js');
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
 client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 client.on(replyChatEvent.name, (...args) => replyChatEvent.execute(...args));
-client.on(replyGenerateEvent.name, (...args) => replyGenerateEvent.execute(...args));
 
 // ★ Express に client インスタンスを登録
 app.set('client', client);
