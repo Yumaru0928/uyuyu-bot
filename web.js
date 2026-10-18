@@ -1,11 +1,13 @@
 // web.js
+const crypto = require('node:crypto');
+const path = require('node:path');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
-const path = require('node:path');
-const fs = require('node:fs');
+const { ChannelType } = require('discord.js');
 const createRemember = require('./remember.js');
+const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('./channel-config.js');
 
 const app = express();
 
@@ -13,8 +15,15 @@ const app = express();
 app.set('trust proxy', 1);
 
 // 1. セッション設定
+//    SESSION_SECRET が無いときに、ソースに書かれた固定値（誰でも知っている値）で署名しないよう、
+//    起動ごとのランダム値を使う（再起動でログイン中のセッションは無効になる）。
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) {
+    console.warn('[Web] SESSION_SECRET が未設定です。起動ごとのランダムな値を使います（再起動でログインが解除されます）。');
+}
+
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'uyuyu_session_secret',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -30,10 +39,14 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // 3. ユーザーのシリアライズ・デシリアライズ
+//    done の引数は (エラー, ユーザー)。
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
 // 4. Discord Strategy の設定
+//    オプション名は scopes ではなく scope。
+//    CLIENT_ID / CLIENT_SECRET が未設定だと Strategy 生成時に例外で落ちるため、
+//    未設定ならログインだけ無効にして Bot とサイトは動かし続ける。
 const discordAuthEnabled = Boolean(process.env.CLIENT_ID && process.env.CLIENT_SECRET);
 
 // ログイン状態の保持（トークンを暗号化した httpOnly Cookie に保存）
@@ -49,7 +62,8 @@ if (discordAuthEnabled) {
         clientID: process.env.CLIENT_ID,
         clientSecret: process.env.CLIENT_SECRET,
         callbackURL: process.env.CALLBACK_URL || 'http://localhost:3000/auth/discord/callback',
-        scope: ['identify', 'guilds']
+        scope: ['identify', 'guilds'],
+        state: true // 他人が用意した認可コードでログインさせられる攻撃（ログインCSRF）の対策
     }, (accessToken, refreshToken, profile, done) => {
         return done(null, { ...profile, auth: { accessToken, refreshToken } });
     }));
@@ -62,20 +76,56 @@ if (discordAuthEnabled) {
 }
 
 app.use(express.urlencoded({ extended: true }));
+
+// 他のサイトから送られた POST（フォームの自動送信など）は受け付けない。
+// ブラウザが付ける Sec-Fetch-Site で判定する（付かない古いブラウザは、SameSite=Lax の Cookie が守る）
+app.use((req, res, next) => {
+    if (req.method === 'POST' && req.get('sec-fetch-site') === 'cross-site') {
+        return res.status(403).send('不正なリクエストです。');
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ビューエンジンの設定（EJS）
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// 管理者権限（Administrator = 0x8）かどうか
+// 設定を変えられる権限: 管理者（Administrator）または「チャンネルの管理」。
+// Bot の設定コマンド（/set-delete-log-channel など）の必要権限（チャンネルの管理）と揃えてある。
+// permissions は数値・文字列どちらで来ても扱えるよう BigInt で判定する
 const ADMINISTRATOR = 0x8n;
-function isAdmin(guild) {
+const MANAGE_CHANNELS = 0x10n;
+function canManage(guild) {
     try {
-        return (BigInt(guild.permissions) & ADMINISTRATOR) === ADMINISTRATOR;
+        const permissions = BigInt(guild.permissions);
+        return (permissions & (ADMINISTRATOR | MANAGE_CHANNELS)) !== 0n;
     } catch {
         return false;
     }
+}
+
+// 「設定を変えられる権限がある」かつ「Botが加入している」サーバーの一覧
+function manageableGuilds(req) {
+    const client = req.app.get('client');
+    if (!client || !client.guilds) return [];
+    const userGuilds = (req.user && req.user.guilds) || [];
+    return userGuilds.filter(guild => canManage(guild) && client.guilds.cache.has(guild.id));
+}
+
+// そのサーバーのテキストチャンネルを、Discord での並び順（カテゴリ → 位置）で返す
+function textChannelsOf(client, guildId) {
+    const guild = client && client.guilds ? client.guilds.cache.get(guildId) : null;
+    if (!guild) return [];
+    const order = channel => [channel.parent ? channel.parent.rawPosition : -1, channel.rawPosition];
+    return Array.from(guild.channels.cache.values())
+        .filter(channel => channel.type === ChannelType.GuildText)
+        .sort((a, b) => {
+            const [ap, ac] = order(a);
+            const [bp, bc] = order(b);
+            return ap - bp || ac - bc;
+        });
 }
 
 // ログインが無効な場合のガード
@@ -125,19 +175,7 @@ app.get('/dashboard', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
         return res.redirect('/auth/discord');
     }
-
-    const userGuilds = req.user.guilds || [];
-    const adminGuilds = userGuilds.filter(isAdmin);
-    const client = req.app.get('client');
-
-    if (!client || !client.guilds) {
-        return res.render('dashboard', { user: req.user, guilds: [], guildId: null });
-    }
-
-    const botGuildIds = client.guilds.cache.map(guild => guild.id);
-    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
-
-    res.render('dashboard', { user: req.user, guilds, guildId: null });
+    res.render('dashboard', { user: req.user, guilds: manageableGuilds(req), guildId: null });
 });
 
 // 7. 個別サーバーの設定画面 (GET)
@@ -146,121 +184,89 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
         return res.redirect('/auth/discord');
     }
     const guildId = req.params.guildId;
-    const userGuilds = req.user.guilds || [];
+    const guilds = manageableGuilds(req);
 
-    const adminGuilds = userGuilds.filter(isAdmin);
-    const client = req.app.get('client');
-    const botGuildIds = client && client.guilds ? client.guilds.cache.map(guild => guild.id) : [];
-
-    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
+    // 指定された guildId が、権限のあるサーバーの中に存在するかチェック
     const guild = guilds.find(g => g.id === guildId);
     if (!guild) {
         return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
     }
 
-    const filePath = path.join(__dirname, 'config-channels.json');
-    let configData = {};
-    try {
-        if (fs.existsSync(filePath)) {
-            configData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        }
-    } catch (error) {
-        console.error('[Web] config-channels.json の読み込みに失敗しました:', error);
-    }
-
-    const guildConfig = configData[guildId] || {};
-    const targetGuildObj = client ? client.guilds.cache.get(guildId) : null;
-    const channels = targetGuildObj ? Array.from(targetGuildObj.channels.cache.values()).filter(c => c.type === 0) : [];
-
-    res.render('guild', { 
-        user: req.user, 
-        guilds, 
-        guild, 
-        guildId, 
-        guildConfig, 
-        channels,
-        query: req.query 
+    res.render('guild', {
+        user: req.user,
+        guilds,
+        guild,
+        guildId,
+        guildConfig: getChannelConfig()[guildId] || {},
+        channels: textChannelsOf(req.app.get('client'), guildId),
+        query: req.query // 保存完了メッセージなどの判定用
     });
 });
 
 // 個別サーバーの設定保存処理 (POST)
-app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res) => {
-    if (!req.isAuthenticated()) {
-        return res.redirect('/auth/discord');
-    }
-    const guildId = req.params.guildId;
-    const userGuilds = req.user.guilds || [];
-
-    const adminGuilds = userGuilds.filter(isAdmin);
-    const client = req.app.get('client');
-    const botGuildIds = client && client.guilds ? client.guilds.cache.map(guild => guild.id) : [];
-    const guilds = adminGuilds.filter(guild => botGuildIds.includes(guild.id));
-    const guild = guilds.find(g => g.id === guildId);
-
-    if (!guild) {
-        return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
-    }
-
-    const targetGuildObj = client.guilds.cache.get(guildId);
-    const channelIds = new Set(
-        targetGuildObj
-            ? Array.from(targetGuildObj.channels.cache.values()).filter(c => c.type === 0).map(c => c.id)
-            : []
-    );
-
-    const toArray = v => (v === undefined ? [] : Array.isArray(v) ? v : [v]).map(String);
-    const deleteLogChannel = String(req.body.deleteLogChannel || '');
-    const reactOn = new Set(toArray(req.body.autoReact));
-
-    if (deleteLogChannel && !channelIds.has(deleteLogChannel)) {
-        return res.status(400).send('削除ログの送信先に指定できないチャンネルです。');
-    }
-
-    const filePath = path.join(__dirname, 'config-channels.json');
-    let configData = {};
+app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) => {
     try {
-        if (fs.existsSync(filePath)) {
-            configData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (!req.isAuthenticated()) {
+            return res.redirect('/auth/discord');
         }
-    } catch (error) {
-        console.error('[Web] config-channels.json の読み込みに失敗しました:', error);
-    }
+        const guildId = req.params.guildId;
 
-    if (!configData[guildId]) {
-        configData[guildId] = {};
-    }
-    const guildConfig = configData[guildId];
+        // 権限チェック（GETと同様に安全性を担保）
+        if (!manageableGuilds(req).some(g => g.id === guildId)) {
+            return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
+        }
 
-    if (deleteLogChannel) {
-        guildConfig.deleteLogChannel = deleteLogChannel;
-    } else {
-        delete guildConfig.deleteLogChannel;
-    }
+        // 設定できるのは、このサーバーのテキストチャンネルだけ（フォームを書き換えられても他のIDは受け付けない）
+        const client = req.app.get('client');
+        const channelIds = new Set(textChannelsOf(client, guildId).map(c => c.id));
 
-    const previouslyDisabled = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : [];
-    const keptHidden = previouslyDisabled.filter(id => !channelIds.has(id));
-    const nowDisabled = Array.from(channelIds).filter(id => !reactOn.has(id));
-    guildConfig.disableAutoReact = [...keptHidden, ...nowDisabled];
+        // フォームの値を取り出す。チェックボックスは 0件→undefined / 1件→文字列 / 複数→配列 で届く
+        const toArray = v => (v === undefined ? [] : Array.isArray(v) ? v : [v]).map(String);
+        const deleteLogChannel = String(req.body.deleteLogChannel || '');
+        const reactOn = new Set(toArray(req.body.autoReact));
 
-    try {
-        fs.writeFileSync(filePath, JSON.stringify(configData, null, 4), 'utf8');
-    } catch (error) {
-        console.error('[Web] config-channels.json の保存に失敗しました:', error);
-        return res.status(500).send('設定の保存に失敗しました。');
-    }
+        if (deleteLogChannel && !channelIds.has(deleteLogChannel)) {
+            return res.status(400).send('削除ログの送信先に指定できないチャンネルです。');
+        }
 
-    res.redirect(`/dashboard/${guildId}?saved=true`);
-
-    if (client.commitJsonToGitHub) {
+        let configData;
         try {
+            configData = updateChannelConfig(data => {
+                const guildConfig = ensureGuildConfig(data, guildId);
+
+                // 削除ログの送信先（空なら設定を消す）
+                if (deleteLogChannel) {
+                    guildConfig.deleteLogChannel = deleteLogChannel;
+                } else {
+                    delete guildConfig.deleteLogChannel;
+                }
+
+                // Auto-React を無効にするチャンネル = 「画面に出ていてオフにされたもの」
+                // 画面に出ていない（削除済みなど）既存のIDは、そのまま残す
+                const previouslyDisabled = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : [];
+                const keptHidden = previouslyDisabled.filter(id => !channelIds.has(id));
+                const nowDisabled = Array.from(channelIds).filter(id => !reactOn.has(id));
+                guildConfig.disableAutoReact = [...keptHidden, ...nowDisabled];
+            });
+        } catch (error) {
+            console.error('[Web] config-channels.json の保存に失敗しました:', error);
+            return res.status(500).send('設定の保存に失敗しました。');
+        }
+
+        // 保存完了後にクエリ付きでリダイレクト（画面に「保存しました」と表示するため）
+        res.redirect(`/dashboard/${guildId}?saved=true`);
+
+        // Render は再起動で設定ファイルが消えるため、コマンド側と同じく GitHub の data ブランチにも反映する
+        // （通信に数秒かかるので、画面への応答を先に返してから行う）
+        if (client && client.commitJsonToGitHub) {
             await client.commitJsonToGitHub(
                 'config-channels.json',
                 configData,
                 `auto: update settings from dashboard in guild ${guildId} [skip render]`
             );
-        } catch (error) {
-            console.error('[Web] GitHubへの設定の反映に失敗しました:', error);
         }
+    } catch (error) {
+        next(error);
     }
 });
 

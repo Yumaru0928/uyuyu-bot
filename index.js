@@ -9,6 +9,7 @@ const consoleForward = require('./console-forward.js');
 consoleForward.install();
 
 const deployCommands = require('./deploy-commands.js');
+const { updateChannelConfig } = require('./channel-config.js');
 
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
@@ -84,28 +85,42 @@ client.on('ready', () => {
 });
 
 // ===================================================
-// ★ GitHubコミット用関数（dataブランチ対応版）
+// ★ GitHub との設定同期（dataブランチ）
+//   Render は再起動・再デプロイでファイルが元に戻るため、設定ファイルを data ブランチに保存しておき、
+//   起動時にそこから読み戻す。
 // ===================================================
-async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    const GITHUB_REPO = process.env.GITHUB_REPO;
-    const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "data";
+const GITHUB_TIMEOUT_MS = 15000;
 
-    if (!GITHUB_TOKEN || !GITHUB_REPO) {
+function githubSettings() {
+    const token = process.env.GITHUB_TOKEN;
+    const repo = process.env.GITHUB_REPO;
+    if (!token || !repo) return null;
+    return {
+        repo,
+        branch: process.env.GITHUB_BRANCH || "data",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+        },
+    };
+}
+
+async function commitJsonToGitHubNow(filePath, contentData, commitMessage) {
+    const github = githubSettings();
+    if (!github) {
         console.error("[GitHub Sync] GITHUB_TOKEN または GITHUB_REPO が設定されていません。");
         return;
     }
 
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
-    const headers = {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-        "Content-Type": "application/json",
-    };
+    const url = `https://api.github.com/repos/${github.repo}/contents/${filePath}`;
 
     try {
         let sha = null;
-        const getRes = await fetch(`${url}?ref=${GITHUB_BRANCH}`, { headers });
+        const getRes = await fetch(`${url}?ref=${github.branch}`, {
+            headers: github.headers,
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        });
         if (getRes.ok) {
             const fileData = await getRes.json();
             sha = fileData.sha;
@@ -117,24 +132,67 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
         const body = {
             message: commitMessage,
             content: contentBase64,
-            branch: GITHUB_BRANCH,
+            branch: github.branch,
             ...(sha && { sha }),
         };
 
         const putRes = await fetch(url, {
             method: "PUT",
-            headers,
+            headers: github.headers,
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
         });
 
         if (putRes.ok) {
-            console.log(`[GitHub Sync] ${GITHUB_BRANCH} ブランチの ${filePath} へのコミットに成功しました。`);
+            console.log(`[GitHub Sync] ${github.branch} ブランチの ${filePath} へのコミットに成功しました。`);
         } else {
             const err = await putRes.text();
             console.error("[GitHub Sync Error]", err);
         }
     } catch (error) {
         console.error("[GitHub Sync Failed]", error);
+    }
+}
+
+// 同時に複数の変更が来ても、sha の食い違い（409）にならないよう 1 件ずつ順番にコミットする
+let commitQueue = Promise.resolve();
+
+function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
+    commitQueue = commitQueue.then(() => commitJsonToGitHubNow(filePath, contentData, commitMessage));
+    return commitQueue;
+}
+
+// data ブランチの設定ファイルを読み戻して、ローカルの設定に反映する。
+// ・失敗しても起動は続ける（ローカルのファイルをそのまま使う）
+// ・サーバーごとに data ブランチの内容を優先し、data に無いサーバーはローカルの内容を残す
+async function restoreConfigFromGitHub(filePath = 'config-channels.json') {
+    const github = githubSettings();
+    if (!github) return;
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${filePath}?ref=${github.branch}`, {
+            headers: github.headers,
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+            console.warn(`[GitHub Sync] ${github.branch} ブランチの ${filePath} を取得できませんでした (HTTP ${res.status})。ローカルの設定を使います。`);
+            return;
+        }
+
+        const file = await res.json();
+        const remote = JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8'));
+        if (!remote || typeof remote !== 'object' || Array.isArray(remote)) {
+            console.warn(`[GitHub Sync] ${filePath} の形式が正しくないため、読み戻しをスキップしました。`);
+            return;
+        }
+
+        const guildIds = Object.keys(remote);
+        updateChannelConfig(local => {
+            for (const guildId of guildIds) local[guildId] = remote[guildId];
+        });
+        console.log(`[GitHub Sync] ${github.branch} ブランチから ${guildIds.length} サーバー分の設定を読み戻しました。`);
+    } catch (error) {
+        console.error('[GitHub Sync] 設定の読み戻しに失敗しました。ローカルの設定を使います:', error);
     }
 }
 
@@ -208,6 +266,7 @@ if (fs.existsSync(configPath)) {
 
 async function main() {
     try {
+        await restoreConfigFromGitHub();
         await deployCommands();
         await client.login(token);
     } catch (error) {

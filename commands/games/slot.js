@@ -1,34 +1,27 @@
-const { 
-    SlashCommandBuilder, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
-    ComponentType, 
-    ApplicationIntegrationType, 
-    InteractionContextType 
+const {
+    SlashCommandBuilder,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType,
+    MessageFlags,
+    ApplicationIntegrationType,
+    InteractionContextType
 } = require("discord.js");
+const { UYUYU_EMOJIS, SLOT_TRANSPARENT, SLOT_EXTRA, asText } = require("../../emojis.js");
 
-// 提供された絵文字リスト（アニメーション絵文字と通常のカスタム絵文字）
+// スロットに使う絵文字（透明のアニメーション絵文字と、通常のカスタム絵文字）
+// ※ uyuyu_1 は元からスロットには入っていない
 const Emojis = [
-    '<a:transparent:1558522934438658119>',
-    '<:emoji_1:1557748839035838626>',
-    '<:emoji_2:1557748837194403972>',
-    '<:emoji_3:1557409243311644846>',
-    '<:emoji_4:1557409093059219457>',
-    '<:emoji_5:1557407787221516289>',
-    '<:emoji_6:1557407767600570418>',
-    '<:emoji_7:1557407765704478900>',
-    '<:emoji_8:1557407760986017853>',
-    '<:emoji_9:1557407751259291698>',
-    '<:emoji_10:1557407749556408381>',
-    '<:emoji_11:1557407747627294761>',
-    '<:emoji_12:1557407745676943392>',
-    '<:emoji_13:1557407743931842610>',
-    '<:emoji_14:1557407738919919666>',
-    '<:emoji_15:1557023770919698573>',
-    '<:emoji_16:1558816474267910154>'
+    SLOT_TRANSPARENT,
+    ...UYUYU_EMOJIS.filter(emoji => emoji.name !== 'uyuyu_1').map(asText),
+    SLOT_EXTRA
 ];
+
+const COLLECTOR_TIME_MS = 60000; // 60秒
+
+const randomEmoji = () => Emojis[Math.floor(Math.random() * Emojis.length)];
 
 // 確率を制御してスロットの結果（リール）を作る関数
 function spinSlotsWithBias() {
@@ -37,14 +30,14 @@ function spinSlotsWithBias() {
 
     if (rand < 5) {
         // 大当たり（3つ全て同じ）: 5%
-        const winningEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
+        const winningEmoji = randomEmoji();
         reel = [winningEmoji, winningEmoji, winningEmoji];
     } else if (rand < 25) {
         // おしい（2つ同じ）: 20%
-        const matchingEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
+        const matchingEmoji = randomEmoji();
         let otherEmoji;
         do {
-            otherEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
+            otherEmoji = randomEmoji();
         } while (otherEmoji === matchingEmoji);
 
         const patterns = [
@@ -54,16 +47,27 @@ function spinSlotsWithBias() {
         ];
         reel = patterns[Math.floor(Math.random() * patterns.length)];
     } else {
-        // 完全ハズレ: 50%
+        // 完全ハズレ（3つとも別々）: 75%
         while (reel.length < 3) {
-            const randomEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
-            if (!reel.includes(randomEmoji)) {
-                reel.push(randomEmoji);
+            const emoji = randomEmoji();
+            if (!reel.includes(emoji)) {
+                reel.push(emoji);
             }
         }
     }
 
     return reel;
+}
+
+// スピンボタンの行（無効化した状態も作れる）
+function spinRow(label = "🎰 スピンする！", disabled = false) {
+    const spinButton = new ButtonBuilder()
+        .setCustomId(disabled ? "slot_spin_disabled" : "slot_spin")
+        .setLabel(label)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(disabled);
+
+    return new ActionRowBuilder().addComponents(spinButton);
 }
 
 // スロットの結果判定とメッセージ作成ヘルパー
@@ -88,47 +92,40 @@ function buildSlotMessage(reel) {
         )
         .setTimestamp();
 
-    const spinButton = new ButtonBuilder()
-        .setCustomId("slot_spin")
-        .setLabel("🎰 スピンする！")
-        .setStyle(ButtonStyle.Primary);
-
-    const row = new ActionRowBuilder().addComponents(spinButton);
-
-    return { embeds: [embed], components: [row] };
+    return { embeds: [embed], components: [spinRow()] };
 }
 
 // ボタンのインタラクションを処理するコレクター
-function setupCollector(responseMessage, userId) {
+// webhook: コマンドのインタラクションの Webhook（時間切れでボタンを無効にするときに使う）
+function setupCollector(responseMessage, userId, webhook) {
     const collector = responseMessage.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 60000 // 60秒
+        time: COLLECTOR_TIME_MS
     });
 
     collector.on('collect', async i => {
         if (i.user.id !== userId) {
-            await i.reply({ content: '他の人のスロットは操作できません。自分でコマンドを実行してください！', ephemeral: true });
+            await i.reply({ content: '他の人のスロットは操作できません。自分でコマンドを実行してください！', flags: MessageFlags.Ephemeral });
             return;
         }
 
-        const disabledButton = new ButtonBuilder()
-            .setCustomId("slot_spin_disabled")
-            .setLabel("回転中...")
-            .setStyle(ButtonStyle.Primary)
-            .setDisabled(true);
+        // このメッセージはここで役目を終える（次の結果は新しいメッセージで出す）
+        collector.stop('spun');
 
-        // ★ 修正: newActionRowBuilder() → new ActionRowBuilder() に修正
-        await i.update({ components: [new ActionRowBuilder().addComponents(disabledButton)] });
+        await i.update({ components: [spinRow("回転中...", true)] });
 
-        const newReel = spinSlotsWithBias();
-        const newPayload = buildSlotMessage(newReel);
-        
-        // ★ 修正: fetchReply を削除（または withResponse を利用する形へ変更）
-        const newResponse = await i.followUp({
-            ...newPayload
-        });
+        const newPayload = buildSlotMessage(spinSlotsWithBias());
+        const newResponse = await i.followUp(newPayload);
 
-        setupCollector(newResponse, userId);
+        setupCollector(newResponse, userId, webhook);
+    });
+
+    // 60秒操作がなかったら、反応しなくなったボタンを無効にしておく
+    collector.on('end', (collected, reason) => {
+        if (reason !== 'time') return;
+        webhook
+            .editMessage(responseMessage, { components: [spinRow("時間切れ", true)] })
+            .catch(() => { }); // 15分を過ぎたインタラクションなどは編集できないので、失敗しても気にしない
     });
 }
 
@@ -147,15 +144,11 @@ module.exports = {
         ]),
 
     async execute(interaction) {
-        const initialReel = spinSlotsWithBias();
-        const payload = buildSlotMessage(initialReel);
+        const payload = buildSlotMessage(spinSlotsWithBias());
 
-        // ★ 修正: 初回返信時も fetchReply を削除
-        const responseMessage = await interaction.reply({
-            ...payload,
-            fetchReply: true // 初回返信時の fetchReply は警告が出るため削除
-        });
+        // 返信したメッセージを受け取る（fetchReply は非推奨なので withResponse を使う）
+        const response = await interaction.reply({ ...payload, withResponse: true });
 
-        setupCollector(responseMessage, interaction.user.id);
+        setupCollector(response.resource.message, interaction.user.id, interaction.webhook);
     }
 };

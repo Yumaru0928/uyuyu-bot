@@ -5,6 +5,7 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ComponentType,
+    MessageFlags,
     ApplicationIntegrationType,
     InteractionContextType
 } = require('discord.js');
@@ -60,12 +61,16 @@ function formatCard(card) {
     return `${card.rank}${card.suit}`;
 }
 
+// 最初の2枚で21（A + 10点札）＝ ブラックジャック
+const isBlackjack = hand => hand.length === 2 && getHandValue(hand) === 21;
+
 function createBlackjackEmbed({ description, playerHand, dealerHand, revealDealer, title = 'Blackjack' }) {
     const playerTotal = getHandValue(playerHand);
     const dealerTotal = getHandValue(dealerHand);
 
+    // 伏せ札は「??」で表す（1か所だけで付ける）
     const dealerCards = revealDealer
-        ? dealerHand.map(formatCard).join(' ')
+        ? `${dealerHand.map(formatCard).join(' ')} (${dealerTotal})`
         : `${formatCard(dealerHand[0])} ??`;
 
     const playerCards = playerHand.map(formatCard).join(' ');
@@ -75,7 +80,7 @@ function createBlackjackEmbed({ description, playerHand, dealerHand, revealDeale
         .setTitle(title)
         .setDescription(description)
         .addFields(
-            { name: 'ディーラー', value: revealDealer ? `${dealerCards} (${dealerTotal})` : `${dealerCards} ??`, inline: false },
+            { name: 'ディーラー', value: dealerCards, inline: false },
             { name: 'プレイヤー', value: `${playerCards} (${playerTotal})`, inline: false }
         );
 }
@@ -120,26 +125,63 @@ module.exports = {
 
         const actionRow = new ActionRowBuilder().addComponents(hitButton, standButton);
 
-        const revealDealer = false;
+        // ディーラーが17以上になるまでカードを引き、勝敗の文章を返す
+        const settle = () => {
+            while (getHandValue(dealerHand) < 17) {
+                dealerHand.push(drawCard());
+            }
+
+            const playerTotal = getHandValue(playerHand);
+            const dealerTotal = getHandValue(dealerHand);
+
+            if (playerTotal > 21) return '💥 バースト！ディーラーの勝ちです。';
+            if (dealerTotal > 21) return '🤑 ディーラーがバースト！プレイヤーの勝ちです。';
+            if (playerTotal > dealerTotal) return '🎉 プレイヤーの勝ちです！';
+            if (playerTotal < dealerTotal) return '💸 ディーラーの勝ちです。';
+            return '引き分けです。';
+        };
+
+        // 最初の2枚で決着がつく場合（ブラックジャック）は、ボタンを出さずに結果を表示する
+        if (isBlackjack(playerHand) || isBlackjack(dealerHand)) {
+            let description = '引き分けです。（どちらもブラックジャック）';
+            if (isBlackjack(playerHand) && !isBlackjack(dealerHand)) {
+                description = '🃏 **ブラックジャック！** プレイヤーの勝ちです！';
+            } else if (!isBlackjack(playerHand)) {
+                description = '💸 ディーラーがブラックジャック。ディーラーの勝ちです。';
+            }
+
+            await interaction.reply({
+                embeds: [createBlackjackEmbed({
+                    title: 'Blackjack 結果',
+                    description,
+                    playerHand,
+                    dealerHand,
+                    revealDealer: true,
+                })],
+            });
+            return;
+        }
+
         const initialEmbed = createBlackjackEmbed({
             description: 'カードを引くか、スタンドしてディーラーと対戦します。',
             playerHand,
             dealerHand,
-            revealDealer,
+            revealDealer: false,
         });
 
-        const response = await interaction.reply({
+        // 返信したメッセージを受け取る（fetchReply は非推奨なので withResponse を使う）
+        const replied = await interaction.reply({
             embeds: [initialEmbed],
             components: [actionRow],
-            fetchReply: true
+            withResponse: true
         });
 
-        const collector = response.createMessageComponentCollector({
+        const collector = replied.resource.message.createMessageComponentCollector({
             componentType: ComponentType.Button,
             time: 60000,
         });
 
-        const endRound = async (i, description, finalDealerHand = dealerHand, finalReveal = true) => {
+        const endRound = async (i, description) => {
             hitButton.setDisabled(true);
             standButton.setDisabled(true);
 
@@ -147,8 +189,8 @@ module.exports = {
                 title: 'Blackjack 結果',
                 description,
                 playerHand,
-                dealerHand: finalDealerHand,
-                revealDealer: finalReveal,
+                dealerHand,
+                revealDealer: true,
             });
 
             await i.update({ embeds: [finalEmbed], components: [actionRow] });
@@ -157,7 +199,7 @@ module.exports = {
 
         collector.on('collect', async i => {
             if (i.user.id !== interaction.user.id) {
-                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', flags: 64 });
+                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -166,12 +208,13 @@ module.exports = {
                 const playerTotal = getHandValue(playerHand);
 
                 if (playerTotal > 21) {
-                    await endRound(i, '💥 バースト！ディーラーの勝ちです。');
+                    await endRound(i, settle());
                     return;
                 }
 
+                // 21になったら、それ以上引く意味がないので自動でスタンド（ディーラーが21なら引き分け）
                 if (playerTotal === 21) {
-                    await endRound(i, '🎯 21達成！プレイヤーの勝ちです。');
+                    await endRound(i, `🎯 21達成！\n${settle()}`);
                     return;
                 }
 
@@ -187,24 +230,7 @@ module.exports = {
             }
 
             if (i.customId === 'bj_stand') {
-                while (getHandValue(dealerHand) < 17) {
-                    dealerHand.push(drawCard());
-                }
-
-                const playerTotal = getHandValue(playerHand);
-                const dealerTotal = getHandValue(dealerHand);
-
-                let resultText = '引き分けです。';
-
-                if (dealerTotal > 21) {
-                    resultText = '🤑 ディーラーがバースト！プレイヤーの勝ちです。';
-                } else if (playerTotal > dealerTotal) {
-                    resultText = '🎉 プレイヤーの勝ちです！';
-                } else if (playerTotal < dealerTotal) {
-                    resultText = '💸 ディーラーの勝ちです。';
-                }
-
-                await endRound(i, resultText, dealerHand, true);
+                await endRound(i, settle());
             }
         });
 
@@ -223,4 +249,3 @@ module.exports = {
         });
     },
 };
-
