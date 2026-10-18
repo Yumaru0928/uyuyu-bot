@@ -1,13 +1,13 @@
 {
-  "name": "discord-bot",
+  "name": "uyuyu-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Discord Bot「うゆゆBot」と、設定用のWebダッシュボード",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "ゆまる",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -19,5 +19,12 @@
     "express-session": "^1.19.0",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yumaru0928/uyuyu-bot.git"
   }
 }

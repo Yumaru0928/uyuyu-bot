@@ -15,7 +15,7 @@
             </header>
 
             <% if (guilds.length) { %>
-            <p class="lead">設定を変えるサーバーを選んでください。管理者権限を持つサーバーだけが表示されます。</p>
+            <p class="lead">設定を変えるサーバーを選んでください。「管理者」または「チャンネルの管理」権限を持つサーバーだけが表示されます。</p>
             <ul class="tiles">
                 <% guilds.forEach(guild => { %>
                 <li>
@@ -34,7 +34,7 @@
             <% } else { %>
             <div class="empty">
                 <h2 class="empty-title">管理できるサーバーがありません</h2>
-                <p class="empty-text">管理者権限を持つサーバーがあると、ここに表示されます。権限のあるアカウントでログインし直してください。</p>
+                <p class="empty-text">「管理者」または「チャンネルの管理」権限を持つサーバーがあると、ここに表示されます。権限のあるアカウントでログインし直してください。</p>
                 <div class="empty-actions">
                     <a class="btn btn--primary" href="/auth/discord?force=1">ログインし直す</a>
                     <a class="btn btn--ghost" href="/invite.html">Botを招待</a>

@@ -39,6 +39,9 @@ const client = new Client({
 // ログを流したいDiscordチャンネルのID（Renderの環境変数 CONSOLE_LOG_CHANNEL_ID があればそちらを優先）
 // Botがログインする前の出力も、ログイン後にまとめて送られる
 const targetLogChannelId = process.env.CONSOLE_LOG_CHANNEL_ID || '1558496985315672085';
+if (!process.env.CONSOLE_LOG_CHANNEL_ID) {
+    console.warn('[Console Forward] CONSOLE_LOG_CHANNEL_ID が未設定のため、既定のチャンネルにログを送ります。削除ログと同じチャンネルの場合は、専用のチャンネルを環境変数で指定してください。');
+}
 consoleForward.attach(client, targetLogChannelId);
 
 // 想定外のエラーでプロセスごと落ちないようにする

@@ -9,6 +9,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uyuyu-bot.onrender.com/index.html" />
   <meta name="theme-color" content="#0E7A5C" />
+  <meta name="description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
   <title>うゆゆBot - Discord Bot</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet"
@@ -50,7 +51,7 @@
       <div class="feat">
         <div>
           <h3>うゆゆ絵文字のリアクション</h3>
-          <p>メッセージに次のどれかが含まれると、15種類のうゆゆ絵文字からランダムに1つを選んでリアクションします。</p>
+          <p>メッセージに次のどれかが含まれると、17種類のうゆゆ絵文字からランダムに1つを選んでリアクションします。</p>
           <ul class="chips">
             <li><span class="chip">うゆゆ</span></li>
             <li><span class="chip">uyuyu</span></li>
@@ -71,6 +72,26 @@
       <p class="sec-lead">実装されている一部のスラッシュコマンドです。サーバーでは「/」を入力すると候補が表示されます。</p>
       <ul class="cmds">
         <li class="cmd">
+          <div><code>/chat</code><span class="args">prompt / model / attachment</span></div>
+          <p>Geminiと会話します。Botの返答に返信すると、会話を続けられます。</p>
+        </li>
+        <li class="cmd">
+          <div><code>/generate</code><span class="args">prompt / attachments</span></div>
+          <p>プロンプトから画像を生成します（FLUX.1 schnell）。</p>
+        </li>
+        <li class="cmd">
+          <div><code>/slot</code></div>
+          <p>うゆゆ絵文字のスロットを回します。ボタンで何度でも回せます。</p>
+        </li>
+        <li class="cmd">
+          <div><code>/blackjack</code></div>
+          <p>ディーラーとブラックジャックで対戦します。</p>
+        </li>
+        <li class="cmd">
+          <div><code>/high-low</code></div>
+          <p>次の数字が大きいか小さいかを当てるゲームです。</p>
+        </li>
+        <li class="cmd">
           <div><code>/uyuyu-gacha</code></div>
           <p>うゆゆ絵文字を10個引いて、5×2の画像にして表示します。</p>
         </li>
@@ -89,12 +110,11 @@
           </p>
         </li>
       </ul>
-      <p class="perm-note">サーバー管理のコマンドは、「チャンネルの管理」権限を持つ人だけが実行できます。</p>
+      <p class="perm-note">サーバー管理のコマンドは、「チャンネルの管理」権限を持つ人だけが実行できます。ダッシュボードは、「管理者」または「チャンネルの管理」権限を持つ人が使えます。</p>
     </section>
 
-    <!-- ダッシュボードへのログインボタンをここに配置すると綺麗です -->
-    <section style="text-align: center; margin-top: 2rem;">
-      <a href="https://uyuyu-bot.onrender.com/auth/discord" class="btn">Discordでログインしてサーバーを管理する</a>
+    <section class="login-cta">
+      <a href="/auth/discord" class="btn">Discordでログインしてサーバーを管理する</a>
     </section>
   </main>
 

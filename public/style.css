@@ -11,8 +11,6 @@
     --on-accent: #FFFFFF;
     --mark: #FFE58A;
     --chip: #E4F0EA;
-    --danger-bg: #FDF2F2;
-    --danger-fg: #A91D1D;
     --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
     --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -29,8 +27,6 @@
         --on-accent: #08241A;
         --mark: #5E4E14;
         --chip: #1B2D25;
-        --danger-bg: #2C1515;
-        --danger-fg: #FF8B8B;
         color-scheme: dark;
     }
 }
@@ -45,8 +41,6 @@
     --on-accent: #08241A;
     --mark: #5E4E14;
     --chip: #1B2D25;
-    --danger-bg: #2C1515;
-    --danger-fg: #FF8B8B;
     color-scheme: dark;
 }
 
@@ -494,4 +488,9 @@ h2 {
     .nav a {
         transition: filter .15s, background .15s, color .15s, border-color .15s, transform .15s;
     }
+}
+/* トップページ下部のログインボタン */
+.login-cta {
+    text-align: center;
+    margin-top: 2rem;
 }

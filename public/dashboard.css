@@ -23,8 +23,6 @@
     --on-accent: #FFFFFF;
     --accent-soft: #E2F1EA;
     --sun: #FFD84D;
-    --danger: #B3303F;
-    --danger-soft: #FCEEF0;
 
     /* 書体 */
     --font-display: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
@@ -51,8 +49,6 @@
         --accent: #4FD1A5;
         --on-accent: #06261B;
         --accent-soft: #143027;
-        --danger: #FF8794;
-        --danger-soft: #33181C;
     }
 }
 
