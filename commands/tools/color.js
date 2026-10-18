@@ -1,4 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, MessageFlags } = require('discord.js');
+const { createCanvas } = require('@napi-rs/canvas');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -48,13 +49,13 @@ module.exports = {
                 .setTitle('⚠️ 無効なカラーコード')
                 .setDescription('正しいHEX表記（例: `#3498db` または `3498db`）またはRGB表記（例: `52, 152, 219`）を入力してください。');
             
-            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
 
         // --- 2. 各種色空間数値の計算 ---
         const hexNum = parseInt(hex, 16); // Embedのカラー用（数値）
         const hexStr = `#${hex}`;
-        const rgbStr = `rgb(${r}, ${g},${b})`;
+        const rgbStr = `rgb(${r}, ${g}, ${b})`;
         
         // HSL値の計算
         const rNorm = r / 255, gNorm = g / 255, bNorm = b / 255;
@@ -71,16 +72,20 @@ module.exports = {
             }
             h /= 6;
         }
-        const hslStr = `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}\%,${Math.round(l * 100)}%)`;
+        const hslStr = `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
 
-        // --- 3. プレビュー画像の自動生成URL (Single Color Image APIを利用) ---
-        const previewUrl = `https://singlecolorimage.com/get/${hex}/300x100`;
+        // --- 3. プレビュー画像を自前で生成（外部サービスに頼らない） ---
+        const canvas = createCanvas(300, 100);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = hexStr;
+        ctx.fillRect(0, 0, 300, 100);
+        const previewFile = new AttachmentBuilder(await canvas.encode('png'), { name: 'color.png' });
 
         // --- 4. Embedの構築 ---
         const colorEmbed = new EmbedBuilder()
             .setColor(hexNum) // Embedの左端サイドバーの色を指定
             .setTitle(`🎨 カラー詳細・変換結果`)
-            .setThumbnail(previewUrl) // 右上に指定した色のプレビュー画像を表示
+            .setThumbnail('attachment://color.png') // 右上に指定した色のプレビュー画像を表示
             .addFields(
                 { name: 'HEX', value: `\`${hexStr}\``, inline: true },
                 { name: 'RGB', value: `\`${rgbStr}\``, inline: true },
@@ -89,6 +94,6 @@ module.exports = {
             .setFooter({ text: `数値表記: ${hexNum}` })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [colorEmbed] });
+        await interaction.reply({ embeds: [colorEmbed], files: [previewFile] });
     },
 };

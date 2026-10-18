@@ -27,7 +27,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x0099FF)
             .setTitle(`🤖 ${client.user.username} の基本情報`)
-            .setThumbnail(client.user.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
             .addFields(
                 { name: '👑 Bot名', value: `${client.user.tag}`, inline: true },
                 { name: '🆔 Bot ID', value: `${client.user.id}`, inline: true },
@@ -43,19 +43,17 @@ module.exports = {
                 iconURL: interaction.user.displayAvatarURL()
             });
 
-            const websiteButton = new ButtonBuilder()
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
                 .setLabel('公式サイト')
                 .setURL('https://uyuyu-bot.onrender.com/')
-                .setStyle(ButtonStyle.Link);
-            const row = new ActionRowBuilder().addComponents(websiteButton);
-
-            const dashboardButton = new ButtonBuilder()
+                .setStyle(ButtonStyle.Link),
+            new ButtonBuilder()
                 .setLabel('ダッシュボード')
                 .setURL('https://uyuyu-bot.onrender.com/dashboard')
-                .setStyle(ButtonStyle.Link);
-            const row2 = new ActionRowBuilder().addComponents(dashboardButton);
-        
-        
-            await interaction.reply({ embeds: [embed], components: [row, row2] });
+                .setStyle(ButtonStyle.Link)
+        );
+
+        await interaction.reply({ embeds: [embed], components: [row] });
     },
 };
