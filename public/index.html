@@ -4,16 +4,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta property="og:title" content="うゆゆBot - Discord Bot" />
+  <meta name="google-site-verification" content="2bnnFScAU3ZK2YUMVR7yMDK4eJsPVpmCDDVNl8YWw4I" />
+  
+  <!-- ▼ 検索エンジン向け基本設定 (SEO) ▼ -->
+  <title>うゆゆBot - 公式Discord Bot | コマンド一覧・導入方法</title>
+  <meta name="description" content="「うゆゆ」と書き込むと絵文字で反応するDiscord Bot「うゆゆBot」の公式サイト。絵文字ガチャ、ダイス、ダーツの上がり目計算など、便利な機能やコマンド一覧、導入方法をご紹介します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/index.html">
+
+  <!-- ▼ OGP (SNS・Discordプレビュー設定) ▼ -->
+  <meta property="og:title" content="うゆゆBot - 公式Discord Bot" />
   <meta property="og:description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uyuyu-bot.onrender.com/index.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
   <meta name="theme-color" content="#0E7A5C" />
-  <title>うゆゆBot - Discord Bot</title>
+
+  <!-- ▼ スタイルシート・フォント ▼ -->
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
   <link rel="icon" href="uyuyu.png">
+
+  <!-- ▼ 構造化データ (JSON-LD: 検索エンジンにソフトウエア・Botであることを伝える) ▼ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "うゆゆBot",
+    "operatingSystem": "Discord",
+    "applicationCategory": "UtilitiesApplication",
+    "description": "「うゆゆ」と書き込むと絵文字で反応するDiscord Bot。絵文字ガチャ、ダイス、ダーツの上がり目計算など。",
+    "url": "https://uyuyu-bot.onrender.com/index.html"
+  }
+  </script>
 </head>
 
 <body>
@@ -37,7 +62,8 @@
   <main class="wrap">
     <section class="hero">
       <p class="eyebrow">Discord Bot</p>
-      <h1><span class="hl">うゆゆ</span>Bot</h1>
+      <!-- 検索エンジンは h1 を最も重要なキーワードとして認識するため、検索されやすいワードを含めました -->
+      <h1><span class="hl">うゆゆBot</span></h1>
       <p class="lead">「うゆゆ」と書き込むと絵文字で反応します。絵文字ガチャ、ダイス、ダーツの上がり目の計算など、サーバーで遊べるコマンドもそろっています。</p>
       <div class="cta">
         <a class="btn" href="invite.html">サーバーに招待する</a>
@@ -67,7 +93,7 @@
     </section>
 
     <section>
-      <h2>コマンド</h2>
+      <h2>コマンド一覧</h2>
       <p class="sec-lead">実装されている一部のスラッシュコマンドです。サーバーでは「/」を入力すると候補が表示されます。</p>
       <ul class="cmds">
         <li class="cmd">
@@ -92,7 +118,6 @@
       <p class="perm-note">サーバー管理のコマンドは、「チャンネルの管理」権限を持つ人だけが実行できます。</p>
     </section>
 
-    <!-- ダッシュボードへのログインボタンをここに配置すると綺麗です -->
     <section style="text-align: center; margin-top: 2rem;">
       <a href="https://uyuyu-bot.onrender.com/auth/discord" class="btn">Discordでログインしてサーバーを管理する</a>
     </section>
