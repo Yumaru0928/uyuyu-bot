@@ -2,5 +2,15 @@
   "1507782198391210165": {
     "deleteLogChannel": "1551086506742120580",
     "disableAutoReact": []
+  },
+  "1557756857332932608": {
+    "memberLogChannel": "1557756858704466072",
+    "deleteLogChannel": "1558496985315672085",
+    "disableAutoReact": []
+  },
+  "1526139098291769447": {
+    "disableAutoReact": [
+      "1544271078317367306"
+    ]
   }
 }
