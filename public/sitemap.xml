@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- トップページ (機能一覧) -->
+  <url>
+    <loc>https://uyuyu-bot.onrender.com/index.html</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- 利用規約 -->
+  <url>
+    <loc>https://uyuyu-bot.onrender.com/terms.html</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- プライバシーポリシー -->
+  <url>
+    <loc>https://uyuyu-bot.onrender.com/privacy.html</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- クレジット -->
+  <url>
+    <loc>https://uyuyu-bot.onrender.com/credits.html</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- 招待ページ -->
+  <url>
+    <loc>https://uyuyu-bot.onrender.com/invite.html</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
