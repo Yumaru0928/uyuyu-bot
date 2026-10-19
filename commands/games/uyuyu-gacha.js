@@ -1,25 +1,24 @@
 const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { UYUYU_EMOJIS } = require('../../emojis.js');
 
-// 対象の絵文字IDリスト
-const Emojis = [
-    '1549375294614540409',
-    '1557748837194403972',
-    '1557748839035838626',
-    '1557409093059219457',
-    '1557407745676943392',
-    '1557409243311644846',
-    '1557407749556408381',
-    '1557407765704478900',
-    '1557407751259291698',
-    '1557407738919919666',
-    '1557407767600570418',
-    '1557407760986017853',
-    '1557407743931842610',
-    '1557407787221516289',
-    '1557407747627294761',
-    '1558816474267910154'
-];
+// 対象の絵文字IDリスト（絵文字の一覧は emojis.js にまとめてある）
+const Emojis = UYUYU_EMOJIS.map(emoji => emoji.id);
+
+// 絵文字画像は一度読み込んだらメモリに残す（毎回CDNから10枚ダウンロードしない）
+const imageCache = new Map();
+
+async function loadEmojiImage(emojiId) {
+    if (!imageCache.has(emojiId)) {
+        // 同時に呼ばれても1回しか取りに行かないよう、読み込み中の Promise をそのまま保存する
+        const promise = loadImage(`https://cdn.discordapp.com/emojis/${emojiId}.png`).catch(error => {
+            imageCache.delete(emojiId); // 失敗したものは次回また試す
+            throw error;
+        });
+        imageCache.set(emojiId, promise);
+    }
+    return imageCache.get(emojiId);
+}
 
 /**
  * 10個の絵文字を選出して5×2のグリッド画像を生成する関数
@@ -46,23 +45,26 @@ async function generateEmojiGridImage() {
     ctx.fillStyle = '#2f3136';
     ctx.fillRect(0, 0, width, height);
 
-    for (let i = 0; i < selectedIds.length; i++) {
-        const emojiId = selectedIds[i];
-        const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png`;
-
+    // 画像は並行して読み込む（キャッシュ済みならすぐ終わる）
+    const images = await Promise.all(selectedIds.map(async emojiId => {
         try {
-            const img = await loadImage(emojiUrl);
-            const col = i % columns;
-            const row = Math.floor(i / columns);
-
-            const x = padding + col * (emojiSize + padding);
-            const y = padding + row * (emojiSize + padding);
-
-            ctx.drawImage(img, x, y, emojiSize, emojiSize);
+            return await loadEmojiImage(emojiId);
         } catch (error) {
             console.error(`絵文字画像 (${emojiId}) の読み込みに失敗しました:`, error);
+            return null;
         }
-    }
+    }));
+
+    images.forEach((img, i) => {
+        if (!img) return;
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+
+        const x = padding + col * (emojiSize + padding);
+        const y = padding + row * (emojiSize + padding);
+
+        ctx.drawImage(img, x, y, emojiSize, emojiSize);
+    });
 
     return await canvas.encode('png');
 }

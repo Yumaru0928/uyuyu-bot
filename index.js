@@ -9,6 +9,7 @@ const consoleForward = require('./console-forward.js');
 consoleForward.install();
 
 const deployCommands = require('./deploy-commands.js');
+const { updateChannelConfig } = require('./channel-config.js');
 
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
@@ -23,14 +24,30 @@ app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
 // ===================================================
 const client = new Client({
-    intents: Object.values(GatewayIntentBits).reduce((a, b) => a | b),
+    // 使う機能に必要なインテントだけを要求する（特権インテントは MessageContent のみ）
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+    ],
     partials: [Partials.Message, Partials.Channel],
+    // 既定では @everyone / @here / ロールのメンションでは通知しない（ユーザーへの返信メンションは従来どおり）
+    allowedMentions: { parse: ['users'], repliedUser: true },
 });
 
 // ログを流したいDiscordチャンネルのID（Renderの環境変数 CONSOLE_LOG_CHANNEL_ID があればそちらを優先）
 // Botがログインする前の出力も、ログイン後にまとめて送られる
 const targetLogChannelId = process.env.CONSOLE_LOG_CHANNEL_ID || '1558496985315672085';
+if (!process.env.CONSOLE_LOG_CHANNEL_ID) {
+    console.warn('[Console Forward] CONSOLE_LOG_CHANNEL_ID が未設定のため、既定のチャンネルにログを送ります。削除ログと同じチャンネルの場合は、専用のチャンネルを環境変数で指定してください。');
+}
 consoleForward.attach(client, targetLogChannelId);
+
+// 想定外のエラーでプロセスごと落ちないようにする
+client.on(Events.Error, error => console.error('[Client Error]', error));
+process.on('unhandledRejection', reason => console.error('[Unhandled Rejection]', reason));
+process.on('uncaughtException', error => console.error('[Uncaught Exception]', error));
 
 // ===================================================
 // ★ ② client が定義されたあとに各種イベントを読み込む
@@ -38,7 +55,6 @@ consoleForward.attach(client, targetLogChannelId);
 const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
 const replyChatEvent = require('./events/reply-chat.js');
-const replyGenerateEvent = require('./events/reply-generate.js');
 
 
 
@@ -46,7 +62,6 @@ const replyGenerateEvent = require('./events/reply-generate.js');
 client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...args));
 client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 client.on(replyChatEvent.name, (...args) => replyChatEvent.execute(...args));
-client.on(replyGenerateEvent.name, (...args) => replyGenerateEvent.execute(...args));
 
 // ★ Express に client インスタンスを登録
 app.set('client', client);
@@ -71,28 +86,42 @@ client.on('ready', () => {
 });
 
 // ===================================================
-// ★ GitHubコミット用関数（dataブランチ対応版）
+// ★ GitHub との設定同期（dataブランチ）
+//   Render は再起動・再デプロイでファイルが元に戻るため、設定ファイルを data ブランチに保存しておき、
+//   起動時にそこから読み戻す。
 // ===================================================
-async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    const GITHUB_REPO = process.env.GITHUB_REPO;
-    const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "data";
+const GITHUB_TIMEOUT_MS = 15000;
 
-    if (!GITHUB_TOKEN || !GITHUB_REPO) {
+function githubSettings() {
+    const token = process.env.GITHUB_TOKEN;
+    const repo = process.env.GITHUB_REPO;
+    if (!token || !repo) return null;
+    return {
+        repo,
+        branch: process.env.GITHUB_BRANCH || "data",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+        },
+    };
+}
+
+async function commitJsonToGitHubNow(filePath, contentData, commitMessage) {
+    const github = githubSettings();
+    if (!github) {
         console.error("[GitHub Sync] GITHUB_TOKEN または GITHUB_REPO が設定されていません。");
         return;
     }
 
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
-    const headers = {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-        "Content-Type": "application/json",
-    };
+    const url = `https://api.github.com/repos/${github.repo}/contents/${filePath}`;
 
     try {
         let sha = null;
-        const getRes = await fetch(`${url}?ref=${GITHUB_BRANCH}`, { headers });
+        const getRes = await fetch(`${url}?ref=${github.branch}`, {
+            headers: github.headers,
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        });
         if (getRes.ok) {
             const fileData = await getRes.json();
             sha = fileData.sha;
@@ -104,24 +133,67 @@ async function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: 
         const body = {
             message: commitMessage,
             content: contentBase64,
-            branch: GITHUB_BRANCH,
+            branch: github.branch,
             ...(sha && { sha }),
         };
 
         const putRes = await fetch(url, {
             method: "PUT",
-            headers,
+            headers: github.headers,
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
         });
 
         if (putRes.ok) {
-            console.log(`[GitHub Sync] ${GITHUB_BRANCH} ブランチの ${filePath} へのコミットに成功しました。`);
+            console.log(`[GitHub Sync] ${github.branch} ブランチの ${filePath} へのコミットに成功しました。`);
         } else {
             const err = await putRes.text();
             console.error("[GitHub Sync Error]", err);
         }
     } catch (error) {
         console.error("[GitHub Sync Failed]", error);
+    }
+}
+
+// 同時に複数の変更が来ても、sha の食い違い（409）にならないよう 1 件ずつ順番にコミットする
+let commitQueue = Promise.resolve();
+
+function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
+    commitQueue = commitQueue.then(() => commitJsonToGitHubNow(filePath, contentData, commitMessage));
+    return commitQueue;
+}
+
+// data ブランチの設定ファイルを読み戻して、ローカルの設定に反映する。
+// ・失敗しても起動は続ける（ローカルのファイルをそのまま使う）
+// ・サーバーごとに data ブランチの内容を優先し、data に無いサーバーはローカルの内容を残す
+async function restoreConfigFromGitHub(filePath = 'config-channels.json') {
+    const github = githubSettings();
+    if (!github) return;
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${filePath}?ref=${github.branch}`, {
+            headers: github.headers,
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+            console.warn(`[GitHub Sync] ${github.branch} ブランチの ${filePath} を取得できませんでした (HTTP ${res.status})。ローカルの設定を使います。`);
+            return;
+        }
+
+        const file = await res.json();
+        const remote = JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8'));
+        if (!remote || typeof remote !== 'object' || Array.isArray(remote)) {
+            console.warn(`[GitHub Sync] ${filePath} の形式が正しくないため、読み戻しをスキップしました。`);
+            return;
+        }
+
+        const guildIds = Object.keys(remote);
+        updateChannelConfig(local => {
+            for (const guildId of guildIds) local[guildId] = remote[guildId];
+        });
+        console.log(`[GitHub Sync] ${github.branch} ブランチから ${guildIds.length} サーバー分の設定を読み戻しました。`);
+    } catch (error) {
+        console.error('[GitHub Sync] 設定の読み戻しに失敗しました。ローカルの設定を使います:', error);
     }
 }
 
@@ -166,10 +238,16 @@ client.on(Events.InteractionCreate, async interaction => {
         await command.execute(interaction);
     } catch (error) {
         console.error(error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
-        } else {
-            await interaction.reply({ content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral });
+        const payload = { content: 'このコマンドの実行中にエラーが発生しました！', flags: MessageFlags.Ephemeral };
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp(payload);
+            } else {
+                await interaction.reply(payload);
+            }
+        } catch (replyError) {
+            // 期限切れなどで返信できなくても、ここで落とさない
+            console.error('[Interaction] エラー応答の送信に失敗しました:', replyError.message);
         }
     }
 });
@@ -189,6 +267,7 @@ if (fs.existsSync(configPath)) {
 
 async function main() {
     try {
+        await restoreConfigFromGitHub();
         await deployCommands();
         await client.login(token);
     } catch (error) {
@@ -196,4 +275,4 @@ async function main() {
     }
 }
 
-main();
+main();

@@ -5,6 +5,7 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ComponentType,
+    MessageFlags,
     ApplicationIntegrationType,
     InteractionContextType
 } = require('discord.js');
@@ -26,11 +27,10 @@ module.exports = {
 
     async execute(interaction) {
         const collectnumber = Math.floor(Math.random() * 100) + 1;
-        let firstnumber = Math.floor(Math.random() * 100) + 1;
-
-        if (collectnumber === firstnumber) {
+        let firstnumber;
+        do {
             firstnumber = Math.floor(Math.random() * 100) + 1;
-        }
+        } while (firstnumber === collectnumber); // 同じ数字にならないよう、違う数字が出るまで引き直す
 
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
@@ -53,22 +53,21 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(highButton, lowButton);
 
-        // ★ fetchReply: true を追加し、返り値を取得する
-        const response = await interaction.reply({
+        // 返信したメッセージを受け取る（fetchReply は非推奨なので withResponse を使う）
+        const replied = await interaction.reply({
             embeds: [embed],
             components: [row],
-            fetchReply: true
+            withResponse: true
         });
 
-        // ★ interaction.channel ではなく response からコレクターを作成する
-        const collector = response.createMessageComponentCollector({
+        const collector = replied.resource.message.createMessageComponentCollector({
             componentType: ComponentType.Button,
             time: 30000,
         });
 
         collector.on('collect', async i => {
             if (i.user.id !== interaction.user.id) {
-                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', flags: 64 });
+                await i.reply({ content: 'このゲームは実行した本人のみ操作できます。', flags: MessageFlags.Ephemeral });
                 return;
             }
 
