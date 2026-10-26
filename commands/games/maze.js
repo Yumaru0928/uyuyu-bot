@@ -14,8 +14,8 @@ module.exports = {
         const maze = generateMazePrim(width, height);
 
         // 描画用絵文字の定義
-        const wallEmoji = ':white:'; // 壁
-        const pathEmoji = ':null:'; // 通路
+        const wallEmoji = '<:white:1564079863911030874>'; // 壁
+        const pathEmoji = '<:null:1564079871167172638>'; // 通路
 
         // グリッドを絵文字の文字列に変換
         let description = '';
