@@ -15,6 +15,7 @@ const {
     splitMessage,
     processLongCodeBlocks
 } = require("../../gemini.js");
+const { buildReplyMessages } = require("../../latex-render.js");
 
 async function generateWithFallback(selectedModel, contents, interaction) {
     const modelsToTry = [selectedModel, ...CHAT_MODELS.filter(m => m !== selectedModel)];
@@ -76,13 +77,13 @@ module.exports = {
         const attachment = interaction.options.getAttachment("attachment");
 
         await interaction.deferReply();
-        
+
         let isCompleted = false;
         const slowTimer = setTimeout(async () => {
             if (!isCompleted) {
                 try {
                     await interaction.editReply(`${LOADING} AIが考え込んでいます…（少々お時間がかかります）`);
-                } catch (e) {}
+                } catch (e) { }
             }
         }, 5000);
 
@@ -102,17 +103,14 @@ module.exports = {
 
             const replyText = response.text || "応答を取得できませんでした。";
 
-            // 長いコードのファイル化処理（プレフィックスなし）
-            const { processedText, attachments } = processLongCodeBlocks(replyText);
-            const textChunks = splitMessage(processedText);
+            // 長いコードのファイル化 + LaTeX部分だけ画像化
+            const messages = await buildReplyMessages(replyText);
 
-            for (let i = 0; i < textChunks.length; i++) {
-                const chunk = textChunks[i];
-                const content = (i === 0) ? chunk : `(続き)\n${chunk}`;
-                // AI の出力に含まれる @everyone / @role / @user では誰にも通知しない
+            for (let i = 0; i < messages.length; i++) {
+                const m = messages[i];
                 const options = {
-                    content: content,
-                    files: (i === 0) ? attachments : [],
+                    content: (i === 0 || !m.content) ? m.content : `(続き)\n${m.content}`,
+                    files: m.files,
                     allowedMentions: NO_MENTIONS
                 };
 
@@ -122,7 +120,6 @@ module.exports = {
                     await interaction.followUp(options);
                 }
             }
-
         } catch (error) {
             isCompleted = true;
             clearTimeout(slowTimer);

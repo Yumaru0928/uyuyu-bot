@@ -12,6 +12,7 @@ const {
     processLongCodeBlocks,
     createCooldown
 } = require('../gemini.js');
+const { buildReplyMessages } = require('../latex-render.js');
 
 // 同じ人の連続した返信は 5 秒に 1 回まで（API 枠の使い切り防止）
 const isCoolingDown = createCooldown(5000);
@@ -122,16 +123,18 @@ module.exports = {
 
             const replyText = result.text || '応答を取得できませんでした。';
 
-            // 長いコードのファイル化処理（プレフィックスなし）
-            const { processedText, attachments } = processLongCodeBlocks(replyText);
-            const textChunks = splitMessage(processedText);
+            const messages = await buildReplyMessages(replyText);
 
-            // AI の出力に含まれる @everyone / @role / @user では誰にも通知しない
-            for (let i = 0; i < textChunks.length; i++) {
+            for (let i = 0; i < messages.length; i++) {
+                const m = messages[i];
                 if (i === 0) {
-                    await initialReply.edit({ content: textChunks[0], files: attachments, allowedMentions: NO_MENTIONS });
+                    await initialReply.edit({ content: m.content, files: m.files, allowedMentions: NO_MENTIONS });
                 } else {
-                    await message.channel.send({ content: `(続き)\n${textChunks[i]}`, allowedMentions: NO_MENTIONS });
+                    await message.channel.send({
+                        content: m.content ? `(続き)\n${m.content}` : undefined,
+                        files: m.files,
+                        allowedMentions: NO_MENTIONS
+                    });
                 }
             }
         } catch (error) {
