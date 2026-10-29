@@ -22,7 +22,7 @@ const mjDocument = mathjax.document("", { InputJax: texInput, OutputJax: svgOutp
 
 const SCALE = 2.5;
 const EX_TO_PX = 8 * SCALE;
-const MAX_IMAGES = Infinity;       // 1回の応答で画像化する数式の上限
+const MAX_IMAGES = 8;       // 1回の応答で画像化する数式（まとめ後）の上限
 const BG_COLOR = "#000000";
 const FG_COLOR = "#ffffff";
 
@@ -44,7 +44,7 @@ async function renderLine(tex) {
     return { img, width: w, height: h };
 }
 
-/** 複数行対応。/latex コマンドとチャット応答の両方で使う */
+/** 改行区切りで複数行を縦に並べる。/latex コマンドとチャット応答の両方で使う */
 async function generateLatexImage(formulaText, { paddingX = 40, paddingY = 30 } = {}) {
     const lineGap = 16;
     const lines = formulaText.split("\n");
@@ -90,15 +90,11 @@ const SYMBOLS = {
     forall: "∀", exists: "∃", emptyset: "∅", ldots: "…", cdots: "⋯", degree: "°",
     angle: "∠", perp: "⊥", circ: "∘"
 };
-const SUP = {
-    0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
-    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ"
-};
-const SUB = {
-    0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
+const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
+    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ" };
+const SUB = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
     "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎",
-    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ"
-};
+    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ" };
 
 /** 単純なら Unicode 文字列を、複雑なら null を返す */
 function simplifyInline(tex) {
@@ -137,6 +133,30 @@ const MATH_RE = new RegExp([
 
 const CODE_RE = /```[\s\S]*?```|`[^`\n]+`/g;
 
+// 数式内の改行は空白に変える（複数式の区切りに使う "\n" と区別するため）
+const oneLine = s => s.replace(/\s*\n\s*/g, " ").trim();
+
+/** 隣り合う数式（間が空白だけの場合を含む）を、改行でつないで1つにする */
+function mergeAdjacentMath(segments) {
+    const out = [];
+    for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const prev = out[out.length - 1];
+
+        // 数式と数式の間にある空白だけの文章は捨てる
+        if (seg.type === "text" && !seg.value.trim()
+            && prev?.type === "math" && segments[i + 1]?.type === "math") {
+            continue;
+        }
+        if (seg.type === "math" && prev?.type === "math") {
+            prev.value += "\n" + seg.value;
+            continue;
+        }
+        out.push({ ...seg });
+    }
+    return out;
+}
+
 /** -> [{ type: 'text', value } | { type: 'math', value }] */
 function splitByLatex(text) {
     const segments = [];
@@ -152,12 +172,12 @@ function splitByLatex(text) {
 
             if (g.dd !== undefined || g.br !== undefined) {
                 flush();
-                segments.push({ type: "math", value: (g.dd ?? g.br).trim() });
+                segments.push({ type: "math", value: oneLine(g.dd ?? g.br) });
             } else if (g.envname !== undefined) {
                 flush();
-                segments.push({ type: "math", value: m[0] });
+                segments.push({ type: "math", value: oneLine(m[0]) });
             } else {
-                const tex = (g.par ?? g.inl).trim();
+                const tex = oneLine(g.par ?? g.inl);
                 const simple = simplifyInline(tex);
                 if (simple !== null) {
                     buf += simple;
@@ -179,13 +199,13 @@ function splitByLatex(text) {
     }
     processPlain(text.slice(last));
     flush();
-    return segments;
+    return mergeAdjacentMath(segments);
 }
 
 // ---------- 応答テキスト -> 送信用メッセージ配列 ----------
 /**
- * @returns {Promise<Array<{content: string, files: any[]}>>}
- * 数式画像は、直前の文章メッセージの下に添付される。
+ * @returns {Promise<Array<{content: string, files: any[]}> & {hasLatexImage: boolean}>}
+ * 数式画像は直前のメッセージに添付され、変換前のコードは次の文章の先頭に付く。
  */
 async function buildReplyMessages(replyText) {
     const { processedText, attachments } = processLongCodeBlocks(replyText);
@@ -241,7 +261,7 @@ async function buildReplyMessages(replyText) {
             const file = new AttachmentBuilder(buffer, { name: `latex_${Date.now()}_${imageCount}.png` });
             imageCount++;
 
-            // 画像は直前のメッセージに添付（以前と同じ）
+            // 画像は直前のメッセージに添付
             const last = messages[messages.length - 1];
             if (last && last.files.length < 9) last.files.push(file);
             else messages.push({ content: "", files: [file] });
