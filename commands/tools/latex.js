@@ -48,7 +48,7 @@ module.exports = {
             // CodeCogsのAPIを利用してLaTeXの画像URLを生成
             const encodedFormula = encodeURIComponent(cleanedPrompt);
             // ※ dpiや背景色、文字色などをURLパラメータで調整可能です
-            const latexImageUrl = `https://latex.codecogs.com/png.latex?%5Cdpi%7B150%7D%20%5Cdefinecolor%7Bbg%7D%7Brgb%7D%7B255%2C255%2C255%7D%20%5Cpagecolor%7Bbg%7D%20${encodedFormula}`;
+            const latexImageUrl = `https://latex.codecogs.com/png.latex?${encodedFormula}`;
 
             // 埋め込み（Embed）を作成
             const embed = new EmbedBuilder()
@@ -62,6 +62,7 @@ module.exports = {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
+            isCompleted = true;
 
         } catch (error) {
             console.error("LaTeX Rendering Error:", error);
