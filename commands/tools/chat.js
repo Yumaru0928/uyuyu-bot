@@ -103,19 +103,29 @@ module.exports = {
 
             const replyText = response.text || "応答を取得できませんでした。";
 
-            // 長いコードのファイル化 + LaTeX部分だけ画像化
             const messages = await buildReplyMessages(replyText);
+            // 数式画像がある応答では「(続き)」を付けない
+            const showContinuation = !messages.hasLatexImage;
 
             for (let i = 0; i < messages.length; i++) {
                 const m = messages[i];
                 const options = {
-                    content: (i === 0 || !m.content) ? m.content : `(続き)\n${m.content}`,
+                    content: (i === 0 || !m.content || !showContinuation) ? m.content : `(続き)\n${m.content}`,
                     files: m.files,
                     allowedMentions: NO_MENTIONS
                 };
 
                 if (i === 0) {
                     await interaction.editReply(options);
+                } else if (messages.hasLatexImage) {
+                    // followUp だと「/chat を使用しました」のリプライ表示が付くので、
+                    // 画像がある場合は通常のメッセージとして送る
+                    try {
+                        await interaction.channel.send(options);
+                    } catch (e) {
+                        // Bot がチャンネルにいない場合（ユーザーインストールのDMなど）は followUp に戻す
+                        await interaction.followUp(options);
+                    }
                 } else {
                     await interaction.followUp(options);
                 }

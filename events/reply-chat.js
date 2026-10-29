@@ -121,9 +121,8 @@ module.exports = {
             finished = true;
             clearTimeout(slowTimer);
 
-            const replyText = result.text || '応答を取得できませんでした。';
-
             const messages = await buildReplyMessages(replyText);
+            const showContinuation = !messages.hasLatexImage;
 
             for (let i = 0; i < messages.length; i++) {
                 const m = messages[i];
@@ -131,7 +130,7 @@ module.exports = {
                     await initialReply.edit({ content: m.content, files: m.files, allowedMentions: NO_MENTIONS });
                 } else {
                     await message.channel.send({
-                        content: m.content ? `(続き)\n${m.content}` : undefined,
+                        content: (m.content && showContinuation) ? `(続き)\n${m.content}` : (m.content || undefined),
                         files: m.files,
                         allowedMentions: NO_MENTIONS
                     });

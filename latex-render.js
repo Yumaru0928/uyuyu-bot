@@ -208,7 +208,7 @@ async function buildReplyMessages(replyText) {
             imageCount++;
 
             const last = messages[messages.length - 1];
-            if (last && last.files.length < 9) last.files.push(file);
+            if (last && last.files.length < 101) last.files.push(file);
             else messages.push({ content: "", files: [file] });
         } catch (e) {
             // 失敗したら元の LaTeX をコードとして残す
@@ -218,6 +218,7 @@ async function buildReplyMessages(replyText) {
 
     if (messages.length === 0) messages.push({ content: "応答を取得できませんでした。", files: [] });
     messages[0].files.unshift(...attachments); // 長いコードのファイルは先頭メッセージへ
+    messages.hasLatexImage = imageCount > 0;
     return messages;
 }
 
