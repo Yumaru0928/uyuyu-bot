@@ -90,11 +90,15 @@ const SYMBOLS = {
     forall: "∀", exists: "∃", emptyset: "∅", ldots: "…", cdots: "⋯", degree: "°",
     angle: "∠", perp: "⊥", circ: "∘"
 };
-const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
-    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ" };
-const SUB = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
+const SUP = {
+    0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
+    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ"
+};
+const SUB = {
+    0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
     "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎",
-    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ" };
+    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ"
+};
 
 /** 単純なら Unicode 文字列を、複雑なら null を返す */
 function simplifyInline(tex) {
@@ -189,32 +193,68 @@ async function buildReplyMessages(replyText) {
 
     const messages = [];
     let imageCount = 0;
+    let pendingCodes = [];   // 次の文章の先頭に出す、変換前のコード
+
+    // 溜まっているコードを単独のメッセージとして出す
+    const flushPending = () => {
+        if (pendingCodes.length) {
+            messages.push({ content: pendingCodes.join("\n"), files: [] });
+            pendingCodes = [];
+        }
+    };
 
     for (const seg of segments) {
         if (seg.type === "text") {
             const trimmed = seg.value.trim();
             if (!trimmed) continue;
-            for (const chunk of splitMessage(trimmed)) {
+
+            const chunks = splitMessage(trimmed);
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+
+                // 続きの先頭にコードを付ける（2000文字に収まるときだけ）
+                if (i === 0 && pendingCodes.length) {
+                    const prefix = pendingCodes.join("\n") + "\n";
+                    if (prefix.length + chunk.length <= 2000) {
+                        messages.push({ content: prefix + chunk, files: [] });
+                        pendingCodes = [];
+                        continue;
+                    }
+                    flushPending(); // 入りきらないときはコードだけ先に別メッセージにする
+                }
                 messages.push({ content: chunk, files: [] });
             }
             continue;
         }
 
         // math
+        const source = seg.value.replace(/```/g, "'''");
+        const codeBlock = `\`\`\`latex\n${source.slice(0, 1500)}${source.length > 1500 ? "\n…" : ""}\n\`\`\``;
+
+        // コードが溜まりすぎて2000文字を超えそうなら先に出す
+        const pendingLength = pendingCodes.join("\n").length;
+        if (pendingLength + codeBlock.length > 1900) flushPending();
+
         try {
             if (imageCount >= MAX_IMAGES) throw new Error("too many formulas");
             const buffer = await generateLatexImage(seg.value, { paddingX: 24, paddingY: 16 });
             const file = new AttachmentBuilder(buffer, { name: `latex_${Date.now()}_${imageCount}.png` });
             imageCount++;
 
+            // 画像は直前のメッセージに添付（以前と同じ）
             const last = messages[messages.length - 1];
             if (last && last.files.length < 9) last.files.push(file);
             else messages.push({ content: "", files: [file] });
         } catch (e) {
-            // 失敗したら元の LaTeX をコードとして残す
-            messages.push({ content: `\`\`\`latex\n${seg.value.slice(0, 1500)}\n\`\`\``, files: [] });
+            // 失敗したときも、元のコードは残す
         }
+
+        // コードは次の文章の先頭へ
+        pendingCodes.push(codeBlock);
     }
+
+    // 数式で終わった場合は、残ったコードを最後に出す
+    flushPending();
 
     if (messages.length === 0) messages.push({ content: "応答を取得できませんでした。", files: [] });
     messages[0].files.unshift(...attachments); // 長いコードのファイルは先頭メッセージへ
