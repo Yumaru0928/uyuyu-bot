@@ -22,7 +22,7 @@ const mjDocument = mathjax.document("", { InputJax: texInput, OutputJax: svgOutp
 
 const SCALE = 2.5;
 const EX_TO_PX = 8 * SCALE;
-const MAX_IMAGES = 8;       // 1回の応答で画像化する数式の上限
+const MAX_IMAGES = 100;       // 1回の応答で画像化する数式の上限
 const BG_COLOR = "#000000";
 const FG_COLOR = "#ffffff";
 
@@ -208,7 +208,7 @@ async function buildReplyMessages(replyText) {
             imageCount++;
 
             const last = messages[messages.length - 1];
-            if (last && last.files.length < 101) last.files.push(file);
+            if (last && last.files.length < 9) last.files.push(file);
             else messages.push({ content: "", files: [file] });
         } catch (e) {
             // 失敗したら元の LaTeX をコードとして残す
