@@ -83,19 +83,38 @@ async function generateLatexImage(formulaText, { paddingX = 40, paddingY = 30 } 
     const lineGap = 16;
     const lines = formulaText.split("\n");
 
+    // 括弧や \begin...\end が閉じていない行は、次の行と結合してから扱う
+    const depthDelta = (line) => {
+        const s = line.replace(/\\[{}]/g, "");   // \{ \} は数えない
+        const count = (re) => (s.match(re) || []).length;
+        return count(/\\begin\{/g) - count(/\\end\{/g)
+            + count(/\{/g) - count(/\}/g)
+            + count(/\\left(?![a-zA-Z])/g) - count(/\\right(?![a-zA-Z])/g);
+    };
+
     // 空行で区切って、連続する行ごとにグループ化
     const groups = [];
     let cur = [];
+    let buf = "";
+    let depth = 0;
     for (const line of lines) {
-        if (line.trim() === "") {
+        const t = line.trim();
+        if (depth === 0 && t === "") {
             if (cur.length) { groups.push({ lines: cur }); cur = []; }
             groups.push({ blank: true });
-        } else {
-            cur.push(line.trim());
+            continue;
+        }
+        if (t === "") continue;   // 環境の途中の空行は無視
+        buf = buf ? `${buf} ${t}` : t;
+        depth += depthDelta(t);
+        if (depth <= 0) {
+            cur.push(buf);
+            buf = "";
+            depth = 0;
         }
     }
+    if (buf) cur.push(buf);
     if (cur.length) groups.push({ lines: cur });
-
     const rendered = [];
     for (const g of groups) {
         if (g.blank) {
@@ -148,11 +167,15 @@ const SYMBOLS = {
     forall: "∀", exists: "∃", emptyset: "∅", ldots: "…", cdots: "⋯", degree: "°",
     angle: "∠", perp: "⊥", circ: "∘"
 };
-const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
-    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ" };
-const SUB = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
+const SUP = {
+    0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹",
+    "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ"
+};
+const SUB = {
+    0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉",
     "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎",
-    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ" };
+    a: "ₐ", e: "ₑ", i: "ᵢ", j: "ⱼ", n: "ₙ", o: "ₒ", x: "ₓ"
+};
 
 /** 単純なら Unicode 文字列を、複雑なら null を返す */
 function simplifyInline(tex) {
@@ -184,6 +207,7 @@ function simplifyInline(tex) {
 const MATH_RE = new RegExp([
     String.raw`\$\$(?<dd>[\s\S]+?)\$\$`,
     String.raw`\\\[(?<br>[\s\S]+?)\\\]`,
+    String.raw`\\begin\{(?<envname>align\*?|aligned|alignat\*?|equation\*?|gather\*?|gathered|multline\*?|eqnarray\*?|split|cases|[pbvBV]?matrix|array)\}[\s\S]+?\\end\{\k<envname>\}`,
     String.raw`\\begin\{(?<envname>align\*?|equation\*?|gather\*?|multline\*?)\}[\s\S]+?\\end\{\k<envname>\}`,
     String.raw`\\\((?<par>[\s\S]+?)\\\)`,
     String.raw`(?<![\\$])\$(?!\s)(?<inl>[^$\n]+?)(?<!\s)\$(?!\d)`
