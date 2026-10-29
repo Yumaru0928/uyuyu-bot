@@ -22,7 +22,7 @@ const mjDocument = mathjax.document("", { InputJax: texInput, OutputJax: svgOutp
 
 const SCALE = 2.5;
 const EX_TO_PX = 8 * SCALE;
-const MAX_IMAGES = 100;       // 1回の応答で画像化する数式の上限
+const MAX_IMAGES = Infinity;       // 1回の応答で画像化する数式の上限
 const BG_COLOR = "#000000";
 const FG_COLOR = "#ffffff";
 
