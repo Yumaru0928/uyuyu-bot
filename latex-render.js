@@ -45,14 +45,73 @@ async function renderLine(tex) {
 }
 
 /** 改行区切りで複数行を縦に並べる。/latex コマンドとチャット応答の両方で使う */
+/** 最初の「波括弧・\left\right の外にある =」の位置を返す（なければ -1） */
+function findAlignPos(line) {
+    let depth = 0;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === "\\") {
+            const m = line.slice(i).match(/^\\([a-zA-Z]+|.)/s);
+            if (m[1] === "left") depth++;
+            else if (m[1] === "right") depth--;
+            i += m[0].length - 1;
+        } else if (c === "{") depth++;
+        else if (c === "}") depth--;
+        else if (c === "=" && depth === 0) return i;
+    }
+    return -1;
+}
+
+/** 連続する行を = で揃えた aligned 環境にする。揃えられないときは null */
+function buildAligned(lines) {
+    if (lines.length < 2) return null;
+    // すでに & や \\ や環境を使っている場合は触らない
+    if (lines.some(l => /&|\\\\|\\begin|\\end/.test(l))) return null;
+
+    const positions = lines.map(findAlignPos);
+    if (positions.filter(p => p >= 0).length < 2) return null;
+
+    const body = lines.map((l, i) => {
+        const p = positions[i];
+        return p >= 0 ? `${l.slice(0, p)}&${l.slice(p)}` : l;
+    }).join(" \\\\ ");
+    return `\\begin{aligned}${body}\\end{aligned}`;
+}
+
+/** 改行区切りで複数行を縦に並べる。複数行は = の位置を自動で揃える */
 async function generateLatexImage(formulaText, { paddingX = 40, paddingY = 30 } = {}) {
     const lineGap = 16;
     const lines = formulaText.split("\n");
-    const rendered = [];
+
+    // 空行で区切って、連続する行ごとにグループ化
+    const groups = [];
+    let cur = [];
     for (const line of lines) {
-        rendered.push(line.trim() === ""
-            ? { img: null, width: 0, height: 24 }
-            : await renderLine(line));
+        if (line.trim() === "") {
+            if (cur.length) { groups.push({ lines: cur }); cur = []; }
+            groups.push({ blank: true });
+        } else {
+            cur.push(line.trim());
+        }
+    }
+    if (cur.length) groups.push({ lines: cur });
+
+    const rendered = [];
+    for (const g of groups) {
+        if (g.blank) {
+            rendered.push({ img: null, width: 0, height: 24 });
+            continue;
+        }
+        const aligned = buildAligned(g.lines);
+        if (aligned) {
+            try {
+                rendered.push(await renderLine(aligned));
+                continue;
+            } catch (e) {
+                // 揃えられなかったら、行ごとの描画にフォールバック
+            }
+        }
+        for (const line of g.lines) rendered.push(await renderLine(line));
     }
 
     const maxWidth = Math.max(...rendered.map(r => r.width));
@@ -72,7 +131,6 @@ async function generateLatexImage(formulaText, { paddingX = 40, paddingY = 30 } 
     }
     return await canvas.encode("png");
 }
-
 // ---------- インライン数式の Unicode 化 ----------
 const SYMBOLS = {
     alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε",
