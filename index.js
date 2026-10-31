@@ -18,7 +18,10 @@ const app = require('./web.js');
 // ★ Express サーバーの起動（Renderポート開口用）
 // ===================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
+
+// 自宅PC（マイクラサーバー）の常駐スクリプトからのWebSocket接続を受け付ける（/agent）
+require('./utils/agent-bridge.js').attach(server);
 
 // ===================================================
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
@@ -275,4 +278,4 @@ async function main() {
     }
 }
 
-main();
+main();

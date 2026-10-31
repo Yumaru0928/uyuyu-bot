@@ -37,6 +37,7 @@ module.exports = {
                 games: '🎮 ゲーム',
                 tools: '🛠️ ツール',
                 darts: '🎯 ダーツ',
+                minecraft: '⛏️ マイクラ',
             };
 
             // Embed作成時のタイトル取得部分
