@@ -5,57 +5,124 @@ const { getState, requestStart } = require('../../utils/agent-bridge');
 const COOLDOWN_MS = 60_000;
 const lastUsed = new Map(); // discordId -> 最後に起動を依頼した時刻
 
+// 接続先（環境変数で上書きも可能）
+const JAVA_ADDRESS = process.env.MC_JAVA_ADDRESS || 'malls-reno.tun.ply.gg';
+const BE_ADDRESS = process.env.MC_BE_ADDRESS || 'indigooriole.wdn.gg';
+const BE_PORT = process.env.MC_BE_PORT || '443';
+
+// 起動完了の待機設定
+const WAIT_TIMEOUT_MS = 5 * 60_000; // 最大5分待つ（インタラクションの有効期限15分以内）
+const POLL_MS = 5_000;
+const STOPPED_GRACE_MS = 20_000; // 起動直後は状態の反映が遅れるので、この間の「stopped」は無視する
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const addressText = () =>
+    [
+        `**Java版**: \`${JAVA_ADDRESS}\``,
+        `**統合版 (BE)**: \`${BE_ADDRESS}\` / ポート: \`${BE_PORT}\``,
+    ].join('\n');
+
+/**
+ * エラーは本人にだけ見せる。
+ * 最初の応答は全員に見える形で defer 済みなので、それを消してから Ephemeral で送り直す。
+ */
+async function replyError(interaction, content) {
+    await interaction.deleteReply().catch(() => {});
+    return interaction.followUp({ content, flags: MessageFlags.Ephemeral });
+}
+
+/** サーバーが running になるまで待つ。'running' | 'offline' | 'stopped' | 'timeout' を返す。 */
+async function waitUntilRunning() {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < WAIT_TIMEOUT_MS) {
+        const s = getState();
+        if (s === 'running') return 'running';
+        if (s === 'offline') return 'offline';
+        if (s === 'stopped' && Date.now() - startedAt > STOPPED_GRACE_MS) return 'stopped';
+        await sleep(POLL_MS);
+    }
+    return 'timeout';
+}
+
+/** 起動完了を待って、完了したら接続先を（全員に見える形で）投稿する。 */
+async function announceWhenReady(interaction) {
+    const r = await waitUntilRunning();
+    if (r === 'running') {
+        await interaction.followUp({ content: `🟢 **サーバーが起動しました！**\n${addressText()}` });
+    } else if (r === 'timeout') {
+        await interaction.followUp({ content: '⚠️ 起動の完了を確認できませんでした。しばらくしてからもう一度お試しください。' });
+    } else if (r === 'offline') {
+        await interaction.followUp({ content: '🔌 起動中に自宅PCとの接続が切れました。' });
+    } else {
+        await interaction.followUp({ content: '⚠️ サーバーが起動せずに停止しました。管理者に連絡してください。' });
+    }
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('start')
         .setDescription('マイクラサーバーを起動します（アカウント紐づけ済みの人のみ）'),
 
     async execute(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        // 最初は全員に見える形で応答を予約する（エラー時だけ replyError で本人限定に切り替える）
+        await interaction.deferReply();
 
         if (!isConfigured()) {
-            return interaction.editReply('連携用のデータベースが未設定です。管理者に連絡してください。');
+            return replyError(interaction, '連携用のデータベースが未設定です。管理者に連絡してください。');
         }
 
         const uid = interaction.user.id;
         try {
-            // 1) 紐づけ確認（ここで弾けば、自宅PCには何も送らない）
+            // 1) 実行者本人の紐づけ確認（ロール等は見ない。ここで弾けば、自宅PCには何も送らない）
             const links = await getLinks();
             const me = links[uid];
             if (!me) {
-                return interaction.editReply('先にマイクラで一度サーバーに参加し、`/link` でアカウントを紐づけてください。');
+                return replyError(interaction, '先にマイクラで一度サーバーに参加し、`/link` でアカウントを紐づけてください。');
             }
 
-            // 2) 任意：特定ロールの人だけに制限（環境変数 START_ROLE_ID）
-            const roleId = process.env.START_ROLE_ID;
-            if (roleId && !interaction.member?.roles?.cache?.has(roleId)) {
-                return interaction.editReply('このコマンドを使う権限がありません。');
-            }
-
-            // 3) クールダウン（連打防止）
+            // 2) クールダウン（連打防止）
             const wait = (lastUsed.get(uid) || 0) + COOLDOWN_MS - Date.now();
             if (wait > 0) {
-                return interaction.editReply(`連打防止中です。あと ${Math.ceil(wait / 1000)} 秒お待ちください。`);
+                return replyError(interaction, `連打防止中です。あと ${Math.ceil(wait / 1000)} 秒お待ちください。`);
             }
 
-            // 4) 状態確認
+            // 3) 状態確認
             const state = getState();
-            if (state === 'offline') return interaction.editReply('🔌 自宅PCがオフライン（または常駐スクリプトが未起動）です。');
-            if (state === 'running') return interaction.editReply('✅ すでに起動しています。');
-            if (state === 'starting') return interaction.editReply('⏳ 起動処理中です。しばらくお待ちください。');
+            if (state === 'offline') return replyError(interaction, '🔌 自宅PCがオフライン（または常駐スクリプトが未起動）です。');
+            if (state === 'running') return interaction.editReply(`✅ すでに起動しています。\n${addressText()}`);
+            if (state === 'starting') {
+                await interaction.editReply('⏳ 起動処理中です。完了したらお知らせします。');
+                announceWhenReady(interaction).catch((e) => console.error('[Start] 通知エラー:', e));
+                return;
+            }
 
-            // 5) 起動シグナルを送る
+            // 4) 起動シグナルを送る
             lastUsed.set(uid, Date.now());
             const r = await requestStart();
-            const text = {
-                started: '🚀 起動を開始しました。1〜2分ほどお待ちください。',
-                already_running: '✅ すでに起動しています。',
-                already_starting: '⏳ 起動処理中です。しばらくお待ちください。',
+
+            if (r.result === 'already_running') {
+                return interaction.editReply(`✅ すでに起動しています。\n${addressText()}`);
+            }
+
+            const errors = {
                 offline: '🔌 自宅PCがオフラインです。',
                 timeout: '⚠️ 自宅PCから応答がありませんでした。',
                 error: `⚠️ 起動に失敗しました。${r.message ? `（${r.message}）` : ''}`,
-            }[r.result] ?? '⚠️ 想定外の応答でした。';
-            await interaction.editReply(text);
+            };
+            if (errors[r.result]) return replyError(interaction, errors[r.result]);
+            if (r.result !== 'started' && r.result !== 'already_starting') {
+                return replyError(interaction, '⚠️ 想定外の応答でした。');
+            }
+
+            await interaction.editReply(
+                r.result === 'started'
+                    ? '🚀 起動を開始しました。完了したらお知らせします（1〜2分ほどかかります）。'
+                    : '⏳ 起動処理中です。完了したらお知らせします。'
+            );
+
+            // 5) 起動完了を待って、接続先を投稿する（待っている間もBotは他の処理を続けられる）
+            announceWhenReady(interaction).catch((e) => console.error('[Start] 通知エラー:', e));
 
             // 6) 起動ログ（任意：環境変数 MC_LOG_CHANNEL_ID のチャンネルへ）
             if (r.result === 'started') {
@@ -67,7 +134,7 @@ module.exports = {
             }
         } catch (error) {
             console.error('[Start] エラー:', error);
-            return interaction.editReply('内部エラーが発生しました。');
+            return replyError(interaction, '内部エラーが発生しました。').catch(() => {});
         }
     },
 };
