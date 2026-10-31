@@ -48,7 +48,7 @@ function attach(server) {
             try { msg = JSON.parse(raw); } catch { return; }
             if (msg.type === 'status' && ['stopped', 'starting', 'running'].includes(msg.state)) {
                 state = msg.state;
-            } else if (msg.type === 'start_result' && waiting.has(msg.id)) {
+            } else if ((msg.type === 'start_result' || msg.type === 'command_result') && waiting.has(msg.id)) {
                 waiting.get(msg.id)(msg);
                 waiting.delete(msg.id);
             }
@@ -90,4 +90,21 @@ function requestStart(timeoutMs = 10_000) {
     });
 }
 
-module.exports = { attach, getState, requestStart };
+/** 自宅PCのサーバーコンソールにコマンドを送り、実行結果を返す。 */
+function requestCommand(command, timeoutMs = 15_000) {
+    return new Promise((resolve) => {
+        if (!agent) return resolve({ ok: false, message: '自宅PCがオフラインです。' });
+        const id = crypto.randomUUID();
+        const timer = setTimeout(() => {
+            waiting.delete(id);
+            resolve({ ok: false, message: '自宅PCから応答がありませんでした。' });
+        }, timeoutMs);
+        waiting.set(id, (msg) => {
+            clearTimeout(timer);
+            resolve(msg);
+        });
+        agent.send(JSON.stringify({ type: 'command', id, command }));
+    });
+}
+
+module.exports = { attach, getState, requestStart, requestCommand };
