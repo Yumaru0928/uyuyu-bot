@@ -1,17 +1,19 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { isConfigured, getLinks } = require('../../utils/link-db');
 const { getState, requestStart } = require('../../utils/agent-bridge');
+const { pingJava } = require('../../utils/mc-ping');
 
 const COOLDOWN_MS = 60_000;
 const lastUsed = new Map(); // discordId -> 最後に起動を依頼した時刻
 
 // 接続先（環境変数で上書きも可能）
 const JAVA_ADDRESS = process.env.MC_JAVA_ADDRESS || 'malls-reno.tun.ply.gg';
+const JAVA_PORT = Number(process.env.MC_JAVA_PORT || 25565); // アドレスにポートが付く場合は MC_JAVA_PORT で指定
 const BE_ADDRESS = process.env.MC_BE_ADDRESS || 'indigooriole.wdn.gg';
 const BE_PORT = process.env.MC_BE_PORT || '443';
 
 // 起動完了の待機設定
-const WAIT_TIMEOUT_MS = 5 * 60_000; // 最大5分待つ（インタラクションの有効期限15分以内）
+const WAIT_TIMEOUT_MS = 8 * 60_000; // 最大8分待つ（インタラクションの有効期限15分以内）
 const POLL_MS = 5_000;
 const STOPPED_GRACE_MS = 20_000; // 起動直後は状態の反映が遅れるので、この間の「stopped」は無視する
 
@@ -32,31 +34,40 @@ async function replyError(interaction, content) {
     return interaction.followUp({ content, flags: MessageFlags.Ephemeral });
 }
 
-/** サーバーが running になるまで待つ。'running' | 'offline' | 'stopped' | 'timeout' を返す。 */
-async function waitUntilRunning() {
+/**
+ * 起動完了を待つ。
+ *  1) 自宅PCが「running」（ローカルのポートが開いた）と報告するのを待つ
+ *  2) Java版の公開アドレスに ping を送り、応答が返るのを待つ（= 外から入れる状態）
+ * 'ready' | 'offline' | 'stopped' | 'tunnel_timeout' | 'timeout' を返す。
+ */
+async function waitUntilReady() {
     const startedAt = Date.now();
+    let localRunning = false;
     while (Date.now() - startedAt < WAIT_TIMEOUT_MS) {
         const s = getState();
-        if (s === 'running') return 'running';
         if (s === 'offline') return 'offline';
         if (s === 'stopped' && Date.now() - startedAt > STOPPED_GRACE_MS) return 'stopped';
+        if (s === 'running') {
+            localRunning = true;
+            const res = await pingJava(JAVA_ADDRESS, JAVA_PORT).catch(() => null);
+            if (res) return 'ready';
+        }
         await sleep(POLL_MS);
     }
-    return 'timeout';
+    return localRunning ? 'tunnel_timeout' : 'timeout';
 }
 
-/** 起動完了を待って、完了したら接続先を（全員に見える形で）投稿する。 */
+/** 起動完了を待って、Java版アドレスへのpingが返ったら接続先を（全員に見える形で）投稿する。 */
 async function announceWhenReady(interaction) {
-    const r = await waitUntilRunning();
-    if (r === 'running') {
-        await interaction.followUp({ content: `🟢 **サーバーが起動しました！**\n${addressText()}` });
-    } else if (r === 'timeout') {
-        await interaction.followUp({ content: '⚠️ 起動の完了を確認できませんでした。しばらくしてからもう一度お試しください。' });
-    } else if (r === 'offline') {
-        await interaction.followUp({ content: '🔌 起動中に自宅PCとの接続が切れました。' });
-    } else {
-        await interaction.followUp({ content: '⚠️ サーバーが起動せずに停止しました。管理者に連絡してください。' });
-    }
+    const r = await waitUntilReady();
+    const messages = {
+        ready: `🟢 **サーバーが起動しました！**\n${addressText()}`,
+        tunnel_timeout: `⚠️ サーバーは起動しましたが、\`${JAVA_ADDRESS}\` からの応答がありませんでした。トンネル（playit.gg）の状態を確認してください。`,
+        timeout: '⚠️ 起動の完了を確認できませんでした。しばらくしてからもう一度お試しください。',
+        offline: '🔌 起動中に自宅PCとの接続が切れました。',
+        stopped: '⚠️ サーバーが起動せずに停止しました。管理者に連絡してください。',
+    };
+    await interaction.followUp({ content: messages[r] });
 }
 
 module.exports = {
