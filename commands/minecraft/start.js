@@ -7,7 +7,7 @@ const COOLDOWN_MS = 60_000;
 const lastUsed = new Map(); // discordId -> 最後に起動を依頼した時刻
 
 // 接続先（環境変数で上書きも可能）
-const JAVA_ADDRESS = process.env.MC_JAVA_ADDRESS || 'domination-env.tun.ply.gg';
+const JAVA_ADDRESS = process.env.MC_JAVA_ADDRESS || 'malls-reno.tun.ply.gg';
 const JAVA_PORT = Number(process.env.MC_JAVA_PORT || 25565); // アドレスにポートが付く場合は MC_JAVA_PORT で指定
 const BE_ADDRESS = process.env.MC_BE_ADDRESS || 'indigooriole.wdn.gg';
 const BE_PORT = process.env.MC_BE_PORT || '443';
@@ -16,6 +16,7 @@ const BE_PORT = process.env.MC_BE_PORT || '443';
 const WAIT_TIMEOUT_MS = 8 * 60_000; // 最大8分待つ（インタラクションの有効期限15分以内）
 const POLL_MS = 5_000;
 const STOPPED_GRACE_MS = 20_000; // 起動直後は状態の反映が遅れるので、この間の「stopped」は無視する
+const OFFLINE_GRACE_MS = 30_000; // 再接続による一瞬の切断は、この時間までは失敗扱いにしない
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -43,10 +44,22 @@ async function replyError(interaction, content) {
 async function waitUntilReady() {
     const startedAt = Date.now();
     let localRunning = false;
+    let offlineSince = null;
+    let stoppedPolls = 0;
     while (Date.now() - startedAt < WAIT_TIMEOUT_MS) {
         const s = getState();
-        if (s === 'offline') return 'offline';
-        if (s === 'stopped' && Date.now() - startedAt > STOPPED_GRACE_MS) return 'stopped';
+        if (s === 'offline') {
+            offlineSince ??= Date.now();
+            if (Date.now() - offlineSince > OFFLINE_GRACE_MS) return 'offline';
+            await sleep(POLL_MS);
+            continue;
+        }
+        offlineSince = null;
+        if (s === 'stopped' && Date.now() - startedAt > STOPPED_GRACE_MS) {
+            if (++stoppedPolls >= 2) return 'stopped'; // 再接続直後の一瞬の「stopped」で誤判定しない（2回連続で確認）
+        } else {
+            stoppedPolls = 0;
+        }
         if (s === 'running') {
             localRunning = true;
             const res = await pingJava(JAVA_ADDRESS, JAVA_PORT).catch(() => null);
