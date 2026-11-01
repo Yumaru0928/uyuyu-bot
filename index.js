@@ -21,7 +21,8 @@ const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`[Web Server] Listening on port ${PORT}`));
 
 // 自宅PC（マイクラサーバー）の常駐スクリプトからのWebSocket接続を受け付ける（/agent）
-require('./utils/agent-bridge.js').attach(server);
+const agentBridge = require('./utils/agent-bridge.js');
+agentBridge.attach(server);
 
 // ===================================================
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
@@ -81,11 +82,34 @@ client.on('ready', () => {
         { name: 'うゆゆガチャ：/uyuyu-gacha をプレイ中', type: ActivityType.Playing }
     ];
 
+    // マイクラサーバーの状態に応じて、ステータスの表示を1つ追加する
+    //   running  … サーバーが起動していて入れる状態
+    //   starting … 起動処理中
+    //   それ以外（停止中・自宅PCオフライン）は追加しない
+    const minecraftActivity = () => {
+        switch (agentBridge.getState()) {
+            case 'running':
+                return { name: 'マイクラサーバー 🟢起動中', type: ActivityType.Playing };
+            case 'starting':
+                return { name: 'マイクラサーバー 🟡起動処理中', type: ActivityType.Playing };
+            default:
+                return null;
+        }
+    };
+
     let index = 0;
-    setInterval(() => {
-        client.user.setActivity(activities[index]);
-        index = (index + 1) % activities.length;
-    }, 10000);
+    const updateActivity = () => {
+        const list = [...activities];
+        const mc = minecraftActivity();
+        if (mc) list.push(mc);
+
+        index %= list.length; // 項目数が増減しても範囲外にならないようにする
+        client.user.setActivity(list[index]);
+        index = (index + 1) % list.length;
+    };
+
+    updateActivity();
+    setInterval(updateActivity, 10000);
 });
 
 // ===================================================
