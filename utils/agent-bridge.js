@@ -32,15 +32,21 @@ function attach(server) {
             socket.destroy();
             return;
         }
-        wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws));
+        wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
     });
 
-    wss.on('connection', (ws) => {
-        if (agent) agent.terminate(); // 古い接続は破棄
+    wss.on('connection', (ws, req) => {
+        // 接続元（Render のプロキシ越しの場合は x-forwarded-for）。2台が同時につないでいないか見分ける用
+        const from = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || '不明';
+        ws.connectedAt = Date.now();
+        if (agent) {
+            console.warn(`[Agent Bridge] 既存の接続があるため、古い接続を破棄します（新しい接続元: ${from}）。agent が2つ動いている可能性があります。`);
+            agent.terminate(); // 古い接続は破棄
+        }
         agent = ws;
         ws.isAlive = true;
         state = 'stopped';
-        console.log('[Agent Bridge] 自宅PCが接続しました。');
+        console.log(`[Agent Bridge] 自宅PCが接続しました（接続元: ${from}）。`);
 
         ws.on('pong', () => { ws.isAlive = true; });
         ws.on('message', (raw) => {
@@ -53,11 +59,12 @@ function attach(server) {
                 waiting.delete(msg.id);
             }
         });
-        ws.on('close', () => {
+        ws.on('close', (code, reason) => {
             if (agent === ws) {
                 agent = null;
                 state = 'offline';
-                console.log('[Agent Bridge] 自宅PCが切断しました。');
+                const upSec = Math.round((Date.now() - ws.connectedAt) / 1000);
+                console.log(`[Agent Bridge] 自宅PCが切断しました (code ${code}${reason?.length ? `, ${reason}` : ''}, 接続していた時間 ${upSec}秒)。`);
             }
         });
         ws.on('error', (e) => console.error('[Agent Bridge] WebSocketエラー:', e.message));
@@ -66,7 +73,11 @@ function attach(server) {
     // 生存確認（Renderのプロキシのアイドル切断対策も兼ねる）
     setInterval(() => {
         if (!agent) return;
-        if (!agent.isAlive) { agent.terminate(); return; }
+        if (!agent.isAlive) {
+            console.warn('[Agent Bridge] 自宅PCから生存確認(pong)が返らないため、接続を切ります。');
+            agent.terminate();
+            return;
+        }
         agent.isAlive = false;
         agent.ping();
     }, 30_000).unref();
