@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { WebSocketServer } = require('ws');
 
 const AGENT_PATH = '/agent';
+const HEARTBEAT_TIMEOUT_MS = 90_000;
 
 let agent = null;
 let state = 'offline'; // offline | stopped | starting | running
@@ -39,6 +40,7 @@ function attach(server) {
         // 接続元（Render のプロキシ越しの場合は x-forwarded-for）。2台が同時につないでいないか見分ける用
         const from = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || '不明';
         ws.connectedAt = Date.now();
+        ws.lastSeen = Date.now();
         if (agent) {
             console.warn(`[Agent Bridge] 既存の接続があるため、古い接続を破棄します（新しい接続元: ${from}）。agent が2つ動いている可能性があります。`);
             agent.terminate(); // 古い接続は破棄
@@ -52,6 +54,13 @@ function attach(server) {
         ws.on('message', (raw) => {
             let msg;
             try { msg = JSON.parse(raw); } catch { return; }
+            ws.lastSeen = Date.now();
+            if (msg.type === 'heartbeat') {
+                // プロキシは ping/pong を途中で処理してしまうことがあるため、データとして生存確認をやり取りする
+                ws.supportsHeartbeat = true;
+                if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'heartbeat_ack' }));
+                return;
+            }
             if (msg.type === 'status' && ['stopped', 'starting', 'running'].includes(msg.state)) {
                 state = msg.state;
             } else if ((msg.type === 'start_result' || msg.type === 'command_result') && waiting.has(msg.id)) {
@@ -73,12 +82,22 @@ function attach(server) {
     // 生存確認（Renderのプロキシのアイドル切断対策も兼ねる）
     setInterval(() => {
         if (!agent) return;
-        if (!agent.isAlive) {
-            console.warn('[Agent Bridge] 自宅PCから生存確認(pong)が返らないため、接続を切ります。');
-            agent.terminate();
-            return;
+        if (agent.supportsHeartbeat) {
+            // agent は20秒ごとに heartbeat を送ってくる。90秒何も届かなければ死んでいるとみなす
+            if (Date.now() - agent.lastSeen > HEARTBEAT_TIMEOUT_MS) {
+                console.warn('[Agent Bridge] 自宅PCから90秒間何も届かないため、接続を切ります。');
+                agent.terminate();
+                return;
+            }
+        } else {
+            // 旧バージョンの agent 向け（pong で判定）
+            if (!agent.isAlive) {
+                console.warn('[Agent Bridge] 自宅PCから生存確認(pong)が返らないため、接続を切ります。');
+                agent.terminate();
+                return;
+            }
+            agent.isAlive = false;
         }
-        agent.isAlive = false;
         agent.ping();
     }, 30_000).unref();
 }
