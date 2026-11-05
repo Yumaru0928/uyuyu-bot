@@ -25,6 +25,8 @@ const isCoolingDown = createCooldown(5000);
 const MAX_HISTORY = 20;             // 返信をさかのぼって読む最大メッセージ数
 const MAX_THREAD_HISTORY = 200;     // AI スレッドで読み込む最大メッセージ数（巨大なスレッド対策）
 const MAX_ATTACHMENT_MB = 20;       // Gemini にインラインで送れるサイズの目安
+const MAX_HISTORY_IMAGES = 4;       // AI スレッドの履歴から読み直す画像の最大枚数（新しいものから）
+const MAX_HISTORY_IMAGE_MB = 5;     // 履歴の画像 1 枚あたりの上限
 
 // ローディング表示とエラー文（履歴に入れない）
 const isStatusText = text => text.startsWith(LOADING) || text.startsWith('⚠️');
@@ -33,22 +35,29 @@ const isStatusText = text => text.startsWith(LOADING) || text.startsWith('⚠️
 function cleanBotText(text) {
     return text
         .replace(/^\(続き\)\s*/, '')
+        // /generate の出力: ヒントの行は捨て、プロンプトの行は画像の説明として読める形にする
+        .replace(/^-# ヒント：.*(?:\n|$)/gm, '')
+        .replace(/^-# プロンプト: (.*)$/gm, '[/generate で生成された画像] プロンプト: $1')
         // 画像化のために付けた ```latex ブロックは、元の $$ ... $$ に戻す
-        .replace(/```latex\n([\s\S]*?)\n```/g, (_, tex) => `$$\n${tex}\n$$`);
+        .replace(/```latex\n([\s\S]*?)\n```/g, (_, tex) => `$$\n${tex}\n$$`)
+        .trim();
 }
 
 // Gemini は先頭が user でないとエラーになることがあるので、先頭の model は捨てる。
 // 同じロールが続く場合は 1 つにまとめる。
+// 各 item は { role, text, imageParts? }。parts[0] が文章、2つ目以降が画像
 function normalizeHistory(raw) {
     const history = [];
     for (const item of raw) {
+        const images = item.imageParts || [];
         const last = history[history.length - 1];
         if (last && last.role === item.role) {
             last.parts[0].text += `\n\n${item.text}`;
+            last.parts.push(...images);
         } else if (history.length === 0 && item.role === 'model') {
             continue;
         } else {
-            history.push({ role: item.role, parts: [{ text: item.text }] });
+            history.push({ role: item.role, parts: [{ text: item.text }, ...images] });
         }
     }
     return history;
@@ -115,25 +124,54 @@ async function fetchThreadMessages(thread, beforeId, cap) {
         .reverse();                                                  // 古い順
 }
 
-// AI スレッドの履歴: 最初の質問 + スレッド内のすべてのメッセージ（今回の発言は含めない）
+// 履歴に入れてよい画像か。ボットの発言からは /generate の画像だけ（数式の画像は文章で十分なので入れない）
+function historyImages(message, isBot) {
+    return [...message.attachments.values()].filter(a =>
+        (a.contentType || '').startsWith('image/') &&
+        a.size <= MAX_HISTORY_IMAGE_MB * 1024 * 1024 &&
+        (!isBot || a.name?.startsWith('generated_'))
+    );
+}
+
+// AI スレッドの履歴: 最初の質問 + スレッド内のすべてのメッセージ（今回の発言は含めない）。
+// /generate の画像や、ユーザーが送った画像は、新しいものから MAX_HISTORY_IMAGES 枚まで AI にも見せる。
 async function buildThreadHistory(thread, starter, currentId) {
-    const raw = [{ role: 'user', text: await readQuestion(starter) }];
+    const items = [{ role: 'user', text: await readQuestion(starter), images: [] }];
 
     for (const m of await fetchThreadMessages(thread, currentId, MAX_THREAD_HISTORY)) {
         if (m.system) continue;
         const isBot = m.author.id === m.client.user.id;
         if (m.author.bot && !isBot) continue;   // 他の Bot の発言は入れない
 
+        const images = historyImages(m, isBot);
+        let role = isBot ? 'model' : 'user';
         let text = m.content || '';
         if (isBot) {
             if (isStatusText(text)) continue;
             text = cleanBotText(text);
+            // /generate の画像は AI の発言ではなく「見せる資料」なので、user 側に置く
+            // （model の発言に画像を含めると API に拒否されることがある）
+            if (images.length) role = 'user';
         } else if (m.attachments.size) {
             text += `\n[添付ファイル: ${[...m.attachments.values()].map(a => a.name).join(', ')}]`;
         }
-        if (text.trim()) raw.push({ role: isBot ? 'model' : 'user', text });
+        if (!text.trim() && !images.length) continue;
+        items.push({ role, text: text.trim() || '[画像]', images });
     }
-    return normalizeHistory(raw);
+
+    // 画像は新しい順に枠の分だけ残して、読み込む
+    let budget = MAX_HISTORY_IMAGES;
+    for (let i = items.length - 1; i >= 0; i--) {
+        items[i].images = items[i].images.slice(0, budget);
+        budget -= items[i].images.length;
+    }
+    await Promise.all(items.map(async item => {
+        const parts = await Promise.all(item.images.map(a =>
+            urlToGenerativePart(a.url, a.contentType).catch(() => null)));   // 取得できない画像は飛ばす
+        item.imageParts = parts.filter(Boolean);
+    }));
+
+    return normalizeHistory(items);
 }
 
 module.exports = {
@@ -208,18 +246,21 @@ module.exports = {
             // 履歴の末尾が user だと user が連続して API エラーになることがある
             // （画像だけのボット発言が履歴から抜けた場合など）ので、今回の発言にまとめる
             let userText = text;
+            const extraParts = [];   // 今回の発言といっしょに送る画像・ファイル
             const lastTurn = history[history.length - 1];
             if (lastTurn?.role === 'user') {
                 history.pop();
                 userText = `${lastTurn.parts[0].text}\n\n${text}`.trim();
+                extraParts.push(...lastTurn.parts.slice(1));
             }
 
-            let contents = userText;
             if (attachment) {
                 const mimeType = attachment.contentType || 'application/octet-stream';
-                const filePart = await urlToGenerativePart(attachment.url, mimeType);
-                contents = [userText || 'このファイルについて教えてください。', filePart];
+                extraParts.push(await urlToGenerativePart(attachment.url, mimeType));
             }
+            const contents = extraParts.length
+                ? [userText || 'このファイルについて教えてください。', ...extraParts]
+                : userText;
 
             const result = await withModelFallback(
                 CHAT_MODELS,
