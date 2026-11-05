@@ -1,5 +1,7 @@
 const { AttachmentBuilder } = require("discord.js");
-const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
+const fs = require("fs");
+const path = require("path");
 
 const { mathjax } = require("mathjax-full/js/mathjax.js");
 const { TeX } = require("mathjax-full/js/input/tex.js");
@@ -26,10 +28,116 @@ const MAX_IMAGES = Infinity;       // 1回の応答で画像化する数式（�
 const BG_COLOR = "#000000";
 const FG_COLOR = "#ffffff";
 
+// ---------- 日本語フォント ----------
+const JP_FONT_FAMILY = "LatexJP";
+/** 日本語フォントの候補。環境変数 LATEX_JP_FONT で直接指定もできる */
+const JP_FONT_CANDIDATES = [
+    process.env.LATEX_JP_FONT,
+    // このファイルの隣の fonts/ フォルダに置いた場合
+    path.join(__dirname, "fonts", "NotoSansJP-Regular.ttf"),
+    path.join(__dirname, "fonts", "NotoSansJP-Regular.otf"),
+    path.join(__dirname, "fonts", "NotoSansJP[wght].ttf"),
+    path.join(__dirname, "fonts", "NotoSansCJK-Regular.ttc"),
+    path.join(__dirname, "fonts", "NotoSerifJP-Regular.otf"),
+    // Linux
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf",
+    "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
+    "/usr/share/fonts/truetype/takao-gothic/TakaoGothic.ttf",
+    // Windows
+    "C:\\Windows\\Fonts\\YuGothR.ttc",
+    "C:\\Windows\\Fonts\\meiryo.ttc",
+    "C:\\Windows\\Fonts\\msgothic.ttc",
+    // macOS
+    "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+    "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    "/Library/Fonts/Arial Unicode.ttf"
+];
+
+let jpFontReady = false;
+(function setupJapaneseFont() {
+    for (const file of JP_FONT_CANDIDATES) {
+        if (!file || !fs.existsSync(file)) continue;
+        try {
+            if (GlobalFonts.registerFromPath(file, JP_FONT_FAMILY)) {
+                jpFontReady = true;
+                console.log(`[latex-render] 日本語フォントを登録しました: ${file}`);
+                return;
+            }
+        } catch (e) { /* 次の候補へ */ }
+    }
+    console.warn(
+        "[latex-render] 日本語フォントが見つかりません。数式内の日本語が□になります。" +
+        "fonts/ フォルダに NotoSansJP-Regular.ttf を置くか、環境変数 LATEX_JP_FONT でパスを指定してください。"
+    );
+})();
+
+// ---------- 数式内の日本語を \text{} で包む ----------
+const JP_CHAR = /[\u3000-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/;
+const TEXT_CMD = /^\\(?:text|textrm|textbf|textit|textsf|texttt|mbox|hbox)\s*\{/;
+
+/** \text{} などの外にある日本語の連続を \text{...} で包む（斜体・字間の崩れを防ぐ） */
+function wrapJapanese(tex) {
+    if (!JP_CHAR.test(tex)) return tex;
+
+    let out = "";
+    let i = 0;
+    let depth = 0;
+    const textDepths = [];   // テキストモードに入ったときの波括弧の深さ
+
+    while (i < tex.length) {
+        const c = tex[i];
+
+        if (c === "\\") {
+            const rest = tex.slice(i);
+            const t = rest.match(TEXT_CMD);
+            if (t) {
+                depth++;
+                textDepths.push(depth);
+                out += t[0];
+                i += t[0].length;
+                continue;
+            }
+            const m = rest.match(/^\\(?:[a-zA-Z]+|.)/s);
+            out += m[0];
+            i += m[0].length;
+            continue;
+        }
+        if (c === "{") { depth++; out += c; i++; continue; }
+        if (c === "}") {
+            if (textDepths.length && textDepths[textDepths.length - 1] === depth) textDepths.pop();
+            depth--;
+            out += c;
+            i++;
+            continue;
+        }
+        if (!textDepths.length && JP_CHAR.test(c)) {
+            let j = i;
+            while (j < tex.length && JP_CHAR.test(tex[j])) j++;
+            out += `\\text{${tex.slice(i, j)}}`;
+            i = j;
+            continue;
+        }
+        out += c;
+        i++;
+    }
+    return out;
+}
+
 // ---------- LaTeX -> 画像 ----------
 async function renderLine(tex) {
-    const node = mjDocument.convert(tex, { display: true });
+    const node = mjDocument.convert(wrapJapanese(tex), { display: true });
     let svg = adaptor.innerHTML(node);
+
+    // 日本語などフォント描画になる文字は、登録した日本語フォントで描く
+    if (jpFontReady) {
+        svg = svg
+            .replace(/font-family="[^"]*"/g, `font-family="${JP_FONT_FAMILY}"`)
+            .replace(/font-family:\s*[^;"]+/g, `font-family: ${JP_FONT_FAMILY}`);
+    }
 
     const w = parseFloat(svg.match(/width="([\d.]+)ex"/)?.[1] ?? 0) * EX_TO_PX;
     const h = parseFloat(svg.match(/height="([\d.]+)ex"/)?.[1] ?? 0) * EX_TO_PX;
@@ -181,6 +289,9 @@ const SUB = {
 function simplifyInline(tex) {
     let s = tex.trim();
     let ok = true;
+
+    // \text{速度} のような単純なテキストは中身だけにする
+    s = s.replace(/\\(?:text|textrm|mbox|mathrm)\s*\{([^{}\\]*)\}/g, "$1");
 
     s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => {
         if (SYMBOLS[name]) return SYMBOLS[name];
