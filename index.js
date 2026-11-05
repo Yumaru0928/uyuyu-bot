@@ -10,6 +10,7 @@ consoleForward.install();
 
 const deployCommands = require('./deploy-commands.js');
 const { updateChannelConfig } = require('./channel-config.js');
+const aiMessages = require('./ai-messages.js');
 
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
@@ -52,6 +53,16 @@ consoleForward.attach(client, targetLogChannelId);
 client.on(Events.Error, error => console.error('[Client Error]', error));
 process.on('unhandledRejection', reason => console.error('[Unhandled Rejection]', reason));
 process.on('uncaughtException', error => console.error('[Uncaught Exception]', error));
+
+// Render の再起動・再デプロイ（SIGTERM）の前に、保存待ちの AI メッセージの記録を data ブランチへ書き出す
+process.once('SIGTERM', async () => {
+    console.log('[Shutdown] SIGTERM を受け取りました。保存待ちの記録を書き出します...');
+    await Promise.race([
+        aiMessages.flush().catch(error => console.error('[Shutdown] 記録の保存に失敗しました:', error)),
+        new Promise(resolve => setTimeout(resolve, 10000)),
+    ]);
+    process.exit(0);
+});
 
 // ===================================================
 // ★ ② client が定義されたあとに各種イベントを読み込む
@@ -224,6 +235,41 @@ async function restoreConfigFromGitHub(filePath = 'config-channels.json') {
     }
 }
 
+// AI メッセージの記録（返信への反応判定や「続き」のつなぎに使う）も data ブランチに保存する。
+// 変更があってから 2 分ほどまとめて 1 回コミットする（詳しくは ai-messages.js）
+const AI_MESSAGES_FILE = 'ai-messages.json';
+
+async function restoreAiMessagesFromGitHub(filePath = AI_MESSAGES_FILE) {
+    const github = githubSettings();
+    if (!github) return;
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${filePath}?ref=${github.branch}`, {
+            headers: github.headers,
+            signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        });
+        if (res.status === 404) {
+            console.log(`[GitHub Sync] ${filePath} はまだ ${github.branch} ブランチにありません（初回起動）。`);
+            return;
+        }
+        if (!res.ok) {
+            console.warn(`[GitHub Sync] ${filePath} を取得できませんでした (HTTP ${res.status})。AI メッセージの記録なしで起動します。`);
+            return;
+        }
+
+        const file = await res.json();
+        const count = aiMessages.importRecords(JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8')));
+        console.log(`[GitHub Sync] AI メッセージの記録を ${count} 件読み戻しました。`);
+    } catch (error) {
+        console.error('[GitHub Sync] AI メッセージの記録の読み戻しに失敗しました:', error);
+    }
+}
+
+if (githubSettings()) {
+    aiMessages.setSaveHandler(data =>
+        commitJsonToGitHub(AI_MESSAGES_FILE, data, 'auto: update ai-messages [skip render]'));
+}
+
 client.commitJsonToGitHub = commitJsonToGitHub;
 
 // ===================================================
@@ -295,6 +341,7 @@ if (fs.existsSync(configPath)) {
 async function main() {
     try {
         await restoreConfigFromGitHub();
+        await restoreAiMessagesFromGitHub();
         await deployCommands();
         await client.login(token);
     } catch (error) {
