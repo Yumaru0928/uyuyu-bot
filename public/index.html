@@ -8,18 +8,16 @@
   
   <!-- ▼ 検索エンジン向け基本設定 (SEO) ▼ -->
   <title>うゆゆBot - 公式Discord Bot | コマンド一覧・導入方法</title>
-  <meta name="description" content="「うゆゆ」と書き込むと絵文字で反応するDiscord Bot「うゆゆBot」の公式サイト。絵文字ガチャ、ダイス、ダーツの上がり目計算など、便利な機能やコマンド一覧、導入方法をご紹介します。">
+  <meta name="description" content="「うゆゆ」と書き込むと絵文字で反応するDiscord Bot「うゆゆBot」の公式サイト。AIチャット、画像生成、LaTeX数式、絵文字ガチャ、スロット、ダイスなど、便利な機能やコマンド一覧、導入方法をご紹介します。">
   <link rel="canonical" href="https://uyuyu-bot.onrender.com/index.html">
 
   <!-- ▼ OGP (SNS・Discordプレビュー設定) ▼ -->
   <meta property="og:title" content="うゆゆBot - 公式Discord Bot" />
-  <meta property="og:description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
+  <meta property="og:description" content="「うゆゆ」と書き込むと絵文字で反応！AIチャット、画像生成、LaTeX数式、絵文字ガチャ、スロット、ダイスなど、サーバーで使える機能がそろったDiscord Botです。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uyuyu-bot.onrender.com/index.html" />
   <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
   <meta name="theme-color" content="#0E7A5C" />
-  <meta name="description" content="「うゆゆ」と書き込むと絵文字で反応！絵文字ガチャ、ダイス、ダーツの上がり目計算など、サーバーで遊べる機能がそろったDiscord Botです。" />
-  <title>うゆゆBot - Discord Bot</title>
 
   <!-- ▼ スタイルシート・フォント ▼ -->
   <link rel="stylesheet" href="style.css">
@@ -37,7 +35,7 @@
     "name": "うゆゆBot",
     "operatingSystem": "Discord",
     "applicationCategory": "UtilitiesApplication",
-    "description": "「うゆゆ」と書き込むと絵文字で反応するDiscord Bot。絵文字ガチャ、ダイス、ダーツの上がり目計算など。",
+    "description": "「うゆゆ」と書き込むと絵文字で反応するDiscord Bot。AIチャット、画像生成、LaTeX数式、絵文字ガチャ、スロット、ダイスなど。",
     "url": "https://uyuyu-bot.onrender.com/index.html"
   }
   </script>
@@ -66,7 +64,7 @@
       <p class="eyebrow">Discord Bot</p>
       <!-- 検索エンジンは h1 を最も重要なキーワードとして認識するため、検索されやすいワードを含めました -->
       <h1><span class="hl">うゆゆBot</span></h1>
-      <p class="lead">「うゆゆ」と書き込むと絵文字で反応します。絵文字ガチャ、ダイス、ダーツの上がり目の計算など、サーバーで遊べるコマンドもそろっています。</p>
+      <p class="lead">「うゆゆ」と書き込むと絵文字で反応します。AIとの会話、画像生成、LaTeX数式の表示、絵文字ガチャ、スロット、ダイスなど、サーバーで使えるコマンドもそろっています。</p>
       <div class="cta">
         <a class="btn" href="invite.html">サーバーに招待する</a>
         <span>導入後は <span class="chip">/help</span> で一覧を確認できます</span>
@@ -96,11 +94,11 @@
 
     <section>
       <h2>コマンド一覧</h2>
-      <p class="sec-lead">実装されている一部のスラッシュコマンドです。サーバーでは「/」を入力すると候補が表示されます。</p>
+      <p class="sec-lead">主なスラッシュコマンドです。サーバーでは「/」を入力すると候補が表示されます。</p>
       <ul class="cmds">
         <li class="cmd">
           <div><code>/chat</code><span class="args">prompt / model / attachment</span></div>
-          <p>Geminiと会話します。Botの返答に返信すると、会話を続けられます。</p>
+          <p>Geminiと会話します。モデルを選べて、画像やPDFなどのファイルも一緒に送れます。Botの返答に返信すると、会話を続けられます。</p>
         </li>
         <li class="cmd">
           <div><code>/generate</code><span class="args">prompt / attachments</span></div>
@@ -109,14 +107,6 @@
         <li class="cmd">
           <div><code>/slot</code></div>
           <p>うゆゆ絵文字のスロットを回します。ボタンで何度でも回せます。</p>
-        </li>
-        <li class="cmd">
-          <div><code>/blackjack</code></div>
-          <p>ディーラーとブラックジャックで対戦します。</p>
-        </li>
-        <li class="cmd">
-          <div><code>/high-low</code></div>
-          <p>次の数字が大きいか小さいかを当てるゲームです。</p>
         </li>
         <li class="cmd">
           <div><code>/uyuyu-gacha</code></div>
@@ -131,10 +121,12 @@
           <p>「2d10」のように指定してサイコロを振り、出目と合計を表示します。</p>
         </li>
         <li class="cmd">
-          <div><code>/calculate-darts-checkout</code><span class="args">type / out / score</span></div>
-          <p>
-            ブルの種類(ファットブル、セパレートブル)、アウトのルール(マスター、ダブル、オープン)、残りスコア(1〜180)を指定すると、上がりのルートを表示します。別の候補があれば併せて示し、3投以内で上がれない場合はそのことを伝えます。
-          </p>
+          <div><code>/latex</code><span class="args">prompt</span></div>
+          <p>LaTeXの数式を画像にして表示します。「\n」で改行できます。</p>
+        </li>
+        <li class="cmd">
+          <div><code>/avatar</code><span class="args">target</span></div>
+          <p>指定したユーザーのアバター画像を表示します。省略すると自分のアバターです。</p>
         </li>
       </ul>
       <p class="perm-note">サーバー管理のコマンドは、「チャンネルの管理」権限を持つ人だけが実行できます。ダッシュボードは、「管理者」または「チャンネルの管理」権限を持つ人が使えます。</p>

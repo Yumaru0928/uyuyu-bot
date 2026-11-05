@@ -3,7 +3,7 @@
   <!-- トップページ (機能一覧) -->
   <url>
     <loc>https://uyuyu-bot.onrender.com/index.html</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -19,7 +19,7 @@
   <!-- プライバシーポリシー -->
   <url>
     <loc>https://uyuyu-bot.onrender.com/privacy.html</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
@@ -27,7 +27,7 @@
   <!-- クレジット -->
   <url>
     <loc>https://uyuyu-bot.onrender.com/credits.html</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
