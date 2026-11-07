@@ -9,7 +9,7 @@ const lastUsed = new Map(); // discordId -> 最後に起動を依頼した時刻
 // 接続先（環境変数で上書きも可能）
 const JAVA_ADDRESS = process.env.MC_JAVA_ADDRESS || 'domination-env.tun.ply.gg';
 const JAVA_PORT = Number(process.env.MC_JAVA_PORT || 25565); // アドレスにポートが付く場合は MC_JAVA_PORT で指定
-const BE_ADDRESS = process.env.MC_BE_ADDRESS || 'indigooriole.wdn.gg';
+const BE_ADDRESS = process.env.MC_BE_ADDRESS || 'emeraldmist.wdn.gg';
 const BE_PORT = process.env.MC_BE_PORT || '443';
 
 // 起動完了の待機設定
