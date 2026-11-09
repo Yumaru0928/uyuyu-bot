@@ -128,6 +128,9 @@ function textChannelsOf(client, guildId) {
         });
 }
 
+// ハニーポットで選べる処罰（/honeypot コマンド・honeypotEvent.js と揃える）
+const HONEYPOT_PUNISHMENTS = ['kick', 'ban', 'timeout'];
+
 // ログインが無効な場合のガード
 function requireAuthEnabled(req, res, next) {
     if (!discordAuthEnabled) {
@@ -229,6 +232,23 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
             return res.status(400).send('削除ログの送信先に指定できないチャンネルです。');
         }
 
+        // ハニーポット設定。チェックボックスは未チェックだと項目ごと届かないので「'1' かどうか」で判定する
+        const honeypotChannel = String(req.body.honeypotChannel || '');
+        const honeypotLogChannel = String(req.body.honeypotLogChannel || '');
+        const honeypotPunishment = String(req.body.honeypotPunishment || 'kick');
+        const honeypotAutoDelete = req.body.honeypotAutoDelete === '1';
+
+        if (honeypotChannel && !channelIds.has(honeypotChannel)) {
+            return res.status(400).send('ハニーポットに指定できないチャンネルです。');
+        }
+        if (honeypotLogChannel && !channelIds.has(honeypotLogChannel)) {
+            return res.status(400).send('ハニーポットのログの送信先に指定できないチャンネルです。');
+        }
+        if (!HONEYPOT_PUNISHMENTS.includes(honeypotPunishment)) {
+            return res.status(400).send('ハニーポットの処罰が正しくありません。');
+        }
+        let honeypotSettings = null;
+
         let configData;
         try {
             configData = updateChannelConfig(data => {
@@ -247,10 +267,26 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
                 const keptHidden = previouslyDisabled.filter(id => !channelIds.has(id));
                 const nowDisabled = Array.from(channelIds).filter(id => !reactOn.has(id));
                 guildConfig.disableAutoReact = [...keptHidden, ...nowDisabled];
+
+                // ハニーポット（/honeypot コマンドと同じ guildConfig.honeypot に保存する）
+                guildConfig.honeypot = {
+                    ...guildConfig.honeypot,
+                    honeypotChannel: honeypotChannel || null,
+                    punishment: honeypotPunishment,
+                    autoDelete: honeypotAutoDelete,
+                    logChannel: honeypotLogChannel || null,
+                };
+                honeypotSettings = { ...guildConfig.honeypot };
             });
         } catch (error) {
             console.error('[Web] config-channels.json の保存に失敗しました:', error);
             return res.status(500).send('設定の保存に失敗しました。');
+        }
+
+        // ハニーポットのイベント側が持っているキャッシュを、保存した内容で即座に更新する
+        if (client && honeypotSettings) {
+            client.honeypotCache ??= new Map();
+            client.honeypotCache.set(guildId, honeypotSettings);
         }
 
         // 保存完了後にクエリ付きでリダイレクト（画面に「保存しました」と表示するため）

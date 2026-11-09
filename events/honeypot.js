@@ -1,12 +1,12 @@
 const { Events, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
-const { updateChannelConfig, ensureGuildConfig } = require('../channel-config.js'); // ※配置場所に合わせてパスを調整
+const { getChannelConfig } = require('../channel-config.js'); // ※配置場所に合わせてパスを調整
 
 const PUNISHMENT_LABELS = {
     kick: 'キック',
     ban: 'BAN',
     timeout: 'タイムアウト',
 };
-const TIMEOUT_MS = 1 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（1日）
+const TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（28日）
 
 // 処罰ごとの「さかのぼって削除する範囲」
 const PURGE_WINDOWS = {
@@ -24,12 +24,8 @@ const EXEMPT_PRIVILEGED = true; // テスト中は false にすると管理者�
 function getSettings(client, guildId) {
     client.honeypotCache ??= new Map();
     if (!client.honeypotCache.has(guildId)) {
-        let settings = null;
-        updateChannelConfig(data => {
-            const guildConfig = ensureGuildConfig(data, guildId);
-            settings = guildConfig.honeypot ? { ...guildConfig.honeypot } : null;
-        });
-        client.honeypotCache.set(guildId, settings);
+        const guildConfig = getChannelConfig()[guildId];
+        client.honeypotCache.set(guildId, guildConfig?.honeypot ? { ...guildConfig.honeypot } : null);
     }
     return client.honeypotCache.get(guildId);
 }

@@ -7,6 +7,18 @@
   const disabledReact = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : [];
   const reactOnCount = channels.filter(c => !disabledReact.includes(c.id)).length;
   const deleteLogSet = channels.some(c => c.id === guildConfig.deleteLogChannel);
+
+  // ハニーポット設定（未設定の項目は既定値で補う）
+  const honeypot = Object.assign(
+    { honeypotChannel: null, punishment: 'kick', autoDelete: true, logChannel: null },
+    guildConfig.honeypot || {}
+  );
+  const honeypotSet = channels.some(c => c.id === honeypot.honeypotChannel);
+  const punishmentOptions = [
+    { value: 'kick', label: 'キック' },
+    { value: 'ban', label: 'BAN' },
+    { value: 'timeout', label: 'タイムアウト（28日間）' },
+  ];
 %>
 
 <body class="dash">
@@ -75,6 +87,60 @@
                     <% } else { %>
                     <p class="unset">Botが見られるテキストチャンネルがありません。</p>
                     <% } %>
+                </section>
+
+                <section class="panel" aria-labelledby="honeypot-title">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title" id="honeypot-title">ハニーポット</h2>
+                            <p class="panel-lead">このチャンネルに投稿したユーザーを自動で処罰します。荒らしやスパムBOTの対策に使えます。管理者・チャンネル管理権限を持つ人は対象外です。</p>
+                        </div>
+                        <span class="status<%= honeypotSet ? '' : ' status--off' %>"><%= honeypotSet ? '有効' : '未設定' %></span>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="honeypotChannel">ハニーポットチャンネル</label>
+                        <select class="select" id="honeypotChannel" name="honeypotChannel">
+                            <option value="">(未設定: ハニーポットを使わない)</option>
+                            <% channels.forEach(channel => { %>
+                            <option value="<%= channel.id %>"<%= honeypot.honeypotChannel === channel.id ? ' selected' : '' %>>#<%= channel.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">誰も投稿しないチャンネルを指定してください。チャンネル内に注意書きを置くのがおすすめです。</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="honeypotPunishment">処罰</label>
+                        <select class="select" id="honeypotPunishment" name="honeypotPunishment">
+                            <% punishmentOptions.forEach(option => { %>
+                            <option value="<%= option.value %>"<%= honeypot.punishment === option.value ? ' selected' : '' %>><%= option.label %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">Botに該当の権限があり、Botのロールが対象ユーザーより上である必要があります。</p>
+                    </div>
+
+                    <div class="field">
+                        <ul class="switch-list">
+                            <li>
+                                <label class="switch">
+                                    <input class="switch-input" type="checkbox" name="honeypotAutoDelete" value="1"<%= honeypot.autoDelete ? ' checked' : '' %>>
+                                    <span class="switch-name">メッセージを自動で削除する</span>
+                                </label>
+                            </li>
+                        </ul>
+                        <p class="field-help">有効にすると、投稿と、キック・BANは直近24時間分、タイムアウトは直近120分分のメッセージを全チャンネルから削除します。</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="honeypotLogChannel">ログチャンネル</label>
+                        <select class="select" id="honeypotLogChannel" name="honeypotLogChannel">
+                            <option value="">(未設定: ログを送らない)</option>
+                            <% channels.forEach(channel => { %>
+                            <option value="<%= channel.id %>"<%= honeypot.logChannel === channel.id ? ' selected' : '' %>>#<%= channel.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">引っかかったユーザーの情報と処罰の結果を送信します。Botがそのチャンネルに送信できる権限を持っている必要があります。</p>
+                    </div>
                 </section>
 
                 <div class="form-actions">
