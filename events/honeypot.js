@@ -107,7 +107,7 @@ module.exports = {
         // BOT・DMは無視
         if (message.author.bot || !message.inGuild()) return;
 
-        if (DEBUG) console.log(`[honeypot] messageCreate 受信: ch=${message.channelId} user=${message.author.tag}`);
+        if (DEBUG) console.log(`[honeypot] messageCreate 受信: ch=${message.channelId}  user=${message.author.tag} text=${message.content.slice(0, 200)}`);
 
         const settings = getSettings(message.client, message.guildId);
         if (!settings) {
