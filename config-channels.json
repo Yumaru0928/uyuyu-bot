@@ -27,5 +27,13 @@
       "logChannel": "1526168576388632648",
       "honeypotChannel": "1569198471414681691"
     }
+  },
+  "1344255562090811475": {
+    "honeypot": {
+      "punishment": "kick",
+      "autoDelete": true,
+      "logChannel": null,
+      "honeypotChannel": "1558308869648810074"
+    }
   }
 }
