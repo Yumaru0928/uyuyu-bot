@@ -8,7 +8,7 @@
     "deleteLogChannel": "1558496985315672085",
     "disableAutoReact": [],
     "honeypot": {
-      "punishment": "timeout",
+      "punishment": "kick",
       "autoDelete": true,
       "logChannel": "1569191039258984589",
       "honeypotChannel": "1569191012491071631"
