@@ -6,7 +6,7 @@ const PUNISHMENT_LABELS = {
     ban: 'BAN',
     timeout: 'タイムアウト',
 };
-const TIMEOUT_MS = 1 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（1日）
+const TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（28日）
 
 // 処罰ごとの「さかのぼって削除する範囲」
 const PURGE_WINDOWS = {
@@ -17,7 +17,7 @@ const PURGE_WINDOWS = {
 const PURGE_LABELS = { kick: '24時間', ban: '24時間', timeout: '120分' };
 const PURGE_MAX_PAGES = 10; // 1チャンネルあたり最大 100件 × 10ページ まで検索
 
-const DEBUG = true;             // 動作確認が済んだら false にする
+const DEBUG = process.env.HONEYPOT_DEBUG === '1'; // 調査したいときだけ環境変数 HONEYPOT_DEBUG=1 にする
 const EXEMPT_PRIVILEGED = true; // テスト中は false にすると管理者も処罰対象になる（※オーナーはキック/BAN不可）
 
 // 設定の取得（/honeypot コマンドと共有している client.honeypotCache を利用）
@@ -107,17 +107,9 @@ module.exports = {
         // BOT・DMは無視
         if (message.author.bot || !message.inGuild()) return;
 
-        if (DEBUG) console.log(`[honeypot] messageCreate 受信: ch=${message.channelId}  user=${message.author.tag} text=${message.content.slice(0, 200)}`);
-
+        // 設定がない・ハニーポット以外のチャンネルは、毎回のことなのでログを出さずに無視する
         const settings = getSettings(message.client, message.guildId);
-        if (!settings) {
-            if (DEBUG) console.log('[honeypot] このサーバーの設定が見つかりません（/honeypot を実行してください）');
-            return;
-        }
-        if (message.channelId !== settings.honeypotChannel) {
-            if (DEBUG) console.log(`[honeypot] ハニーポット以外のチャンネルなので無視（設定: ${settings.honeypotChannel}）`);
-            return;
-        }
+        if (!settings || message.channelId !== settings.honeypotChannel) return;
 
         const member = message.member
             ?? await message.guild.members.fetch(message.author.id).catch(() => null);
