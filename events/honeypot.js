@@ -6,7 +6,7 @@ const PUNISHMENT_LABELS = {
     ban: 'BAN',
     timeout: 'タイムアウト',
 };
-const TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（28日）
+const TIMEOUT_MS = 1 * 24 * 60 * 60 * 1000; // タイムアウト最大期間（1日）
 
 // 処罰ごとの「さかのぼって削除する範囲」
 const PURGE_WINDOWS = {
