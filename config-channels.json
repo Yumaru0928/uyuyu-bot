@@ -6,7 +6,13 @@
   "1557756857332932608": {
     "memberLogChannel": "1557756858704466072",
     "deleteLogChannel": "1558496985315672085",
-    "disableAutoReact": []
+    "disableAutoReact": [],
+    "honeypot": {
+      "punishment": "timeout",
+      "autoDelete": true,
+      "logChannel": "1569191039258984589",
+      "honeypotChannel": "1569191012491071631"
+    }
   },
   "1526139098291769447": {
     "disableAutoReact": [
