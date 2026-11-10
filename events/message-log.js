@@ -24,7 +24,7 @@ module.exports = {
             // 返信・転送・添付ファイル・スタンプは sendAsUser が message から自動で処理する。
             // 同名スレッドが既にあれば再利用し、なければ新規作成される。
             await sendAsUser(message, targetChannel, message.content, {
-                threadTitle: getLocationString(message), // 例: サーバー名|general / サーバー名|general->スレッド名
+                threadTitle: getLocationString(message), // 例: サーバー名 | カテゴリ | #general -> スレッド名
                 deleteOriginal: false,
             });
         } catch (error) {

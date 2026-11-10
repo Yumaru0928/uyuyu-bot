@@ -31,19 +31,77 @@ function withLock(key, fn) {
 // ---------------------------------------------------------------
 
 /**
- * 送信場所の文字列表記を取得
- * 形式: (サーバー名)|(チャンネル名) または (サーバー名)|(親チャンネル)->(スレッド)
+ * 送信場所の文字列表記を取得（フォーラムのスレッド名に使用）
+ * 形式: サーバー名 | カテゴリ名 | #チャンネル名 -> スレッド名
+ * （スレッド内の発言でなければ " -> スレッド名" は付かない）
  * @param {import('discord.js').Message} message
  * @returns {string}
  */
 function getLocationString(message) {
-    const guildName = message.guild ? message.guild.name : 'DM';
+    if (!message.guild) return 'DM';
 
-    if (message.channel.isThread()) {
-        const parentName = message.channel.parent?.name ?? '不明なチャンネル';
-        return `${guildName}|${parentName}->${message.channel.name}`;
+    const isThread = message.channel.isThread();
+    const base = isThread ? message.channel.parent : message.channel;
+
+    const category = base?.parent?.name ?? 'カテゴリなし';
+    const channelName = base?.name ?? '不明なチャンネル';
+
+    let text = `${message.guild.name} | ${category} | #${channelName}`;
+    if (isThread) text += ` -> ${message.channel.name}`;
+    return text;
+}
+
+/**
+ * 送信元チャンネルの種類をタグ名で返す（スレッドの場合は親チャンネルの種類）
+ * @param {import('discord.js').Message} message
+ * @returns {string|null}
+ */
+function getChannelTypeLabel(message) {
+    const base = message.channel.isThread() ? message.channel.parent : message.channel;
+    switch (base?.type) {
+        case ChannelType.GuildAnnouncement:
+            return '📢アナウンス';
+        case ChannelType.GuildText:
+            return '📝テキスト';
+        case ChannelType.GuildVoice:
+        case ChannelType.GuildStageVoice:
+            return '🔊VC';
+        case ChannelType.GuildForum:
+        case ChannelType.GuildMedia:
+            return '💭フォーラム';
+        default:
+            return null;
     }
-    return `${guildName}|${message.channel.name}`;
+}
+
+/**
+ * フォーラムから同名タグのIDを取得。なければタグを作成する（要「チャンネルの管理」権限）
+ * @returns {Promise<string|null>}
+ */
+async function ensureForumTag(forum, tagName) {
+    if (!tagName) return null;
+
+    const find = (f) => f.availableTags.find((t) => t.name === tagName)?.id ?? null;
+
+    const existing = find(forum);
+    if (existing) return existing;
+
+    return withLock(`tag:${forum.id}`, async () => {
+        const again = find(forum);
+        if (again) return again;
+
+        try {
+            if (forum.availableTags.length >= 20) return null; // タグ上限
+            const updated = await forum.setAvailableTags([
+                ...forum.availableTags,
+                { name: tagName },
+            ]);
+            return find(updated);
+        } catch (err) {
+            console.warn(`タグ「${tagName}」を作成できませんでした:`, err.message);
+            return null;
+        }
+    });
 }
 
 /** Webhookのusernameの制約（1〜80文字、clyde/discordを含められない）に合わせる */
@@ -213,7 +271,7 @@ async function buildParts(message, contentToSend) {
  * @param {string} contentToSend - 本文
  * @param {Object} [options]
  * @param {string} [options.threadTitle] - フォーラムのスレッド名（省略時は送信場所の文字列）
- * @param {string[]} [options.appliedTags] - 新規スレッドに付けるタグID（タグ必須フォーラム用）
+ * @param {string[]} [options.appliedTags] - 新規スレッドに追加で付けるタグID（チャンネルタイプのタグは自動で付く）
  * @param {boolean} [options.deleteOriginal=true] - 送信成功後に元メッセージを削除するか
  */
 async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
@@ -277,6 +335,13 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
             }
         }
 
+        // 新規スレッドを作る場合は、チャンネルタイプのタグを付ける
+        const newThreadTags = [...(appliedTags ?? [])];
+        if (isForum && !threadId) {
+            const typeTagId = await ensureForumTag(hookChannel, getChannelTypeLabel(message));
+            if (typeTagId && !newThreadTags.includes(typeTagId)) newThreadTags.push(typeTagId);
+        }
+
         const sent = [];
         for (const p of payloads) {
             const data = {
@@ -290,7 +355,7 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
                 data.threadId = threadId;
             } else if (isForum) {
                 data.threadName = threadName; // 初回のみ新規スレッド作成
-                if (appliedTags?.length) data.appliedTags = appliedTags;
+                if (newThreadTags.length) data.appliedTags = newThreadTags;
             }
 
             const msg = await safeSend(webhook, data);
@@ -313,4 +378,4 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
     return { location, webhook, threadId: result.threadId, messages: result.sent };
 }
 
-module.exports = { sendAsUser, getLocationString };
+module.exports = { sendAsUser, getLocationString, getChannelTypeLabel };
