@@ -3,8 +3,16 @@ const {
     ChannelType,
     AttachmentBuilder,
     StickerFormatType,
+    InteractionType,
     escapeMarkdown,
 } = require('discord.js');
+
+// ---------------------------------------------------------------
+// 設定
+// ---------------------------------------------------------------
+const getTargetChannelId = () => process.env.TARGET_CHANNEL_ID || '1569502078110408775';
+const MAX_TRACKED = 5000;          // 編集・リアクション反映のために覚えておく転送メッセージ数
+const REACTION_DEBOUNCE_MS = 1500; // リアクション連打をまとめて反映する待ち時間
 
 // ---------------------------------------------------------------
 // キャッシュ / ロック
@@ -15,6 +23,12 @@ const webhookCache = new Map();
 const threadCache = new Map();
 /** 同じスレッドへの同時送信（スレッド二重作成・順序入れ替わり）を防ぐロック */
 const locks = new Map();
+/** 元メッセージID -> 転送先メッセージの情報（編集・リアクション反映用。再起動で消える） */
+const mirrors = new Map();
+/** 転送処理中の元メッセージID -> Promise */
+const inflight = new Map();
+/** リアクション反映のデバウンス用タイマー */
+const refreshTimers = new Map();
 
 function withLock(key, fn) {
     const prev = locks.get(key) ?? Promise.resolve();
@@ -26,6 +40,11 @@ function withLock(key, fn) {
     return next;
 }
 
+function rememberMirror(id, entry) {
+    mirrors.set(id, entry);
+    if (mirrors.size > MAX_TRACKED) mirrors.delete(mirrors.keys().next().value);
+}
+
 // ---------------------------------------------------------------
 // ヘルパー
 // ---------------------------------------------------------------
@@ -33,7 +52,6 @@ function withLock(key, fn) {
 /**
  * 送信場所の文字列表記を取得（フォーラムのスレッド名に使用）
  * 形式: サーバー名 | カテゴリ名 | #チャンネル名 -> スレッド名
- * （スレッド内の発言でなければ " -> スレッド名" は付かない）
  * @param {import('discord.js').Message} message
  * @returns {string}
  */
@@ -51,33 +69,26 @@ function getLocationString(message) {
     return text;
 }
 
-/**
- * 送信元チャンネルの種類をタグ名で返す（スレッドの場合は親チャンネルの種類）
- * @param {import('discord.js').Message} message
- * @returns {string|null}
- */
+/** 送信元チャンネルの種類をタグ名で返す（スレッドの場合は親チャンネルの種類） */
 function getChannelTypeLabel(message) {
     const base = message.channel.isThread() ? message.channel.parent : message.channel;
     switch (base?.type) {
         case ChannelType.GuildAnnouncement:
-            return '📢アナウンス';
+            return 'アナウンス';
         case ChannelType.GuildText:
-            return '📝テキスト';
+            return 'テキスト';
         case ChannelType.GuildVoice:
         case ChannelType.GuildStageVoice:
-            return '🔊VC';
+            return 'VC';
         case ChannelType.GuildForum:
         case ChannelType.GuildMedia:
-            return '💭フォーラム';
+            return 'フォーラム';
         default:
             return null;
     }
 }
 
-/**
- * フォーラムから同名タグのIDを取得。なければタグを作成する（要「チャンネルの管理」権限）
- * @returns {Promise<string|null>}
- */
+/** フォーラムから同名タグのIDを取得。なければ作成（要「チャンネルの管理」権限） */
 async function ensureForumTag(forum, tagName) {
     if (!tagName) return null;
 
@@ -92,10 +103,7 @@ async function ensureForumTag(forum, tagName) {
 
         try {
             if (forum.availableTags.length >= 20) return null; // タグ上限
-            const updated = await forum.setAvailableTags([
-                ...forum.availableTags,
-                { name: tagName },
-            ]);
+            const updated = await forum.setAvailableTags([...forum.availableTags, { name: tagName }]);
             return find(updated);
         } catch (err) {
             console.warn(`タグ「${tagName}」を作成できませんでした:`, err.message);
@@ -187,9 +195,30 @@ async function safeSend(webhook, payload) {
 }
 
 // ---------------------------------------------------------------
-// 送信内容の組み立て（返信 / 転送 / 添付 / スタンプ / Embed）
+// 転送対象かどうかの判定
 // ---------------------------------------------------------------
-async function buildParts(message, contentToSend) {
+/**
+ * 転送すべきメッセージか判定
+ * - 人間のメッセージ → 対象
+ * - Botのメッセージ → スラッシュコマンド等（インタラクション）の応答のみ対象
+ * - 転送先フォーラム自身のメッセージ → 対象外（ループ防止）
+ */
+function shouldMirror(message) {
+    if (!message.guild || message.system) return false;
+
+    const targetId = getTargetChannelId();
+    if (message.channelId === targetId || message.channel?.parentId === targetId) return false;
+
+    if (message.author?.bot) {
+        return !!(message.interactionMetadata || message.interaction);
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------
+// 送信内容の組み立て（コマンド実行者 / 返信 / 転送 / 添付 / スタンプ / Embed / 編集前 / リアクション）
+// ---------------------------------------------------------------
+async function buildParts(message, contentToSend, { previousContent } = {}) {
     const lines = [];
     const files = [];
     const embeds = [];
@@ -205,6 +234,19 @@ async function buildParts(message, contentToSend) {
             if (e.data?.type === 'rich') embeds.push(e.data);
         }
     };
+
+    // --- コマンド実行結果（誰が実行したか） ---
+    const meta = message.interactionMetadata;
+    const legacy = message.interaction; // 非推奨だがコマンド名が入っている
+    const invoker = meta?.user ?? legacy?.user;
+    if (message.author?.bot && invoker) {
+        const member = message.guild?.members.cache.get(invoker.id);
+        const name = member?.displayName ?? invoker.globalName ?? invoker.username;
+        let action = '操作';
+        if (legacy?.commandName) action = `/${legacy.commandName}`;
+        else if (meta?.type === InteractionType.ApplicationCommand) action = 'コマンド';
+        lines.push(`-# ⌨️ **${escapeMarkdown(name)}** が ${action} を実行`);
+    }
 
     const snapshots = message.messageSnapshots; // discord.js v14.17+ の転送メッセージ
     const isForward = !!snapshots && snapshots.size > 0;
@@ -252,6 +294,23 @@ async function buildParts(message, contentToSend) {
         }
     }
 
+    // --- 編集前の内容（小さく表示） ---
+    if (previousContent && previousContent.trim()) {
+        let prev = previousContent.replace(/\s+/g, ' ').trim();
+        if (prev.length > 200) prev = prev.slice(0, 200) + '…';
+        lines.push(`-# ✏️ 編集前: ${prev}`);
+    }
+
+    // --- リアクション（件数つきで小さく表示） ---
+    const reactions = [...(message.reactions?.cache?.values() ?? [])].filter((r) => r.count > 0);
+    if (reactions.length) {
+        const text = reactions
+            .slice(0, 20)
+            .map((r) => `${r.emoji.toString()} ${r.count}`)
+            .join('　');
+        lines.push(`-# リアクション: ${text}`);
+    }
+
     return {
         texts: splitText(lines.join('\n')),
         fileChunks: chunk(files, 10), // 1メッセージ最大10ファイル
@@ -260,18 +319,19 @@ async function buildParts(message, contentToSend) {
 }
 
 // ---------------------------------------------------------------
-// メイン
+// 送信
 // ---------------------------------------------------------------
 /**
  * Webhookでユーザーになりすましてメッセージを送信する。
  * 転送先がフォーラムの場合は、同名スレッドがあれば再利用し、なければ新規作成する。
+ * 送信した内容は記録され、後から編集・リアクションを反映できる。
  *
  * @param {import('discord.js').Message} message - 元のメッセージ
  * @param {import('discord.js').TextBasedChannel|import('discord.js').ForumChannel} targetChannel
  * @param {string} contentToSend - 本文
  * @param {Object} [options]
  * @param {string} [options.threadTitle] - フォーラムのスレッド名（省略時は送信場所の文字列）
- * @param {string[]} [options.appliedTags] - 新規スレッドに追加で付けるタグID（チャンネルタイプのタグは自動で付く）
+ * @param {string[]} [options.appliedTags] - 新規スレッドに追加で付けるタグID
  * @param {boolean} [options.deleteOriginal=true] - 送信成功後に元メッセージを削除するか
  */
 async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
@@ -281,13 +341,12 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         throw new Error('ギルドまたはターゲットチャンネルが無効です。');
     }
 
-    // Webhookは親チャンネルに作る（ターゲットがスレッドの場合はthreadIdで指定）
     const targetIsThread = targetChannel.isThread?.() ?? false;
     const hookChannel = targetIsThread ? targetChannel.parent : targetChannel;
     const isForum =
         hookChannel.type === ChannelType.GuildForum || hookChannel.type === ChannelType.GuildMedia;
 
-    // 1. 権限確認（転送先チャンネルでの権限を見る）
+    // 1. 権限確認
     const guild = hookChannel.guild;
     const me = guild.members.me ?? (await guild.members.fetchMe());
     if (!hookChannel.permissionsFor(me)?.has(PermissionsBitField.Flags.ManageWebhooks)) {
@@ -315,7 +374,7 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
     const webhook = await getWebhook(hookChannel, message.client);
     if (!payloads.length) return { location, webhook, threadId: null, messages: [] };
 
-    // 3. 表示名・アイコン（サーバーニックネーム/サーバーアバター優先）
+    // 3. 表示名・アイコン
     const username = sanitizeUsername(
         message.member?.displayName ?? message.author.globalName ?? message.author.username,
     );
@@ -361,7 +420,6 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
             const msg = await safeSend(webhook, data);
             sent.push(msg);
 
-            // 新規作成されたスレッドIDを控えて、以降はそのスレッドに送る
             if (isForum && !threadId) {
                 threadId = msg.channelId ?? msg.channel_id;
                 threadCache.set(threadKey, threadId);
@@ -370,7 +428,20 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         return { threadId, sent };
     });
 
-    // 5. 送信成功後に元メッセージを削除
+    // 5. 編集・リアクション反映のために記録
+    rememberMirror(message.id, {
+        webhook,
+        threadId: result.threadId,
+        username,
+        avatarURL,
+        messageIds: result.sent.map((m) => m.id),
+        // 本文を持つメッセージ（先頭 + 長文の続き）。編集時はここを書き換える
+        textIds: result.sent.slice(0, Math.max(texts.length, 1)).map((m) => m.id),
+        content: message.content ?? '',
+        prevContent: null,
+    });
+
+    // 6. 送信成功後に元メッセージを削除
     if (deleteOriginal) {
         await message.delete().catch(() => {});
     }
@@ -378,4 +449,123 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
     return { location, webhook, threadId: result.threadId, messages: result.sent };
 }
 
-module.exports = { sendAsUser, getLocationString, getChannelTypeLabel };
+/** 設定済みの転送先へメッセージを転送する（二重転送防止つき） */
+function mirrorMessage(message) {
+    if (mirrors.has(message.id)) return Promise.resolve(null);
+    if (inflight.has(message.id)) return inflight.get(message.id);
+
+    const p = (async () => {
+        const targetChannel = await message.client.channels.fetch(getTargetChannelId());
+        if (!targetChannel) {
+            console.error('送信先のチャンネルが見つかりませんでした。');
+            return null;
+        }
+        return sendAsUser(message, targetChannel, message.content, {
+            threadTitle: getLocationString(message),
+            deleteOriginal: false,
+        });
+    })();
+
+    inflight.set(message.id, p);
+    p.finally(() => inflight.delete(message.id)).catch(() => {});
+    return p;
+}
+
+// ---------------------------------------------------------------
+// 編集・リアクションの反映
+// ---------------------------------------------------------------
+
+/** 転送済みメッセージの本文を、元メッセージの最新状態で書き換える */
+function refreshMirror(message, entry) {
+    return withLock(`msg:${message.id}`, async () => {
+        const { texts, embeds } = await buildParts(message, message.content, {
+            previousContent: entry.prevContent,
+        });
+        const { webhook, threadId } = entry;
+
+        // アーカイブされたスレッドは編集できないので解除
+        if (threadId) {
+            const thread = await message.client.channels.fetch(threadId).catch(() => null);
+            if (thread?.archived) await thread.setArchived(false).catch(() => {});
+        }
+
+        const base = { allowedMentions: { parse: [] } };
+        if (threadId) base.threadId = threadId;
+
+        for (let i = 0; i < texts.length; i++) {
+            if (entry.textIds[i]) {
+                const edit = { ...base, content: texts[i] };
+                if (i === 0 && embeds.length) edit.embeds = embeds;
+                await webhook.editMessage(entry.textIds[i], edit);
+            } else {
+                // 編集で長くなった分は追加送信
+                const m = await webhook.send({
+                    ...base,
+                    content: texts[i],
+                    username: entry.username,
+                    avatarURL: entry.avatarURL,
+                });
+                entry.textIds.push(m.id);
+                entry.messageIds.push(m.id);
+            }
+        }
+
+        // 短くなって余った続きメッセージは削除（先頭は残す）
+        const removed = entry.textIds.splice(Math.max(texts.length, 1));
+        for (const id of removed) {
+            await webhook.deleteMessage(id, threadId ?? undefined).catch(() => {});
+            entry.messageIds = entry.messageIds.filter((x) => x !== id);
+        }
+    });
+}
+
+/** メッセージ編集を転送先に反映（編集前の内容も小さく表示） */
+async function syncEdit(message) {
+    await inflight.get(message.id)?.catch(() => {}); // 転送中なら完了を待つ
+
+    const entry = mirrors.get(message.id);
+    if (!entry) {
+        // 未転送: 「考え中…」から結果に編集されたコマンド応答などは、ここで初めて転送する
+        if (message.author?.bot && shouldMirror(message)) await mirrorMessage(message);
+        return;
+    }
+
+    const newContent = message.content ?? '';
+    const changed = newContent !== entry.content;
+    if (!changed && !message.author?.bot) return; // Embed展開などの更新は無視
+
+    if (changed) {
+        entry.prevContent = entry.content;
+        entry.content = newContent;
+    }
+    await refreshMirror(message, entry);
+}
+
+/** リアクション変更を転送先に反映（連続した変更はまとめて1回の編集にする） */
+async function onReactionChanged(message) {
+    if (!mirrors.has(message.id)) return;
+    if (message.partial) message = await message.fetch().catch(() => null);
+    if (!message) return;
+
+    const entry = mirrors.get(message.id);
+    if (!entry) return;
+
+    clearTimeout(refreshTimers.get(message.id));
+    refreshTimers.set(
+        message.id,
+        setTimeout(() => {
+            refreshTimers.delete(message.id);
+            refreshMirror(message, entry).catch((e) => console.error('リアクションの反映に失敗しました:', e));
+        }, REACTION_DEBOUNCE_MS),
+    );
+}
+
+module.exports = {
+    sendAsUser,
+    mirrorMessage,
+    shouldMirror,
+    syncEdit,
+    onReactionChanged,
+    getLocationString,
+    getChannelTypeLabel,
+};

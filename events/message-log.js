@@ -1,34 +1,50 @@
 const { Events } = require('discord.js');
 // ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
-const { sendAsUser, getLocationString } = require('../utils/webhooksend.js');
+const { shouldMirror, mirrorMessage, syncEdit, onReactionChanged } = require('../utils/webhooksend.js');
 
+/** 非同期ハンドラのエラーをまとめてログ出力する */
+const safe = (label, fn) => async (...args) => {
+    try {
+        await fn(...args);
+    } catch (error) {
+        console.error(`${label}に失敗しました:`, error);
+    }
+};
+
+/**
+ * 転送関連のイベント（新規・編集・リアクション）をこの1ファイルにまとめて登録する。
+ * Bot起動時に1回だけ実行される。
+ */
 module.exports = {
-    name: Events.MessageCreate,
-    async execute(message) {
-        // Webhook・システムメッセージ（参加通知など）は無視
-        if (message.webhookId || message.system) return;
+    name: Events.ClientReady,
+    once: true,
+    execute(client) {
+        // 新規メッセージ（Botはスラッシュコマンド等の応答のみ shouldMirror が通す）
+        client.on(
+            Events.MessageCreate,
+            safe('メッセージの転送', async (message) => {
+                if (!shouldMirror(message)) return;
+                await mirrorMessage(message);
+            }),
+        );
 
-        // 送信先のチャンネルID（環境変数優先、なければ固定ID）
-        const targetChannelId = process.env.TARGET_CHANNEL_ID || '1569502078110408775';
+        // メッセージ編集
+        client.on(
+            Events.MessageUpdate,
+            safe('編集の反映', async (_old, updated) => {
+                const message = updated.partial ? await updated.fetch().catch(() => null) : updated;
+                if (!message || !shouldMirror(message)) return;
+                await syncEdit(message);
+            }),
+        );
 
-        // 転送先フォーラム自身（およびその中のスレッド）の発言は転送しない（ループ防止）
-        if (message.channelId === targetChannelId || message.channel.parentId === targetChannelId) return;
-
-        try {
-            const targetChannel = await message.client.channels.fetch(targetChannelId);
-            if (!targetChannel) {
-                console.error('送信先のチャンネルが見つかりませんでした。');
-                return;
-            }
-
-            // 返信・転送・添付ファイル・スタンプは sendAsUser が message から自動で処理する。
-            // 同名スレッドが既にあれば再利用し、なければ新規作成される。
-            await sendAsUser(message, targetChannel, message.content, {
-                threadTitle: getLocationString(message), // 例: サーバー名 | カテゴリ | #general -> スレッド名
-                deleteOriginal: false,
-            });
-        } catch (error) {
-            console.error('メッセージの転送・Webhook送信に失敗しました:', error);
-        }
+        // リアクションの追加・削除・全削除
+        const onReaction = safe('リアクションの反映', (reaction) => onReactionChanged(reaction.message));
+        client.on(Events.MessageReactionAdd, onReaction);
+        client.on(Events.MessageReactionRemove, onReaction);
+        client.on(
+            Events.MessageReactionRemoveAll,
+            safe('リアクションの反映', (message) => onReactionChanged(message)),
+        );
     },
 };
