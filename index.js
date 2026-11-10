@@ -71,6 +71,7 @@ const messageDeleteEvent = require('./events/delete-message-log.js');
 const senduyuyu = require('./events/send-uyuyu.js');
 const replyChatEvent = require('./events/reply-chat.js');
 const honeypotEvent = require('./events/honeypot.js');
+const messageLogEvent = require('./events/message-log.js');
 
 
 // その他の個別イベント登録
@@ -78,6 +79,7 @@ client.on(messageDeleteEvent.name, (...args) => messageDeleteEvent.execute(...ar
 client.on(senduyuyu.name, (...args) => senduyuyu.execute(...args));
 client.on(replyChatEvent.name, (...args) => replyChatEvent.execute(...args));
 client.on(honeypotEvent.name, (...args) => honeypotEvent.execute(...args));
+client.on(messageLogEvent.name, (...args) => messageLogEvent.execute(...args));
 
 // ★ Express に client インスタンスを登録
 app.set('client', client);
