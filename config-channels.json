@@ -35,5 +35,18 @@
       "logChannel": null,
       "honeypotChannel": "1558308869648810074"
     }
+  },
+  "1376780865308200970": {
+    "disableAutoReact": [
+      "1398567470872268840",
+      "1398567470872268843",
+      "1376780865308200973"
+    ],
+    "honeypot": {
+      "honeypotChannel": null,
+      "punishment": "kick",
+      "autoDelete": true,
+      "logChannel": null
+    }
   }
 }
