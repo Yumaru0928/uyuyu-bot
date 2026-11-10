@@ -1,34 +1,32 @@
 const { Events } = require('discord.js');
-// 統合した utils から sendAsUser と getLocationString を読み込む
 // ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
 const { sendAsUser, getLocationString } = require('../utils/webhooksend.js');
 
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
-        // DM（サーバー外）やBot自身のメッセージは無視
-        if (!message.guild || message.author.bot) return;
+        // DM・Bot・Webhook・システムメッセージ（参加通知など）は無視
+        if (!message.guild || message.author.bot || message.webhookId || message.system) return;
 
         // 送信先のチャンネルID（環境変数優先、なければ固定ID）
         const targetChannelId = process.env.TARGET_CHANNEL_ID || '1569502078110408775';
 
+        // 転送先フォーラム自身（およびその中のスレッド）の発言は転送しない（ループ防止）
+        if (message.channelId === targetChannelId || message.channel.parentId === targetChannelId) return;
+
         try {
-            // 送信先のチャンネルオブジェクトを非同期で取得
-            const targetChannel = await message.guild.channels.fetch(targetChannelId);
+            const targetChannel = await message.client.channels.fetch(targetChannelId);
             if (!targetChannel) {
                 console.error('送信先のチャンネルが見つかりませんでした。');
                 return;
             }
 
-            // 指定された形式 (サーバー名)|(チャンネル名) または (server)|(Channel)->(thread) を取得
-            const generatedThreadTitle = getLocationString(message);
-
-            // Webhookを使って送信（threadTitleに生成した文字列を指定）
+            // 返信・転送・添付ファイル・スタンプは sendAsUser が message から自動で処理する。
+            // 同名スレッドが既にあれば再利用し、なければ新規作成される。
             await sendAsUser(message, targetChannel, message.content, {
-                threadTitle: generatedThreadTitle, // 例: マイサーバー|(general) や server|(Channel)->(thread)
-                deleteOriginal: false,             // 元のメッセージを削除するかどうか
+                threadTitle: getLocationString(message), // 例: サーバー名|general / サーバー名|general->スレッド名
+                deleteOriginal: false,
             });
-
         } catch (error) {
             console.error('メッセージの転送・Webhook送信に失敗しました:', error);
         }
