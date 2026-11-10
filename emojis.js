@@ -6,21 +6,21 @@
 
 // 通常のうゆゆ絵文字（uyuyu_1 〜 uyuyu_15 と uyuyun）
 const UYUYU_EMOJIS = [
-    { name: 'uyuyu_1', id: '1549375294614540409' },
-    { name: 'uyuyu_2', id: '1557748837194403972' },
-    { name: 'uyuyu_3', id: '1557748839035838626' },
-    { name: 'uyuyu_4', id: '1557409093059219457' },
-    { name: 'uyuyu_5', id: '1557407745676943392' },
-    { name: 'uyuyu_6', id: '1557409243311644846' },
-    { name: 'uyuyu_7', id: '1557407749556408381' },
-    { name: 'uyuyu_8', id: '1557407765704478900' },
-    { name: 'uyuyu_9', id: '1557407751259291698' },
-    { name: 'uyuyu_10', id: '1557407738919919666' },
-    { name: 'uyuyu_11', id: '1557407767600570418' },
-    { name: 'uyuyu_12', id: '1557407760986017853' },
-    { name: 'uyuyu_13', id: '1557407743931842610' },
-    { name: 'uyuyu_14', id: '1557407787221516289' },
-    { name: 'uyuyu_15', id: '1557407747627294761' },
+    { name: 'uyuyu', id: '1549375294614540409' },
+    { name: 'uyuyu_crying', id: '1557748837194403972' },
+    { name: 'myumyumyu', id: '1557748839035838626' },
+    { name: 'uyuyu_sleeping', id: '1557409093059219457' },
+    { name: 'uyuyu_crashed', id: '1557407745676943392' },
+    { name: 'uyuyu_makeup', id: '1557409243311644846' },
+    { name: 'uyuyu_dango', id: '1557407749556408381' },
+    { name: 'uyuyu_fucking', id: '1557407765704478900' },
+    { name: 'uyuyu_null', id: '1557407751259291698' },
+    { name: 'uyuyu_space', id: '1557407738919919666' },
+    { name: 'uyuyu_sweating', id: '1557407767600570418' },
+    { name: 'uyuyu_uhe', id: '1557407760986017853' },
+    { name: 'uyuyu_WT', id: '1557407743931842610' },
+    { name: 'uyuyu_take', id: '1557407787221516289' },
+    { name: 'uyuyu_gliched', id: '1557407747627294761' },
     { name: 'uyuyun', id: '1558816474267910154' }
 ];
 

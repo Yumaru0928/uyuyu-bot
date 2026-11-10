@@ -15,7 +15,7 @@ const { UYUYU_EMOJIS, SLOT_TRANSPARENT, SLOT_EXTRA, asText } = require("../../em
 // ※ uyuyu_1 は元からスロットには入っていない
 const Emojis = [
     SLOT_TRANSPARENT,
-    ...UYUYU_EMOJIS.filter(emoji => emoji.name !== 'uyuyu_1').map(asText),
+    ...UYUYU_EMOJIS.filter(emoji => emoji.name !== 'uyuyu').map(asText),
     SLOT_EXTRA
 ];
 
