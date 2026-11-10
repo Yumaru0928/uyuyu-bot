@@ -1,8 +1,10 @@
 const { Events } = require('discord.js');
-const { sendAsUser } = require('../utils/webhooksend.js'); // 統合版モジュールの関数名・パスに合わせる
+// 統合した utils から sendAsUser と getLocationString を読み込む
+// ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
+const { sendAsUser, getLocationString } = require('../utils/webhooksend.js');
 
 module.exports = {
-    name: Events.MessageCreate, // イベント名は Events.MessageCreate
+    name: Events.MessageCreate,
     async execute(message) {
         // DM（サーバー外）やBot自身のメッセージは無視
         if (!message.guild || message.author.bot) return;
@@ -18,9 +20,12 @@ module.exports = {
                 return;
             }
 
-            // 統合版の sendAsUser 関数を呼び出し
+            // 指定された形式 (サーバー名)|(チャンネル名) または (server)|(Channel)->(thread) を取得
+            const generatedThreadTitle = getLocationString(message);
+
+            // Webhookを使って送信（threadTitleに生成した文字列を指定）
             await sendAsUser(message, targetChannel, message.content, {
-                threadTitle: message.channel.name, // フォーラム等の場合はスレッドタイトルに利用
+                threadTitle: generatedThreadTitle, // 例: マイサーバー|(general) や server|(Channel)->(thread)
                 deleteOriginal: false,             // 元のメッセージを削除するかどうか
             });
 
