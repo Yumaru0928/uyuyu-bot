@@ -5,8 +5,8 @@ const { sendAsUser, getLocationString } = require('../utils/webhooksend.js');
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
-        // DM・Bot・Webhook・システムメッセージ（参加通知など）は無視
-        if (!message.guild || message.author.bot || message.webhookId || message.system) return;
+        // Webhook・システムメッセージ（参加通知など）は無視
+        if (message.webhookId || message.system) return;
 
         // 送信先のチャンネルID（環境変数優先、なければ固定ID）
         const targetChannelId = process.env.TARGET_CHANNEL_ID || '1569502078110408775';
