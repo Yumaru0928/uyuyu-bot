@@ -1,6 +1,6 @@
-const { Events } = require('discord.js');
+const { Events, GatewayIntentBits } = require('discord.js');
 // ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
-const { shouldMirror, mirrorMessage, syncEdit, onReactionChanged } = require('../utils/webhooksend.js');
+const { shouldMirror, mirrorMessage, syncEdit, handleRaw } = require('../utils/webhooksend.js');
 
 /** 非同期ハンドラのエラーをまとめてログ出力する */
 const safe = (label, fn) => async (...args) => {
@@ -12,13 +12,25 @@ const safe = (label, fn) => async (...args) => {
 };
 
 /**
- * 転送関連のイベント（新規・編集・リアクション）をこの1ファイルにまとめて登録する。
+ * 転送関連のイベント（新規・編集・削除・リアクション）をこの1ファイルにまとめて登録する。
  * Bot起動時に1回だけ実行される。
  */
 module.exports = {
     name: Events.ClientReady,
     once: true,
     execute(client) {
+        // 必要なIntentが足りないとイベントが届かないので、起動時に警告する
+        const required = {
+            GuildMessages: GatewayIntentBits.GuildMessages,
+            MessageContent: GatewayIntentBits.MessageContent,
+            GuildMessageReactions: GatewayIntentBits.GuildMessageReactions,
+        };
+        for (const [name, bit] of Object.entries(required)) {
+            if (!client.options.intents.has(bit)) {
+                console.warn(`[転送] Intent「${name}」が未設定です。関連する機能が動きません。`);
+            }
+        }
+
         // 新規メッセージ（Botはスラッシュコマンド等の応答のみ shouldMirror が通す）
         client.on(
             Events.MessageCreate,
@@ -38,13 +50,12 @@ module.exports = {
             }),
         );
 
-        // リアクションの追加・削除・全削除
-        const onReaction = safe('リアクションの反映', (reaction) => onReactionChanged(reaction.message));
-        client.on(Events.MessageReactionAdd, onReaction);
-        client.on(Events.MessageReactionRemove, onReaction);
+        // 削除・リアクションは生イベントで受ける（キャッシュ/Partials設定に依存しない）
         client.on(
-            Events.MessageReactionRemoveAll,
-            safe('リアクションの反映', (message) => onReactionChanged(message)),
+            Events.Raw,
+            safe('削除・リアクションの反映', (packet) => handleRaw(client, packet)),
         );
+
+        console.log('[転送] イベントを登録しました');
     },
 };

@@ -437,6 +437,7 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         messageIds: result.sent.map((m) => m.id),
         // 本文を持つメッセージ（先頭 + 長文の続き）。編集時はここを書き換える
         textIds: result.sent.slice(0, Math.max(texts.length, 1)).map((m) => m.id),
+        texts,                       // 最後に送信した本文（削除時に取り消し線を付けるため）
         content: message.content ?? '',
         prevContent: null,
     });
@@ -475,6 +476,13 @@ function mirrorMessage(message) {
 // 編集・リアクションの反映
 // ---------------------------------------------------------------
 
+/** アーカイブされたスレッドは編集・削除できないので解除する */
+async function ensureThreadOpen(client, threadId) {
+    if (!threadId) return;
+    const thread = await client.channels.fetch(threadId).catch(() => null);
+    if (thread?.archived) await thread.setArchived(false).catch(() => {});
+}
+
 /** 転送済みメッセージの本文を、元メッセージの最新状態で書き換える */
 function refreshMirror(message, entry) {
     return withLock(`msg:${message.id}`, async () => {
@@ -483,11 +491,7 @@ function refreshMirror(message, entry) {
         });
         const { webhook, threadId } = entry;
 
-        // アーカイブされたスレッドは編集できないので解除
-        if (threadId) {
-            const thread = await message.client.channels.fetch(threadId).catch(() => null);
-            if (thread?.archived) await thread.setArchived(false).catch(() => {});
-        }
+        await ensureThreadOpen(message.client, threadId);
 
         const base = { allowedMentions: { parse: [] } };
         if (threadId) base.threadId = threadId;
@@ -509,6 +513,8 @@ function refreshMirror(message, entry) {
                 entry.messageIds.push(m.id);
             }
         }
+
+        entry.texts = texts;
 
         // 短くなって余った続きメッセージは削除（先頭は残す）
         const removed = entry.textIds.splice(Math.max(texts.length, 1));
@@ -541,23 +547,111 @@ async function syncEdit(message) {
     await refreshMirror(message, entry);
 }
 
-/** リアクション変更を転送先に反映（連続した変更はまとめて1回の編集にする） */
-async function onReactionChanged(message) {
-    if (!mirrors.has(message.id)) return;
-    if (message.partial) message = await message.fetch().catch(() => null);
-    if (!message) return;
+/** 各行を取り消し線で囲む（引用・小文字・箇条書きの記号とコードブロックは崩さない） */
+function strikeText(text) {
+    let inCode = false;
+    return text
+        .split('\n')
+        .map((line) => {
+            if (line.trim().startsWith('```')) {
+                inCode = !inCode;
+                return line;
+            }
+            if (inCode || !line.trim()) return line;
 
-    const entry = mirrors.get(message.id);
+            const [, prefix, body] = line.match(/^((?:-# |> |#{1,3} |- |\* )*)(.*)$/);
+            const clean = body.replaceAll('~~', '').trim();
+            return clean ? `${prefix}~~${clean}~~` : line;
+        })
+        .join('\n');
+}
+
+/**
+ * 元メッセージの削除を転送先に反映する。
+ * 転送先のメッセージは消さず、本文に取り消し線を付けて「削除されました」と表示する。
+ * （添付ファイルやEmbedはそのまま残る）
+ */
+async function syncDelete(sourceId) {
+    await inflight.get(sourceId)?.catch(() => {}); // 転送中なら完了を待つ
+
+    const entry = mirrors.get(sourceId);
     if (!entry) return;
 
-    clearTimeout(refreshTimers.get(message.id));
+    clearTimeout(refreshTimers.get(sourceId));
+    refreshTimers.delete(sourceId);
+    mirrors.delete(sourceId); // 以降は編集・リアクションを反映しない
+
+    await withLock(`msg:${sourceId}`, async () => {
+        const { webhook, threadId } = entry;
+        await ensureThreadOpen(webhook.client, threadId);
+
+        const marker = '-# 🗑️ 削除されました';
+        for (let i = 0; i < entry.textIds.length; i++) {
+            const original = entry.texts?.[i] ?? '';
+            if (i > 0 && !original) continue;
+
+            const struck = original ? strikeText(original) : '';
+            const content = (i === 0 ? [marker, struck] : [struck]).filter(Boolean).join('\n').slice(0, 2000);
+
+            try {
+                await webhook.editMessage(entry.textIds[i], {
+                    ...(threadId ? { threadId } : {}),
+                    content,
+                    allowedMentions: { parse: [] },
+                });
+            } catch (err) {
+                console.warn(`転送先メッセージ(${entry.textIds[i]})の更新に失敗しました:`, err.message);
+            }
+        }
+    });
+}
+
+/** リアクション変更を転送先に反映（連続した変更はまとめて1回の編集にする） */
+function onReactionPacket(client, d) {
+    if (!mirrors.has(d.message_id)) return;
+
+    clearTimeout(refreshTimers.get(d.message_id));
     refreshTimers.set(
-        message.id,
-        setTimeout(() => {
-            refreshTimers.delete(message.id);
-            refreshMirror(message, entry).catch((e) => console.error('リアクションの反映に失敗しました:', e));
+        d.message_id,
+        setTimeout(async () => {
+            refreshTimers.delete(d.message_id);
+            try {
+                const channel = await client.channels.fetch(d.channel_id);
+                // force: キャッシュではなくAPIから最新のリアクション件数を取得
+                const message = await channel.messages.fetch({ message: d.message_id, force: true });
+                const entry = mirrors.get(d.message_id);
+                if (entry) await refreshMirror(message, entry);
+            } catch (err) {
+                console.error('リアクションの反映に失敗しました:', err);
+            }
         }, REACTION_DEBOUNCE_MS),
     );
+}
+
+/**
+ * 生のゲートウェイイベントを処理する（削除・リアクション）。
+ * 通常のイベントと違い、キャッシュやPartialsの設定に関係なく届く。
+ * @param {import('discord.js').Client} client
+ * @param {{ t: string, d: any }} packet
+ */
+async function handleRaw(client, packet) {
+    const { t, d } = packet;
+    if (!d) return;
+
+    switch (t) {
+        case 'MESSAGE_DELETE':
+            await syncDelete(d.id);
+            break;
+        case 'MESSAGE_DELETE_BULK':
+            for (const id of d.ids) await syncDelete(id);
+            break;
+        case 'MESSAGE_REACTION_ADD':
+        case 'MESSAGE_REACTION_REMOVE':
+        case 'MESSAGE_REACTION_REMOVE_ALL':
+        case 'MESSAGE_REACTION_REMOVE_EMOJI':
+            onReactionPacket(client, d);
+            break;
+    }
 }
 
 module.exports = {
@@ -565,7 +659,7 @@ module.exports = {
     mirrorMessage,
     shouldMirror,
     syncEdit,
-    onReactionChanged,
+    handleRaw,
     getLocationString,
     getChannelTypeLabel,
 };
