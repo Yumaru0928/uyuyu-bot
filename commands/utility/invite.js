@@ -2,7 +2,7 @@ const { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = re
 
 // 必要な権限だけを求める（public/invite.html の招待リンクと同じ値にしておく）
 // リアクション追加 / 監査ログ表示 / チャンネル表示 / メッセージ送信 / 埋め込み / ファイル添付 / 履歴閲覧 / 外部絵文字
-const INVITE_LINK = 'https://discord.com/oauth2/authorize?client_id=1556620719494930562&permissions=380096&integration_type=0&scope=bot';
+const INVITE_LINK = 'https://discord.com/oauth2/authorize?client_id=1556620719494930562&permissions=1127261277645974&integration_type=0&scope=bot';
 
 module.exports = {
     data: new SlashCommandBuilder()

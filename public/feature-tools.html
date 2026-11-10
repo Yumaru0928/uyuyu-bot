@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ダイス・カラー・アバター | うゆゆBot</title>
+  <meta name="description" content="/dice(サイコロ)、/color(カラーコード変換)、/avatar(アバター表示)の使い方。入力できる形式や、指定できる範囲を説明します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-tools.html">
+  <meta property="og:title" content="ダイス・カラー・アバター | うゆゆBot" />
+  <meta property="og:description" content="/dice(サイコロ)、/color(カラーコード変換)、/avatar(アバター表示)の使い方。入力できる形式や、指定できる範囲を説明します。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-tools.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">ダイス・カラー・アバター</h1>
+      <p class="meta">サイコロ、カラーコード変換、アバター表示</p>
+
+      <p>日常で使える、3つの小さなコマンドです。</p>
+      <ul class="related"><li><a href="#dice">サイコロ</a></li><li><a href="#color">カラーコード</a></li><li><a href="#avatar">アバター</a></li></ul>
+
+      <h2 id="dice">サイコロ(/dice)</h2>
+      <p>「2d10」のように指定して、サイコロを振ります。</p>
+<pre class="usage"><code>/dice dices:2d10</code></pre>
+      <ul>
+        <li>書き方は「<strong>個数</strong>d<strong>面数</strong>」です。<code>2d10</code> なら、10面のサイコロを2個振ります。</li>
+        <li>振れるのは、1〜100個、面数は1〜1,000までです。大文字の <code>D</code> でも使えます。</li>
+        <li>それぞれの出目と、合計を表示します。出目が多すぎて表示しきれないときは、途中までと「ほか◯個」を表示します。</li>
+        <li>形式が違うときや、範囲を超えたときは、実行した本人にだけエラーが表示されます。</li>
+      </ul>
+<div class="tbl"><table><thead><tr><th class="nw">入力</th><th class="nw">意味</th></tr></thead><tbody><tr><td class="nw"><code>1d6</code></td><td>6面サイコロを1個</td></tr><tr><td class="nw"><code>2d10</code></td><td>10面サイコロを2個</td></tr><tr><td class="nw"><code>3d20</code></td><td>20面サイコロを3個</td></tr><tr><td class="nw"><code>100d1000</code></td><td>上限(1,000面を100個)</td></tr></tbody></table></div>
+
+      <h2 id="color">カラーコード(/color)</h2>
+      <p>HEXまたはRGBのカラーコードを、HEX・RGB・HSLに変換して、色見本を表示します。</p>
+<pre class="usage"><code>/color code:#3498db
+/color code:255,87,51</code></pre>
+<div class="tbl"><table><thead><tr><th class="nw">入力できる形式</th><th class="nw">例</th></tr></thead><tbody><tr><td>HEX(6桁)。<code>#</code> はなくてもOK</td><td><code>#3498db</code> / <code>3498db</code></td></tr><tr><td>HEX(3桁の短縮形)</td><td><code>#f00</code>(= <code>#ff0000</code>)</td></tr><tr><td>RGB(0〜255を、カンマで区切る)</td><td><code>255,87,51</code> / <code>255, 87, 51</code></td></tr></tbody></table></div>
+      <ul>
+        <li>結果は、HEX(例: <code>#3498DB</code>)、RGB(例: <code>rgb(52, 152, 219)</code>)、HSL(例: <code>hsl(204, 70%, 53%)</code>)で表示します。</li>
+        <li>メッセージの左端の線と、右上の四角が、入力した色になります。</li>
+        <li>形式が正しくないときは、実行した本人にだけ、書き方の例が表示されます。</li>
+      </ul>
+
+      <h2 id="avatar">アバター(/avatar)</h2>
+      <p>指定したユーザーのアバター画像を、大きく表示します。</p>
+<pre class="usage"><code>/avatar target:@ユーザー</code></pre>
+      <ul>
+        <li><code>target</code> を省略すると、あなた自身のアバターを表示します。</li>
+        <li>画像は、1024ピクセルの大きさです。アイコンを設定していないユーザーは、Discordの標準のアイコンが表示されます。</li>
+        <li>表示されるのは、そのユーザーのアカウント自体のアバターです(サーバーごとに設定したアバターではありません)。</li>
+      </ul>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-games.html">ゲーム</a></li><li><a href="feature-darts.html">ダーツ チェックアウト</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>

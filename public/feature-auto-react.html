@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>絵文字リアクション | うゆゆBot</title>
+  <meta name="description" content="「うゆゆ」「uyuyu」などを含むメッセージに、うゆゆ絵文字で自動リアクション。反応する言葉の一覧、使われる絵文字、チャンネルごとのオン/オフの方法を説明します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-auto-react.html">
+  <meta property="og:title" content="絵文字リアクション | うゆゆBot" />
+  <meta property="og:description" content="「うゆゆ」「uyuyu」などを含むメッセージに、うゆゆ絵文字で自動リアクション。反応する言葉の一覧、使われる絵文字、チャンネルごとのオン/オフの方法を説明します。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-auto-react.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">絵文字リアクション</h1>
+      <p class="meta">言葉に反応して、うゆゆ絵文字を付けます</p>
+
+      <p>「うゆゆ」などの言葉が書き込まれたメッセージに、Botがうゆゆ絵文字でリアクションします。コマンドは必要なく、招待するだけで動きます。</p>
+
+      <h2>反応する言葉</h2>
+      <p>メッセージの中に、次のどれかが含まれていると反応します。</p>
+<div class="tbl"><table><thead><tr><th class="nw">パターン</th><th class="nw">反応する言葉の例</th></tr></thead><tbody><tr><td>うゆゆ(ひらがな・カタカナの組み合わせ)</td><td>うゆゆ / ウユユ / うユゆ</td></tr><tr><td><code>uyuyu</code>(<code>u</code>や<code>y</code>が続いてもOK)</td><td>uyuyu / uuyyuu / UYUYU</td></tr><tr><td class="nw"><code>myu</code>が3回</td><td>myumyumyu</td></tr><tr><td><code>suyarun</code>(最後の<code>n</code>は何個でも)</td><td>suyarun / suyarunnnn</td></tr></tbody></table></div>
+      <ul>
+        <li>大文字と小文字は区別しません(<code>UYUYU</code> でも反応します)。</li>
+        <li>全角の英数字(<code>ｕｙｕｙｕ</code>)や、半角カタカナ(<code>ｳﾕﾕ</code>)も、同じ言葉として扱います。</li>
+        <li>メッセージの一部に含まれていれば反応します。「うゆゆしい」のように、言葉の途中でも反応します。</li>
+        <li>Botが書いたメッセージと、DM(ダイレクトメッセージ)には反応しません。</li>
+      </ul>
+
+      <h3>反応する例・しない例</h3>
+<div class="tbl"><table><thead><tr><th class="nw">メッセージ</th><th class="nw">反応</th></tr></thead><tbody><tr><td class="nw">今日もうゆゆ</td><td class="nw">反応する</td></tr><tr><td>ｕｙｕｙｕ(全角)</td><td class="nw">反応する</td></tr><tr><td class="nw">うゆゆしい</td><td>反応する(言葉の一部)</td></tr><tr><td>うゆ / uyu / myumyu</td><td>反応しない(足りない)</td></tr><tr><td>Botのメッセージ、DM</td><td class="nw">反応しない</td></tr></tbody></table></div>
+
+      <h2>使われる絵文字</h2>
+      <p>1つのメッセージに、絵文字を1つだけ付けます。うゆゆ絵文字16種類と <code>rolling_uyuyu</code> の、合計17種類から、毎回ランダムに選びます。一覧は <a href="emojis.html">うゆゆ絵文字の一覧</a> にあります。</p>
+      <p>絵文字をサーバーに登録する必要はありません。ただし、Botがそのチャンネルで「リアクションの追加」と「外部絵文字の使用」ができる権限を持っている必要があります。</p>
+
+      <h2>チャンネルごとにオフにする</h2>
+      <p>静かにしたいチャンネルでは、自動リアクションを止められます。方法は2つです。</p>
+      <ol>
+        <li><strong>コマンドで切り替える</strong>: 止めたいチャンネルで <span class="chip">/disable-auto-react-channel</span> を実行します。再びオンにするときは、同じチャンネルで <span class="chip">/enable-auto-react-channel</span> を実行します。結果は、実行した本人にだけ表示されます。</li>
+        <li><strong>ダッシュボードで切り替える</strong>: <a href="feature-dashboard.html">ダッシュボード</a>の「Auto-React」で、チャンネルごとのスイッチをオン/オフします。まとめて切り替えるときに便利です。</li>
+      </ol>
+      <p>どちらも「チャンネルの管理」権限を持つ人だけが使えます。設定はサーバーごとに保存されます。</p>
+      <div class="callout"><p>初期状態では、すべてのチャンネルで自動リアクションがオンです。</p></div>
+
+      <h2>うまく動かないとき</h2>
+      <ul>
+        <li>そのチャンネルがオフになっていないか、ダッシュボードで確認してください。</li>
+        <li>Botがそのチャンネルを見られて、リアクションを付けられる権限があるか確認してください。権限が足りないときは、何も表示されずに反応しません。</li>
+        <li>メッセージがすぐに消された場合も、リアクションは付きません。</li>
+      </ul>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="emojis.html">うゆゆ絵文字の一覧</a></li><li><a href="feature-dashboard.html">ダッシュボード</a></li><li><a href="index.html">トップページ(機能とコマンド一覧)</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>

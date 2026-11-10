@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ダーツ チェックアウト | うゆゆBot</title>
+  <meta name="description" content="残りスコアから、3本以内で上がれるダーツのチェックアウト(上がり目)ルートを調べる /calculate-darts-checkout の使い方。ファットブル・セパレートブル、各アウトルールに対応。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-darts.html">
+  <meta property="og:title" content="ダーツ チェックアウト | うゆゆBot" />
+  <meta property="og:description" content="残りスコアから、3本以内で上がれるダーツのチェックアウト(上がり目)ルートを調べる /calculate-darts-checkout の使い方。ファットブル・セパレートブル、各アウトルールに対応。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-darts.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">ダーツ チェックアウト</h1>
+      <p class="meta">残りスコアから、上がり目のルートを調べます</p>
+
+      <p>ダーツの残りスコアを入力すると、3本以内で上がれる「チェックアウト(上がり目)」のルートを教えてくれます。</p>
+
+      <h2>コマンドの使い方</h2>
+<pre class="usage"><code>/calculate-darts-checkout type:ファットブル out:ダブルアウト score:100</code></pre>
+<div class="tbl"><table><thead><tr><th class="nw">オプション</th><th class="nw">必須</th><th class="nw">内容</th></tr></thead><tbody><tr><td class="nw"><span class="chip">type</span></td><td class="nw">必須</td><td>ファットブル / セパレートブル</td></tr><tr><td class="nw"><span class="chip">out</span></td><td class="nw">必須</td><td>マスターアウト / ダブルアウト / オープンアウト</td></tr><tr><td class="nw"><span class="chip">score</span></td><td class="nw">必須</td><td>残りスコア(1〜180)</td></tr></tbody></table></div>
+
+      <h2>ルールの選び方</h2>
+      <h3>ブルの種類(type)</h3>
+      <ul>
+        <li><strong>ファットブル</strong>: ブルの外側も内側も、どちらも50点になります。</li>
+        <li><strong>セパレートブル</strong>: 外側が25点、内側が50点です。</li>
+      </ul>
+      <h3>アウトのルール(out)</h3>
+<div class="tbl"><table><thead><tr><th class="nw">ルール</th><th class="nw">最後の1本</th></tr></thead><tbody><tr><td class="nw">ダブルアウト</td><td>ダブル(ブルの内側を含む)で上がる</td></tr><tr><td class="nw">マスターアウト</td><td>ダブル・トリプル・ブルのどれかで上がる</td></tr><tr><td class="nw">オープンアウト</td><td>どこに入っても上がれる</td></tr></tbody></table></div>
+
+      <h2>結果の見方</h2>
+      <ul>
+        <li><strong>推奨ルート(第1候補)</strong>: 投げる順に並べたルートです。「<code>T20 ➔ D20</code>」なら、トリプル20のあとにダブル20を投げて上がります。必要な本数も表示します。</li>
+        <li><strong>その他のアレンジ候補</strong>: 別の上がり方があるときに、最大3通りまで表示します。1本多く投げるルートも入ることがあります。</li>
+        <li>3本以内で上がれない点数のときは、「3投以内でチェックアウト不可能です」と表示します。</li>
+      </ul>
+
+      <h3>表記</h3>
+<div class="tbl"><table><thead><tr><th class="nw">表記</th><th class="nw">意味</th></tr></thead><tbody><tr><td class="nw"><code>S1</code>〜<code>S20</code></td><td class="nw">シングル</td></tr><tr><td class="nw"><code>D1</code>〜<code>D20</code></td><td class="nw">ダブル</td></tr><tr><td class="nw"><code>T1</code>〜<code>T20</code></td><td class="nw">トリプル</td></tr><tr><td class="nw"><code>D-BULL</code></td><td>ブルの50点(内側)</td></tr><tr><td class="nw"><code>BULL</code></td><td>アウターブル25点(セパレートブルのときだけ)</td></tr></tbody></table></div>
+
+      <h3>結果の例</h3>
+<div class="tbl"><table><thead><tr><th class="nw">条件</th><th class="nw">残り</th><th class="nw">推奨ルート</th><th class="nw">その他の候補</th></tr></thead><tbody><tr><td>ファットブル / ダブルアウト</td><td class="nw">100</td><td><code>T20 ➔ D20</code></td><td><code>D-BULL ➔ D-BULL</code> / <code>T20 ➔ S20 ➔ D10</code></td></tr><tr><td>ファットブル / ダブルアウト</td><td class="nw">32</td><td class="nw"><code>D16</code></td><td><code>S16 ➔ D8</code> / <code>S12 ➔ D10</code></td></tr><tr><td>ファットブル / ダブルアウト</td><td class="nw">170</td><td><code>T20 ➔ T20 ➔ D-BULL</code></td><td class="nw">なし(これだけ)</td></tr></tbody></table></div>
+
+      <h2>ご利用にあたって</h2>
+      <ul>
+        <li>ルートは、少ない本数と、よく使われる上がり目(<code>D20</code>、<code>D16</code>、<code>D8</code>など)を優先して選んだものです。ご自身の得意な上がり目に合わせて、候補から選んでください。</li>
+        <li>入力できるスコアは、1〜180です。</li>
+      </ul>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-games.html">ゲーム</a></li><li><a href="feature-tools.html">ダイス・カラー・アバター</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>

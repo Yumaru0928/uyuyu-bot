@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>メッセージ削除ログ | うゆゆBot</title>
+  <meta name="description" content="メッセージが削除されたときに、送信者・削除した人・チャンネル・本文・添付ファイルのURLをログ用チャンネルに投稿する機能の設定方法と仕組み、制限を説明します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-delete-log.html">
+  <meta property="og:title" content="メッセージ削除ログ | うゆゆBot" />
+  <meta property="og:description" content="メッセージが削除されたときに、送信者・削除した人・チャンネル・本文・添付ファイルのURLをログ用チャンネルに投稿する機能の設定方法と仕組み、制限を説明します。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-delete-log.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">メッセージ削除ログ</h1>
+      <p class="meta">消されたメッセージを、ログ用チャンネルに記録します</p>
+
+      <p>サーバーでメッセージが削除されたときに、「誰の、どんなメッセージを、誰が消したか」を、ログ用のチャンネルに投稿します。荒らしの記録や、消されたメッセージの確認に使えます。</p>
+      <div class="callout"><p>初期状態ではオフです。送信先のチャンネルを決めると始まります。</p></div>
+
+      <h2>設定のしかた</h2>
+      <ol>
+        <li>ログを投稿したいチャンネルを開きます。管理者だけが見られる専用チャンネルがおすすめです。</li>
+        <li>そのチャンネルで <span class="chip">/set-delete-log-channel</span> を実行します(「チャンネルの管理」権限が必要です)。</li>
+        <li>「削除ログ送信用チャンネルとして保存しました」と表示されたら完了です。</li>
+      </ol>
+      <p>送信先は、<a href="feature-dashboard.html">ダッシュボード</a>でも選べます。「未設定」にすると、削除ログを止められます。送信先は、1つのサーバーにつき1チャンネルです。</p>
+
+      <h2>ログに載る内容</h2>
+<div class="tbl"><table><thead><tr><th class="nw">項目</th><th class="nw">内容</th></tr></thead><tbody><tr><td class="nw">送信者</td><td>ユーザー名と、メンション(ID)</td></tr><tr><td class="nw">削除実行者</td><td>削除した人。調べられないときは送信者本人</td></tr><tr><td class="nw">チャンネル</td><td>メッセージがあったチャンネル</td></tr><tr><td class="nw">削除された本文</td><td>メッセージの本文。本文がないときは「(本文なし / 画像・埋め込みのみ)」</td></tr><tr><td>添付ファイル URL</td><td>添付ファイルがあったときだけ。URLの一覧</td></tr><tr><td class="nw">時刻</td><td>削除が分かった時刻</td></tr></tbody></table></div>
+      <p>添付ファイルが画像のときは、最初の1枚をログの中に表示します。</p>
+
+      <h2>「削除した人」の調べ方</h2>
+      <p>メッセージの削除は、Discordの「監査ログ」を使って、削除した人を調べています。直前の5秒以内の削除で、チャンネルと送信者が一致する記録が見つかったときだけ、その人を「削除実行者」として表示します。見つからないときは、送信者本人が消したものとして表示します。</p>
+      <p>そのため、Botに「監査ログの表示」権限が必要です。権限がないときは、削除した人が正しく分からないことがあります。</p>
+
+      <h2>知っておきたい制限</h2>
+      <ul>
+        <li>ログ用チャンネルに、Botがメッセージを送れる権限が必要です。</li>
+        <li>Botが再起動する前の古いメッセージなど、Botが内容を覚えていないメッセージは、送信者が「不明なユーザー」になったり、本文が表示されなかったりします。</li>
+        <li>Discordの仕様で、メッセージがまとめて(一括で)削除されたときは、1件ずつのログが残らないことがあります。</li>
+        <li>Botが書いたメッセージの削除も記録されます。</li>
+        <li>ログの本文は1,024文字までで、超えた分は省略されます。</li>
+      </ul>
+
+      <h2>プライバシーについて</h2>
+      <p>ログには、メッセージの本文や、送信者のユーザー名・IDが載ります。導入前に、サーバーのメンバーへ知らせておくことをおすすめします。ログ用チャンネルを見られる人は、チャンネルの権限で絞れます。Botのサーバーには、削除されたメッセージは保存されません(ログ用チャンネルにDiscordのメッセージとして残ります)。詳しくは <a href="privacy.html">プライバシーポリシー</a> をご覧ください。</p>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-honeypot.html">ハニーポット</a></li><li><a href="feature-dashboard.html">ダッシュボード</a></li><li><a href="privacy.html">プライバシーポリシー</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>

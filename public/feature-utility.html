@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ヘルプ・情報・招待(/help /info /invite /ping) | うゆゆBot</title>
+  <meta name="description" content="/help(コマンド一覧)、/info(Botの情報)、/invite(招待リンク)、/ping(応答速度)の使い方を説明します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-utility.html">
+  <meta property="og:title" content="ヘルプ・情報・招待(/help /info /invite /ping) | うゆゆBot" />
+  <meta property="og:description" content="/help(コマンド一覧)、/info(Botの情報)、/invite(招待リンク)、/ping(応答速度)の使い方を説明します。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-utility.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">ヘルプ・情報・招待</h1>
+      <p class="meta">/help /info /invite /ping</p>
+
+      <p>Botの使い方や状態を確かめる、4つのコマンドです。</p>
+
+      <h2>/help — コマンド一覧</h2>
+<pre class="usage"><code>/help</code></pre>
+      <p>Botのコマンドを、カテゴリ(ユーティリティ、サーバー管理、ゲーム、ツール、ダーツ)ごとに分けて、Embedで一覧表示します。それぞれのコマンドの短い説明も付いています。くわしい使い方は、この <a href="features.html">機能詳細</a> をご覧ください。</p>
+      <p class="note">一覧には、運営者の個人のマインクラフトサーバー向けのコマンド(<code>/start</code> <code>/link</code> <code>/console</code>)も表示されます。一般のサーバーでは使えません。</p>
+
+      <h2>/info — Botの情報</h2>
+<pre class="usage"><code>/info</code></pre>
+      <p>次の情報を表示します。下のボタンから、公式サイトとダッシュボードへ移動できます。</p>
+<div class="tbl"><table><thead><tr><th class="nw">項目</th><th class="nw">内容</th></tr></thead><tbody><tr><td>Bot名 / Bot ID</td><td>Botの名前と、ID</td></tr><tr><td>WebSocket Ping</td><td>Discordとの通信にかかる時間</td></tr><tr><td>参加サーバー数 / 総ユーザー数</td><td>Botが入っているサーバーの数と、その合計メンバー数</td></tr><tr><td class="nw">稼働時間</td><td>最後に起動してから、どれだけたったか</td></tr><tr><td class="nw">開発環境</td><td>Node.jsとdiscord.jsのバージョン</td></tr></tbody></table></div>
+
+      <h2>/invite — 招待リンク</h2>
+<pre class="usage"><code>/invite</code></pre>
+      <p>Botを、サーバーに招待するためのボタンを表示します。必要最小限の権限で招待されます。ハニーポットなど、サーバーの管理に関わる機能を使うときは、<a href="invite.html">招待ページ</a>から招待するか、必要な権限をあとからBotのロールに付けてください(<a href="feature-honeypot.html">ハニーポット</a>)。</p>
+
+      <h2>/ping — 応答速度</h2>
+<pre class="usage"><code>/ping</code></pre>
+      <p>「Pong! (◯◯ms)」と、BotとDiscordの間の通信にかかる時間を表示します。Botが動いているかの確認にも使えます。</p>
+      <div class="callout"><p>Botは、Renderで運用していて、再起動が頻繁に起こることがあります。応答しないときは、少し待ってからもう一度お試しください(<a href="credits.html">クレジット</a>)。</p></div>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="features.html">機能詳細(全コマンド早見表)</a></li><li><a href="invite.html">招待ページ</a></li><li><a href="feature-honeypot.html">ハニーポット</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>
