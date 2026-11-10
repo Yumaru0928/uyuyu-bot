@@ -218,7 +218,7 @@ function shouldMirror(message) {
 // ---------------------------------------------------------------
 // 送信内容の組み立て（コマンド実行者 / 返信 / 転送 / 添付 / スタンプ / Embed / 編集前 / リアクション）
 // ---------------------------------------------------------------
-async function buildParts(message, contentToSend, { previousContent } = {}) {
+async function buildParts(message, contentToSend, { previousContent, reactions } = {}) {
     const lines = [];
     const files = [];
     const embeds = [];
@@ -302,11 +302,11 @@ async function buildParts(message, contentToSend, { previousContent } = {}) {
     }
 
     // --- リアクション（件数つきで小さく表示） ---
-    const reactions = [...(message.reactions?.cache?.values() ?? [])].filter((r) => r.count > 0);
-    if (reactions.length) {
-        const text = reactions
+    const reactionList = (reactions ?? []).filter((r) => r.count > 0);
+    if (reactionList.length) {
+        const text = reactionList
             .slice(0, 20)
-            .map((r) => `${r.emoji.toString()} ${r.count}`)
+            .map((r) => `${r.emoji} ${r.count}`)
             .join('　');
         lines.push(`-# リアクション: ${text}`);
     }
@@ -438,6 +438,8 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         // 本文を持つメッセージ（先頭 + 長文の続き）。編集時はここを書き換える
         textIds: result.sent.slice(0, Math.max(texts.length, 1)).map((m) => m.id),
         texts,                       // 最後に送信した本文（削除時に取り消し線を付けるため）
+        reactions: new Map(),        // 絵文字キー -> { emoji, count }（生イベントから自前で集計）
+        source: message,             // 元メッセージ（リアクション反映時の再描画用）
         content: message.content ?? '',
         prevContent: null,
     });
@@ -488,6 +490,7 @@ function refreshMirror(message, entry) {
     return withLock(`msg:${message.id}`, async () => {
         const { texts, embeds } = await buildParts(message, message.content, {
             previousContent: entry.prevContent,
+            reactions: [...entry.reactions.values()],
         });
         const { webhook, threadId } = entry;
 
@@ -544,6 +547,7 @@ async function syncEdit(message) {
         entry.prevContent = entry.content;
         entry.content = newContent;
     }
+    entry.source = message;
     await refreshMirror(message, entry);
 }
 
@@ -606,24 +610,57 @@ async function syncDelete(sourceId) {
     });
 }
 
-/** リアクション変更を転送先に反映（連続した変更はまとめて1回の編集にする） */
-function onReactionPacket(client, d) {
-    if (!mirrors.has(d.message_id)) return;
+/** リアクション絵文字を表示用の文字列にする（カスタム絵文字は <:名前:ID>） */
+function emojiToString(e) {
+    return e.id ? `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` : e.name;
+}
+
+/**
+ * リアクションの件数を生イベントから自前で集計し、転送先に反映する。
+ * APIでメッセージを取り直さないので、「メッセージ履歴を読む」権限やキャッシュに依存しない。
+ * 連続した変更はまとめて1回の編集にする。
+ */
+async function onReactionPacket(t, d) {
+    await inflight.get(d.message_id)?.catch(() => {}); // 転送中なら完了を待つ
+
+    const entry = mirrors.get(d.message_id);
+    if (!entry) return;
+    if (t !== 'MESSAGE_REACTION_REMOVE_ALL' && !d.emoji) return;
+
+    const key = d.emoji ? (d.emoji.id ?? d.emoji.name) : null;
+    switch (t) {
+        case 'MESSAGE_REACTION_ADD': {
+            const cur = entry.reactions.get(key) ?? { emoji: emojiToString(d.emoji), count: 0 };
+            cur.count += 1;
+            entry.reactions.set(key, cur);
+            break;
+        }
+        case 'MESSAGE_REACTION_REMOVE': {
+            const cur = entry.reactions.get(key);
+            if (cur) {
+                cur.count -= 1;
+                if (cur.count <= 0) entry.reactions.delete(key);
+            }
+            break;
+        }
+        case 'MESSAGE_REACTION_REMOVE_EMOJI':
+            entry.reactions.delete(key);
+            break;
+        case 'MESSAGE_REACTION_REMOVE_ALL':
+            entry.reactions.clear();
+            break;
+    }
 
     clearTimeout(refreshTimers.get(d.message_id));
     refreshTimers.set(
         d.message_id,
-        setTimeout(async () => {
+        setTimeout(() => {
             refreshTimers.delete(d.message_id);
-            try {
-                const channel = await client.channels.fetch(d.channel_id);
-                // force: キャッシュではなくAPIから最新のリアクション件数を取得
-                const message = await channel.messages.fetch({ message: d.message_id, force: true });
-                const entry = mirrors.get(d.message_id);
-                if (entry) await refreshMirror(message, entry);
-            } catch (err) {
-                console.error('リアクションの反映に失敗しました:', err);
-            }
+            const current = mirrors.get(d.message_id);
+            if (!current) return;
+            refreshMirror(current.source, current).catch((err) =>
+                console.error('リアクションの反映に失敗しました:', err),
+            );
         }, REACTION_DEBOUNCE_MS),
     );
 }
@@ -634,6 +671,8 @@ function onReactionPacket(client, d) {
  * @param {import('discord.js').Client} client
  * @param {{ t: string, d: any }} packet
  */
+let reactionEventSeen = false; // 診断用: リアクションイベントが届いているか
+
 async function handleRaw(client, packet) {
     const { t, d } = packet;
     if (!d) return;
@@ -649,7 +688,11 @@ async function handleRaw(client, packet) {
         case 'MESSAGE_REACTION_REMOVE':
         case 'MESSAGE_REACTION_REMOVE_ALL':
         case 'MESSAGE_REACTION_REMOVE_EMOJI':
-            onReactionPacket(client, d);
+            if (!reactionEventSeen) {
+                reactionEventSeen = true;
+                console.log('[転送] リアクションイベントを受信しました');
+            }
+            await onReactionPacket(t, d);
             break;
     }
 }
