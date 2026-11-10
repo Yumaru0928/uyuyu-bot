@@ -1,5 +1,5 @@
 const { Events } = require('discord.js');
-const { sendAsUser } = require('../utils/webhooksender.js'); // 統合版モジュールの関数名・パスに合わせる
+const { sendAsUser } = require('../utils/webhooksend.js'); // 統合版モジュールの関数名・パスに合わせる
 
 module.exports = {
     name: Events.MessageCreate, // イベント名は Events.MessageCreate
