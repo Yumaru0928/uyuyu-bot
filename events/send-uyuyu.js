@@ -9,8 +9,18 @@ const Emojis = [...UYUYU_EMOJIS, ROLLING_UYUYU].map(emoji => `${emoji.name}:${em
 //  10008: メッセージがもう無い / 90001: 相手にブロックされている / 50013: 権限が無い
 const IGNORED_REACT_ERRORS = new Set([10008, 90001, 50013]);
 
+
+
 // 反応するキーワード
-const KEYWORDS = /うゆゆ|ウユユ|uyuyu|myumyumyu|suyarunn/i;
+const KEYWORDS = new RegExp(
+    [
+        '[うウ][ゆユ][ゆユ]',
+        'u+y+u+y+u+',
+        '(?:myu){3}',
+        'suyarun+',
+    ].join('|'),
+    'i'
+);
 
 module.exports = {
     name: Events.MessageCreate,
@@ -19,7 +29,7 @@ module.exports = {
         if (message.author.bot || !message.guild) return;
 
         // 1. キーワードが含まれないメッセージは、設定ファイルを見るまでもなく終了（大文字小文字は区別しない）
-        if (!KEYWORDS.test(message.content)) return;
+        if (!KEYWORDS.test(message.content.normalize('NFKC'))) return;
 
         // 2. 設定ファイル（config-channels.json）から、このチャンネルが無効化されていないか確認
         const disabledChannels = getChannelConfig()[message.guild.id]?.disableAutoReact || [];
