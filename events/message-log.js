@@ -5,7 +5,7 @@ const {
     mirrorMessage,
     syncEdit,
     handleRaw,
-    relayToDm,
+    relayFromThread,
     syncRelayEdit,
     isRelayEcho,
 } = require('../utils/webhooksend.js');
@@ -50,8 +50,8 @@ module.exports = {
         client.on(
             Events.MessageCreate,
             safe('メッセージの転送', async (message) => {
-                await relayToDm(message);          // 転送先のDMスレッドでの発言 → 相手のDMへ送信
-                if (isRelayEcho(message)) return;  // 中継したDMメッセージが再転送されるのを防ぐ
+                await relayFromThread(message);    // 転送先スレッドでの発言 → DM / 元チャンネルへの返信として送信
+                if (isRelayEcho(message)) return;  // 中継したメッセージが再転送されるのを防ぐ
                 if (!shouldMirror(message)) return;
                 await mirrorMessage(message);
             }),
