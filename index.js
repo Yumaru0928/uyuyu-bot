@@ -36,6 +36,8 @@ const client = new Client({
         GatewayIntentBits.DirectMessages,   
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.DirectMessageReactions,
     ],
     partials: [Partials.Message, Partials.Channel],
     // 既定では @everyone / @here / ロールのメンションでは通知しない（ユーザーへの返信メンションは従来どおり）
