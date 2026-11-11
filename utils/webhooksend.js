@@ -13,6 +13,10 @@ const {
 const getTargetChannelId = () => process.env.TARGET_CHANNEL_ID || '1569502078110408775';
 const MAX_TRACKED = 5000;          // 編集・リアクション反映のために覚えておく転送メッセージ数
 const REACTION_DEBOUNCE_MS = 1500; // リアクション連打をまとめて反映する待ち時間
+/** 動作確認用ログ。不要になったら環境変数 MIRROR_DEBUG=0 で消せる */
+const debug = (...args) => {
+    if (process.env.MIRROR_DEBUG !== '0') console.log('[転送]', ...args);
+};
 
 // ---------------------------------------------------------------
 // キャッシュ / ロック
@@ -428,6 +432,8 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         return { threadId, sent };
     });
 
+    debug(`転送しました source=${message.id} → thread=${result.threadId ?? '-'}`);
+
     // 5. 編集・リアクション反映のために記録
     rememberMirror(message.id, {
         webhook,
@@ -658,9 +664,9 @@ async function onReactionPacket(t, d) {
             refreshTimers.delete(d.message_id);
             const current = mirrors.get(d.message_id);
             if (!current) return;
-            refreshMirror(current.source, current).catch((err) =>
-                console.error('リアクションの反映に失敗しました:', err),
-            );
+            refreshMirror(current.source, current)
+                .then(() => debug(`リアクションを反映しました message=${d.message_id}`))
+                .catch((err) => console.error('リアクションの反映に失敗しました:', err));
         }, REACTION_DEBOUNCE_MS),
     );
 }
@@ -671,10 +677,14 @@ async function onReactionPacket(t, d) {
  * @param {import('discord.js').Client} client
  * @param {{ t: string, d: any }} packet
  */
-let reactionEventSeen = false; // 診断用: リアクションイベントが届いているか
+let rawSeen = false; // 診断用: 生イベントのリスナーが動いているか
 
 async function handleRaw(client, packet) {
     const { t, d } = packet;
+    if (!rawSeen) {
+        rawSeen = true;
+        debug(`生イベントを受信しています（最初のイベント: ${t}）`);
+    }
     if (!d) return;
 
     switch (t) {
@@ -688,10 +698,7 @@ async function handleRaw(client, packet) {
         case 'MESSAGE_REACTION_REMOVE':
         case 'MESSAGE_REACTION_REMOVE_ALL':
         case 'MESSAGE_REACTION_REMOVE_EMOJI':
-            if (!reactionEventSeen) {
-                reactionEventSeen = true;
-                console.log('[転送] リアクションイベントを受信しました');
-            }
+            debug(`リアクション通知 ${t} message=${d.message_id} 追跡中=${mirrors.has(d.message_id)}`);
             await onReactionPacket(t, d);
             break;
     }

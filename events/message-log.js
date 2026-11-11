@@ -56,6 +56,6 @@ module.exports = {
             safe('削除・リアクションの反映', (packet) => handleRaw(client, packet)),
         );
 
-        console.log('[転送] イベントを登録しました');
+        console.log('[転送] イベントを登録しました / Intents:', client.options.intents.toArray().join(', '));
     },
 };
