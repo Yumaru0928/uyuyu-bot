@@ -1,6 +1,14 @@
 const { Events, GatewayIntentBits, Partials } = require('discord.js');
 // ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
-const { shouldMirror, mirrorMessage, syncEdit, handleRaw } = require('../utils/webhooksend.js');
+const {
+    shouldMirror,
+    mirrorMessage,
+    syncEdit,
+    handleRaw,
+    relayToDm,
+    syncRelayEdit,
+    isRelayEcho,
+} = require('../utils/webhooksend.js');
 
 /** 非同期ハンドラのエラーをまとめてログ出力する */
 const safe = (label, fn) => async (...args) => {
@@ -42,6 +50,8 @@ module.exports = {
         client.on(
             Events.MessageCreate,
             safe('メッセージの転送', async (message) => {
+                await relayToDm(message);          // 転送先のDMスレッドでの発言 → 相手のDMへ送信
+                if (isRelayEcho(message)) return;  // 中継したDMメッセージが再転送されるのを防ぐ
                 if (!shouldMirror(message)) return;
                 await mirrorMessage(message);
             }),
@@ -52,7 +62,9 @@ module.exports = {
             Events.MessageUpdate,
             safe('編集の反映', async (_old, updated) => {
                 const message = updated.partial ? await updated.fetch().catch(() => null) : updated;
-                if (!message || !shouldMirror(message)) return;
+                if (!message) return;
+                if (await syncRelayEdit(message)) return; // 転送先スレッドでの編集 → DMへ反映
+                if (!shouldMirror(message)) return;
                 await syncEdit(message);
             }),
         );

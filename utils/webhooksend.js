@@ -10,6 +10,7 @@ const {
 // ---------------------------------------------------------------
 // 設定
 // ---------------------------------------------------------------
+const excludeConfig = require('./mirror-exclude.js'); // 監視除外リスト
 const getTargetChannelId = () => process.env.TARGET_CHANNEL_ID || '1569502078110408775';
 const MAX_TRACKED = 5000;          // 編集・リアクション反映のために覚えておく転送メッセージ数
 const REACTION_DEBOUNCE_MS = 1500; // リアクション連打をまとめて反映する待ち時間
@@ -25,6 +26,14 @@ const threadCache = new Map();
 const locks = new Map();
 /** 元メッセージID -> 転送先メッセージの情報（編集・リアクション反映用。再起動で消える） */
 const mirrors = new Map();
+/** DMへ中継済みのメッセージID（再転送の防止用） */
+const relayedIds = new Set();
+/** 転送先スレッドの発言ID -> DMへ中継した内容（編集・削除の反映用。再起動で消える） */
+const relays = new Map();
+/** 中継送信中の発言ID -> Promise */
+const relayInflight = new Map();
+/** DMチャンネルID -> 中継送信の期限時刻の配列（送信直後の通知を再転送しないための目印） */
+const relayPending = new Map();
 /** 転送処理中の元メッセージID -> Promise */
 const inflight = new Map();
 /** リアクション反映のデバウンス用タイマー */
@@ -213,18 +222,219 @@ async function safeSend(webhook, payload) {
 // ---------------------------------------------------------------
 // 転送対象かどうかの判定
 // ---------------------------------------------------------------
+const toSet = (list, env) =>
+    new Set([...(list ?? []), ...(env ? env.split(',') : [])].map((v) => String(v).trim()).filter(Boolean));
+
+const excluded = {
+    guilds: toSet(excludeConfig.guilds, process.env.MIRROR_EXCLUDE_GUILDS),
+    categories: toSet(excludeConfig.categories, process.env.MIRROR_EXCLUDE_CATEGORIES),
+    channels: toSet(excludeConfig.channels, process.env.MIRROR_EXCLUDE_CHANNELS),
+    users: toSet(excludeConfig.users, process.env.MIRROR_EXCLUDE_USERS),
+};
+
+/** 監視除外リストに該当するか（サーバー / カテゴリ / チャンネル・スレッド / ユーザー・DM相手） */
+function isExcluded(message) {
+    const ch = message.channel;
+    const base = ch?.isThread?.() ? ch.parent : ch;
+
+    if (message.guildId && excluded.guilds.has(message.guildId)) return true;
+    if (base?.parentId && excluded.categories.has(base.parentId)) return true;
+
+    for (const id of [message.channelId, base?.id, ch?.parentId]) {
+        if (id && excluded.channels.has(id)) return true;
+    }
+    for (const id of [message.author?.id, ch?.recipient?.id]) {
+        if (id && excluded.users.has(id)) return true;
+    }
+    return false;
+}
+
 /**
  * 転送すべきメッセージか判定
  * - サーバー内・DM、人間・Botのどれも対象
- * - システムメッセージ（参加通知など）と、転送先フォーラム自身のメッセージは対象外（ループ防止）
+ * - システムメッセージ、転送先フォーラム自身のメッセージ（ループ防止）、DMへ中継したメッセージ、
+ *   監視除外リストに載っているものは対象外
  */
 function shouldMirror(message) {
     if (message.system) return false;
+    if (relayedIds.has(message.id)) return false;
 
     const targetId = getTargetChannelId();
     if (message.channelId === targetId || message.channel?.parentId === targetId) return false;
 
+    if (isExcluded(message)) return false;
     return true;
+}
+
+// ---------------------------------------------------------------
+// 転送先スレッドでの発言 → DMへ中継
+// ---------------------------------------------------------------
+function markRelayPending(dmChannelId) {
+    const list = relayPending.get(dmChannelId) ?? [];
+    list.push(Date.now() + 15_000);
+    relayPending.set(dmChannelId, list);
+}
+
+/**
+ * 中継送信した直後に届く「Bot自身のDMメッセージ」の通知かどうか判定する（1回につき1件消費）。
+ * MessageCreateの処理の最初に1回だけ呼ぶこと。
+ */
+function isRelayEcho(message) {
+    if (message.guildId || message.author?.id !== message.client.user?.id) return false;
+
+    const now = Date.now();
+    const fresh = (relayPending.get(message.channelId) ?? []).filter((t) => t > now);
+    if (!fresh.length) {
+        relayPending.delete(message.channelId);
+        return false;
+    }
+    fresh.shift();
+    if (fresh.length) relayPending.set(message.channelId, fresh);
+    else relayPending.delete(message.channelId);
+    return true;
+}
+
+function rememberRelayed(id) {
+    relayedIds.add(id);
+    if (relayedIds.size > 1000) relayedIds.delete(relayedIds.values().next().value);
+}
+
+/**
+ * 転送先フォーラムの「DM | 名前 (ユーザーID)」スレッドでの発言を、そのユーザーのDMへ送る。
+ * 成功したら元の発言に ✅、失敗（DM拒否など）なら ❌ を付ける。
+ * @returns {Promise<boolean>} 転送先スレッド内の発言だった場合 true
+ */
+async function relayToDm(message) {
+    const ch = message.channel;
+    if (!ch?.isThread?.() || ch.parentId !== getTargetChannelId()) return false;
+
+    // Webhook（転送）やBotの発言、システムメッセージは中継しない
+    if (message.author?.bot || message.webhookId || message.system) return true;
+
+    const match = ch.name.match(/^DM \| .* \((\d+)\)$/);
+    if (!match) return true; // DM以外のスレッド
+
+    const files = [...message.attachments.values()].map(
+        (a) => new AttachmentBuilder(a.url, { name: a.name, description: a.description ?? undefined }),
+    );
+    const texts = splitText(message.content ?? '');
+    const fileChunks = chunk(files, 10);
+    if (!texts.length && !fileChunks.length) return true;
+
+    const payloads = texts.map((t, i) => ({ content: t, files: i === 0 ? fileChunks[0] : undefined }));
+    if (!texts.length) payloads.push({ files: fileChunks[0] });
+    for (const f of fileChunks.slice(1)) payloads.push({ files: f });
+
+    const sentIds = [];
+    let dmChannelId = null;
+
+    const job = (async () => {
+        try {
+            const user = await message.client.users.fetch(match[1]);
+            const dm = await user.createDM();
+            dmChannelId = dm.id;
+
+            for (const payload of payloads) {
+                markRelayPending(dm.id);
+                let sent;
+                try {
+                    sent = await dm.send(payload);
+                } catch (err) {
+                    if (!payload.files?.length) throw err;
+                    // 添付が大きすぎる等はURLリンクにして再送
+                    markRelayPending(dm.id);
+                    const urls = payload.files.map((f) => f.attachment);
+                    sent = await dm.send({
+                        content: [payload.content, ...urls].filter(Boolean).join('\n').slice(0, 2000),
+                    });
+                }
+                rememberRelayed(sent.id);
+                sentIds.push(sent.id);
+            }
+            await message.react('✅').catch(() => {});
+        } catch (err) {
+            console.error('DMへの送信に失敗しました:', err.message);
+            await message.react('❌').catch(() => {});
+        }
+
+        // 編集・削除を反映できるよう、送れた分を記録する
+        if (sentIds.length) {
+            relays.set(message.id, {
+                dmChannelId,
+                messageIds: sentIds,
+                textIds: sentIds.slice(0, texts.length), // 本文を持つDMメッセージ
+                content: message.content ?? '',
+            });
+            if (relays.size > MAX_TRACKED) relays.delete(relays.keys().next().value);
+        }
+    })();
+
+    relayInflight.set(message.id, job);
+    try {
+        await job;
+    } finally {
+        relayInflight.delete(message.id);
+    }
+    return true;
+}
+
+/** 転送先スレッドでの発言の編集を、中継済みのDMメッセージに反映する。中継済みの発言なら true */
+async function syncRelayEdit(message) {
+    await relayInflight.get(message.id)?.catch(() => {});
+
+    const entry = relays.get(message.id);
+    if (!entry) return false;
+
+    const newContent = message.content ?? '';
+    if (newContent === entry.content) return true; // Embed展開などの更新は無視
+    entry.content = newContent;
+
+    try {
+        const dm = await message.client.channels.fetch(entry.dmChannelId);
+        const texts = splitText(newContent);
+
+        if (!texts.length && entry.textIds[0]) {
+            // 本文を空にした（添付だけ残る）場合
+            await dm.messages.edit(entry.textIds[0], { content: '' }).catch(() => {});
+        }
+        for (let i = 0; i < texts.length; i++) {
+            if (entry.textIds[i]) {
+                await dm.messages.edit(entry.textIds[i], { content: texts[i] });
+            } else {
+                // 編集で長くなった分は追加送信
+                markRelayPending(dm.id);
+                const sent = await dm.send({ content: texts[i] });
+                rememberRelayed(sent.id);
+                entry.textIds.push(sent.id);
+                entry.messageIds.push(sent.id);
+            }
+        }
+        // 短くなって余った続きメッセージは削除（先頭は残す）
+        for (const id of entry.textIds.splice(Math.max(texts.length, 1))) {
+            await dm.messages.delete(id).catch(() => {});
+            entry.messageIds = entry.messageIds.filter((x) => x !== id);
+        }
+    } catch (err) {
+        console.error('DMへの編集の反映に失敗しました:', err.message);
+    }
+    return true;
+}
+
+/** 転送先スレッドでの発言の削除を、中継済みのDMメッセージに反映する（DM側も削除） */
+async function syncRelayDelete(client, sourceId) {
+    await relayInflight.get(sourceId)?.catch(() => {});
+
+    const entry = relays.get(sourceId);
+    if (!entry) return;
+    relays.delete(sourceId);
+
+    const dm = await client.channels.fetch(entry.dmChannelId).catch(() => null);
+    if (!dm) return;
+    for (const id of entry.messageIds) {
+        await dm.messages.delete(id).catch((err) =>
+            console.warn(`DMメッセージ(${id})の削除に失敗しました:`, err.message),
+        );
+    }
 }
 
 // ---------------------------------------------------------------
@@ -691,10 +901,14 @@ async function handleRaw(client, packet) {
 
     switch (t) {
         case 'MESSAGE_DELETE':
+            await syncRelayDelete(client, d.id);
             await syncDelete(d.id);
             break;
         case 'MESSAGE_DELETE_BULK':
-            for (const id of d.ids) await syncDelete(id);
+            for (const id of d.ids) {
+                await syncRelayDelete(client, id);
+                await syncDelete(id);
+            }
             break;
         case 'MESSAGE_REACTION_ADD':
         case 'MESSAGE_REACTION_REMOVE':
@@ -709,6 +923,10 @@ module.exports = {
     sendAsUser,
     mirrorMessage,
     shouldMirror,
+    isExcluded,
+    relayToDm,
+    syncRelayEdit,
+    isRelayEcho,
     syncEdit,
     handleRaw,
     getLocationString,
