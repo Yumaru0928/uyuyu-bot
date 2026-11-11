@@ -51,28 +51,44 @@ function rememberMirror(id, entry) {
 
 /**
  * 送信場所の文字列表記を取得（フォーラムのスレッド名に使用）
- * 形式: サーバー名 | カテゴリ名 | #チャンネル名 -> スレッド名
+ * サーバー内: サーバー名 | カテゴリ名 | #チャンネル名 -> スレッド名
+ * DM:        DM | ユーザー名 (ユーザーID)
+ * グループDM: グループDM | 名前
  * @param {import('discord.js').Message} message
  * @returns {string}
  */
 function getLocationString(message) {
-    if (!message.guild) return 'DM';
+    const channel = message.channel;
 
-    const isThread = message.channel.isThread();
-    const base = isThread ? message.channel.parent : message.channel;
+    if (!message.guild) {
+        if (channel?.type === ChannelType.GroupDM) {
+            return `グループDM | ${channel.name ?? channel.id}`;
+        }
+        // DMの相手（Botのメッセージでも、相手はユーザー側）
+        const other = channel?.recipient ?? (message.author?.bot ? null : message.author);
+        if (other) return `DM | ${other.globalName ?? other.username} (${other.id})`;
+        return `DM | ${message.channelId}`;
+    }
+
+    const isThread = channel.isThread();
+    const base = isThread ? channel.parent : channel;
 
     const category = base?.parent?.name ?? 'カテゴリなし';
     const channelName = base?.name ?? '不明なチャンネル';
 
     let text = `${message.guild.name} | ${category} | #${channelName}`;
-    if (isThread) text += ` -> ${message.channel.name}`;
+    if (isThread) text += ` -> ${channel.name}`;
     return text;
 }
 
 /** 送信元チャンネルの種類をタグ名で返す（スレッドの場合は親チャンネルの種類） */
 function getChannelTypeLabel(message) {
-    const base = message.channel.isThread() ? message.channel.parent : message.channel;
+    const base = message.channel.isThread?.() ? message.channel.parent : message.channel;
     switch (base?.type) {
+        case ChannelType.DM:
+            return 'DM';
+        case ChannelType.GroupDM:
+            return 'グループDM';
         case ChannelType.GuildAnnouncement:
             return 'アナウンス';
         case ChannelType.GuildText:
@@ -199,19 +215,15 @@ async function safeSend(webhook, payload) {
 // ---------------------------------------------------------------
 /**
  * 転送すべきメッセージか判定
- * - 人間のメッセージ → 対象
- * - Botのメッセージ → スラッシュコマンド等（インタラクション）の応答のみ対象
- * - 転送先フォーラム自身のメッセージ → 対象外（ループ防止）
+ * - サーバー内・DM、人間・Botのどれも対象
+ * - システムメッセージ（参加通知など）と、転送先フォーラム自身のメッセージは対象外（ループ防止）
  */
 function shouldMirror(message) {
-    if (!message.guild || message.system) return false;
+    if (message.system) return false;
 
     const targetId = getTargetChannelId();
     if (message.channelId === targetId || message.channel?.parentId === targetId) return false;
 
-    if (message.author?.bot) {
-        return !!(message.interactionMetadata || message.interaction);
-    }
     return true;
 }
 
@@ -337,8 +349,8 @@ async function buildParts(message, contentToSend, { previousContent, reactions }
 async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
     const { threadTitle, appliedTags, deleteOriginal = true } = options;
 
-    if (!message.guild || !targetChannel) {
-        throw new Error('ギルドまたはターゲットチャンネルが無効です。');
+    if (!targetChannel) {
+        throw new Error('ターゲットチャンネルが無効です。');
     }
 
     const targetIsThread = targetChannel.isThread?.() ?? false;
@@ -375,9 +387,8 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
     if (!payloads.length) return { location, webhook, threadId: null, messages: [] };
 
     // 3. 表示名・アイコン
-    const username = sanitizeUsername(
-        message.member?.displayName ?? message.author.globalName ?? message.author.username,
-    );
+    const baseName = message.member?.displayName ?? message.author.globalName ?? message.author.username;
+    const username = sanitizeUsername(message.author.bot ? `${baseName} [BOT]` : baseName);
     const avatarURL = (message.member ?? message.author).displayAvatarURL({ size: 256 });
 
     // 4. 送信（同じスレッド宛ては直列化）
@@ -458,6 +469,9 @@ function mirrorMessage(message) {
     if (inflight.has(message.id)) return inflight.get(message.id);
 
     const p = (async () => {
+        // DMのチャンネルはPartialで届くことがあるので、相手の情報を取得しておく
+        if (message.channel?.partial) await message.channel.fetch().catch(() => {});
+
         const targetChannel = await message.client.channels.fetch(getTargetChannelId());
         if (!targetChannel) {
             console.error('送信先のチャンネルが見つかりませんでした。');

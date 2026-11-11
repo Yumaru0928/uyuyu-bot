@@ -1,4 +1,4 @@
-const { Events, GatewayIntentBits } = require('discord.js');
+const { Events, GatewayIntentBits, Partials } = require('discord.js');
 // ※ パスやファイル名は実際のプロジェクトの構造に合わせて調整してください
 const { shouldMirror, mirrorMessage, syncEdit, handleRaw } = require('../utils/webhooksend.js');
 
@@ -24,6 +24,8 @@ module.exports = {
             GuildMessages: GatewayIntentBits.GuildMessages,
             MessageContent: GatewayIntentBits.MessageContent,
             GuildMessageReactions: GatewayIntentBits.GuildMessageReactions,
+            DirectMessages: GatewayIntentBits.DirectMessages,
+            DirectMessageReactions: GatewayIntentBits.DirectMessageReactions,
         };
         for (const [name, bit] of Object.entries(required)) {
             if (!client.options.intents.has(bit)) {
@@ -31,7 +33,12 @@ module.exports = {
             }
         }
 
-        // 新規メッセージ（Botはスラッシュコマンド等の応答のみ shouldMirror が通す）
+        // DMを受け取るにはPartials.Channelも必要
+        if (!client.options.partials?.includes(Partials.Channel)) {
+            console.warn('[転送] Partials「Channel」が未設定です。DMが動きません。');
+        }
+
+        // 新規メッセージ（サーバー内・DM、人間・Bot）
         client.on(
             Events.MessageCreate,
             safe('メッセージの転送', async (message) => {
