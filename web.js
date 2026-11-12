@@ -23,6 +23,8 @@ app.post('/discord/events', express.raw({ type: 'application/json' }), (req, res
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     res.sendStatus(processEvent(client, rawBody, req.headers));
 });
+// ブラウザで開いて「ok」と出れば、このルートがデプロイされている（動作確認用）
+app.get('/discord/events', (req, res) => res.type('text/plain').send('ok'));
 
 // 1. セッション設定
 //    SESSION_SECRET が無いときに、ソースに書かれた固定値（誰でも知っている値）で署名しないよう、

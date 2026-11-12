@@ -52,15 +52,24 @@ async function handleEvent(client, event) {
  * @returns {number} 返すHTTPステータス（成功は204）
  */
 function processEvent(client, rawBody, headers) {
-    const publicKey = process.env.DISCORD_PUBLIC_KEY;
+    const publicKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
     if (!publicKey) {
-        console.error('環境変数 DISCORD_PUBLIC_KEY が未設定です。');
+        console.error('[イベント] 環境変数 DISCORD_PUBLIC_KEY が未設定です。');
+        return 500;
+    }
+    if (!/^[0-9a-f]{64}$/i.test(publicKey)) {
+        console.error(
+            '[イベント] DISCORD_PUBLIC_KEY の形式が正しくありません（64桁の16進数のはずです）。' +
+                'Developer Portal の General Information にある「Public Key」を設定してください（Token や Client Secret ではありません）。',
+        );
         return 500;
     }
 
     const signature = headers['x-signature-ed25519'];
     const timestamp = headers['x-signature-timestamp'];
     if (!signature || !timestamp || !verifySignature(rawBody, signature, timestamp, publicKey)) {
+        // Discordは確認時に、わざと不正な署名のリクエストも送って401を期待する。そのときも出る
+        console.warn('[イベント] 署名の検証に失敗しました。正しい署名で失敗が続く場合は、DISCORD_PUBLIC_KEY が別のアプリのものでないか確認してください。');
         return 401; // 署名が不正な場合は必ず401（Discordの要件）
     }
 
