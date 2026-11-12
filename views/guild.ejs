@@ -148,6 +148,92 @@
                     <a class="btn btn--ghost" href="/dashboard/<%= guildId %>">元に戻す</a>
                 </div>
             </form>
+
+            <section class="panel" id="notifications" aria-labelledby="notify-title">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title" id="notify-title">配信・投稿の通知</h2>
+                        <p class="panel-lead">YouTubeの新着動画・ライブ配信、Twitchの配信開始を、指定したチャンネルに通知します。追加と削除は、上の「変更を保存」を待たずにすぐ反映されます。</p>
+                    </div>
+                    <span class="status<%= notifications.length ? '' : ' status--off' %>"><%= notifications.length %> / <%= notifyMax %> 件</span>
+                </div>
+
+                <% if (notifyFlash) { %>
+                <p class="alert<%= notifyFlash.type === 'error' ? ' alert--error' : '' %>" role="<%= notifyFlash.type === 'error' ? 'alert' : 'status' %>"><%= notifyFlash.text %></p>
+                <% } %>
+
+                <% if (notifications.length) { %>
+                <ul class="notify-list">
+                    <% notifications.forEach(item => {
+                        const ch = channels.find(c => c.id === item.channelId);
+                        const role = item.roleId === 'everyone' ? '@everyone' : (roles.find(r => r.id === item.roleId) || {}).name;
+                    %>
+                    <li class="notify-item">
+                        <div class="notify-main">
+                            <span class="chip"><%= notifyLabel(item.platform) %></span>
+                            <strong><%= item.targetName %></strong>
+                            <span class="notify-meta">→ <%= ch ? '#' + ch.name : '(削除されたチャンネル)' %><%= item.roleId ? ' / ' + (role ? (item.roleId === 'everyone' ? role : '@' + role) : '(削除されたロール)') : '' %></span>
+                        </div>
+                        <form action="/dashboard/<%= guildId %>/notifications" method="post">
+                            <input type="hidden" name="action" value="remove">
+                            <input type="hidden" name="id" value="<%= item.id %>">
+                            <button class="btn btn--ghost" type="submit">削除</button>
+                        </form>
+                    </li>
+                    <% }) %>
+                </ul>
+                <% } else { %>
+                <p class="unset">まだ通知は登録されていません。</p>
+                <% } %>
+
+                <% if (notifications.length < notifyMax && channels.length) { %>
+                <form class="notify-add" action="/dashboard/<%= guildId %>/notifications" method="post">
+                    <input type="hidden" name="action" value="add">
+
+                    <div class="field">
+                        <label class="field-label" for="notifyPlatform">サービス</label>
+                        <select class="select" id="notifyPlatform" name="platform" required>
+                            <% notifyPlatforms.forEach(p => { %>
+                            <option value="<%= p.id %>"<%= p.enabled ? '' : ' disabled' %>><%= p.label %><%= p.enabled ? '' : '（準備中・未設定）' %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">YouTube：新しい動画・ライブ配信の作成 / Twitch：配信の開始</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="notifyTarget">通知する相手</label>
+                        <input class="input" id="notifyTarget" name="target" type="text" maxlength="200" required
+                            placeholder="YouTube: @ハンドル / チャンネルID（UC…）　Twitch: ユーザー名">
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="notifyChannel">通知先チャンネル</label>
+                        <select class="select" id="notifyChannel" name="channelId" required>
+                            <% channels.forEach(channel => { %>
+                            <option value="<%= channel.id %>">#<%= channel.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">Botがそのチャンネルに送信できる権限を持っている必要があります。</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="notifyRole">メンションするロール</label>
+                        <select class="select" id="notifyRole" name="roleId">
+                            <option value="">(メンションしない)</option>
+                            <option value="everyone">@everyone</option>
+                            <% roles.forEach(role => { %>
+                            <option value="<%= role.id %>">@<%= role.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">@everyone や、メンション不可のロールを使うには、Botに「@everyone、@here、全てのロールにメンション」権限が必要です。</p>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn--primary" type="submit">通知を追加</button>
+                    </div>
+                </form>
+                <% } %>
+            </section>
         </main>
     </div>
 </body>

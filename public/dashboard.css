@@ -695,3 +695,54 @@ img {
         gap: .5rem;
     }
 }
+
+/* ---------- 配信・投稿の通知 ---------- */
+.alert--error {
+    border-color: #C0392B;
+    background: color-mix(in srgb, #C0392B 12%, var(--surface));
+}
+
+.notify-list {
+    display: grid;
+    gap: .5rem;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+.notify-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .6rem .85rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--canvas);
+}
+
+.notify-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .6rem;
+    min-width: 0;
+}
+
+.notify-meta {
+    color: var(--muted);
+    font: 500 .88rem/1.5 var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.notify-add {
+    display: grid;
+    gap: 1.1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+}
+
+.notify-add .field + .field {
+    margin-top: 0;
+}

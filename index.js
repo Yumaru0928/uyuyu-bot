@@ -11,6 +11,7 @@ consoleForward.install();
 const deployCommands = require('./deploy-commands.js');
 const { updateChannelConfig } = require('./channel-config.js');
 const aiMessages = require('./ai-messages.js');
+const notify = require('./utils/notify');
 
 // 分離したWebサーバー（web.js）を読み込む
 const app = require('./web.js');
@@ -92,6 +93,9 @@ client.commands = new Collection();
 
 client.on('ready', () => {
     console.log(`${client.user.tag}でログインしました。`);
+
+    // YouTube / Twitch の通知の購読を、設定に合わせて整える（環境変数が無ければ何もしない）
+    notify.start(client);
 
     const activities = [
         { name: `/help`, type: ActivityType.Watching },

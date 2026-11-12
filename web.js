@@ -8,6 +8,7 @@ const DiscordStrategy = require('passport-discord').Strategy;
 const { ChannelType } = require('discord.js');
 const createRemember = require('./remember.js');
 const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('./channel-config.js');
+const notify = require('./utils/notify');
 
 const app = express();
 
@@ -25,6 +26,34 @@ app.post('/discord/events', express.raw({ type: 'application/json' }), (req, res
 });
 // ブラウザで開いて「ok」と出れば、このルートがデプロイされている（動作確認用）
 app.get('/discord/events', (req, res) => res.type('text/plain').send('ok'));
+
+// YouTube(WebSub) / Twitch(EventSub) からの通知（utils/notify/）。
+// 署名の検証には加工前の生の本文が必要なので、こちらもセッションなどより前に置く。
+// 署名はそれぞれの共有シークレットで検証するので、ログインは要らない。
+const webhookBody = express.raw({ type: () => true, limit: '256kb' });
+const rawOf = req => (Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0));
+
+// YouTube: 購読の確認（GET）と新着通知（POST）
+app.get('/webhook/youtube', (req, res) => {
+    const client = req.app.get('client');
+    if (!client) return res.sendStatus(503);
+    const { status, body } = notify.webhooks.youtubeVerify(client, req.query);
+    res.status(status).type('text/plain').send(body);
+});
+app.post('/webhook/youtube', webhookBody, (req, res) => {
+    const client = req.app.get('client');
+    if (!client) return res.sendStatus(503);
+    res.sendStatus(notify.webhooks.youtubeNotify(client, rawOf(req), req.headers));
+});
+
+// Twitch: 購読の確認も通知も POST
+app.post('/webhook/twitch', webhookBody, (req, res) => {
+    const client = req.app.get('client');
+    if (!client) return res.sendStatus(503);
+    const { status, body } = notify.webhooks.twitch(client, rawOf(req), req.headers);
+    if (body !== undefined) return res.status(status).type('text/plain').send(body);
+    res.sendStatus(status);
+});
 
 // 1. セッション設定
 //    SESSION_SECRET が無いときに、ソースに書かれた固定値（誰でも知っている値）で署名しないよう、
@@ -140,6 +169,15 @@ function textChannelsOf(client, guildId) {
         });
 }
 
+// そのサーバーの、通知で @メンションできるロール（everyone と Bot 管理のロールは除く。上位のロールが先）
+function rolesOf(client, guildId) {
+    const guild = client && client.guilds ? client.guilds.cache.get(guildId) : null;
+    if (!guild) return [];
+    return Array.from(guild.roles.cache.values())
+        .filter(role => role.id !== guild.id && !role.managed)
+        .sort((a, b) => b.position - a.position);
+}
+
 // ハニーポットで選べる処罰（/honeypot コマンド・honeypotEvent.js と揃える）
 const HONEYPOT_PUNISHMENTS = ['kick', 'ban', 'timeout'];
 
@@ -207,6 +245,10 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
         return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
     }
 
+    // 通知の追加・削除の結果（POST のあとに1回だけ表示する）
+    const notifyFlash = req.session.notifyFlash || null;
+    delete req.session.notifyFlash;
+
     res.render('guild', {
         user: req.user,
         guilds,
@@ -214,6 +256,12 @@ app.get('/dashboard/:guildId', remember.restoreLogin, (req, res) => {
         guildId,
         guildConfig: getChannelConfig()[guildId] || {},
         channels: textChannelsOf(req.app.get('client'), guildId),
+        roles: rolesOf(req.app.get('client'), guildId),
+        notifications: notify.listSubscriptions(guildId),
+        notifyPlatforms: notify.platformInfo(),
+        notifyLabel: notify.labelOf,
+        notifyMax: notify.MAX_PER_GUILD,
+        notifyFlash,
         query: req.query // 保存完了メッセージなどの判定用
     });
 });
@@ -313,6 +361,58 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
                 `auto: update settings from dashboard in guild ${guildId} [skip render]`
             );
         }
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 通知（YouTube / Twitch / X）の追加・削除。「変更を保存」を待たず、押した時点ですぐ反映する
+app.post('/dashboard/:guildId/notifications', remember.restoreLogin, async (req, res, next) => {
+    try {
+        if (!req.isAuthenticated()) {
+            return res.redirect('/auth/discord');
+        }
+        const guildId = req.params.guildId;
+        if (!manageableGuilds(req).some(g => g.id === guildId)) {
+            return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
+        }
+
+        const client = req.app.get('client');
+        const flash = (type, text) => { req.session.notifyFlash = { type, text }; };
+
+        try {
+            if (req.body.action === 'remove') {
+                await notify.removeSubscription(client, guildId, String(req.body.id || ''));
+                flash('ok', '通知を削除しました。');
+            } else {
+                // 通知先・ロールは、このサーバーのものだけ受け付ける（フォームを書き換えられても他のIDは通さない）
+                const channelId = String(req.body.channelId || '');
+                if (!textChannelsOf(client, guildId).some(c => c.id === channelId)) {
+                    throw new notify.NotifyError('通知先に指定できないチャンネルです。');
+                }
+                const roleId = String(req.body.roleId || '');
+                if (roleId && roleId !== 'everyone' && !rolesOf(client, guildId).some(r => r.id === roleId)) {
+                    throw new notify.NotifyError('メンションに指定できないロールです。');
+                }
+
+                const platform = String(req.body.platform || '');
+                const entry = await notify.addSubscription(client, guildId, {
+                    platform,
+                    input: String(req.body.target || ''),
+                    channelId,
+                    roleId,
+                });
+                flash('ok', `${notify.labelOf(platform)} の「${entry.targetName}」の通知を追加しました。`);
+            }
+        } catch (error) {
+            if (error instanceof notify.NotifyError) {
+                flash('error', error.message);
+            } else {
+                console.error('[Web] 通知の設定に失敗しました:', error);
+                flash('error', '内部エラーが発生しました。しばらくしてからもう一度お試しください。');
+            }
+        }
+        res.redirect(`/dashboard/${guildId}#notifications`);
     } catch (error) {
         next(error);
     }

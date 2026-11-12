@@ -1,0 +1,1031 @@
+--- a/web.js
++++ b/web.js
+@@ -8,6 +8,7 @@
+ const { ChannelType } = require('discord.js');
+ const createRemember = require('./remember.js');
+ const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('./channel-config.js');
++const notify = require('./utils/notify');
+ 
+ const app = express();
+ 
+@@ -26,6 +27,34 @@
+ // ブラウザで開いて「ok」と出れば、このルートがデプロイされている（動作確認用）
+ app.get('/discord/events', (req, res) => res.type('text/plain').send('ok'));
+ 
++// YouTube(WebSub) / Twitch(EventSub) からの通知（utils/notify/）。
++// 署名の検証には加工前の生の本文が必要なので、こちらもセッションなどより前に置く。
++// 署名はそれぞれの共有シークレットで検証するので、ログインは要らない。
++const webhookBody = express.raw({ type: () => true, limit: '256kb' });
++const rawOf = req => (Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0));
++
++// YouTube: 購読の確認（GET）と新着通知（POST）
++app.get('/webhook/youtube', (req, res) => {
++    const client = req.app.get('client');
++    if (!client) return res.sendStatus(503);
++    const { status, body } = notify.webhooks.youtubeVerify(client, req.query);
++    res.status(status).type('text/plain').send(body);
++});
++app.post('/webhook/youtube', webhookBody, (req, res) => {
++    const client = req.app.get('client');
++    if (!client) return res.sendStatus(503);
++    res.sendStatus(notify.webhooks.youtubeNotify(client, rawOf(req), req.headers));
++});
++
++// Twitch: 購読の確認も通知も POST
++app.post('/webhook/twitch', webhookBody, (req, res) => {
++    const client = req.app.get('client');
++    if (!client) return res.sendStatus(503);
++    const { status, body } = notify.webhooks.twitch(client, rawOf(req), req.headers);
++    if (body !== undefined) return res.status(status).type('text/plain').send(body);
++    res.sendStatus(status);
++});
++
+ // 1. セッション設定
+ //    SESSION_SECRET が無いときに、ソースに書かれた固定値（誰でも知っている値）で署名しないよう、
+ //    起動ごとのランダム値を使う（再起動でログイン中のセッションは無効になる）。
+@@ -140,6 +169,15 @@
+         });
+ }
+ 
++// そのサーバーの、通知で @メンションできるロール（everyone と Bot 管理のロールは除く。上位のロールが先）
++function rolesOf(client, guildId) {
++    const guild = client && client.guilds ? client.guilds.cache.get(guildId) : null;
++    if (!guild) return [];
++    return Array.from(guild.roles.cache.values())
++        .filter(role => role.id !== guild.id && !role.managed)
++        .sort((a, b) => b.position - a.position);
++}
++
+ // ハニーポットで選べる処罰（/honeypot コマンド・honeypotEvent.js と揃える）
+ const HONEYPOT_PUNISHMENTS = ['kick', 'ban', 'timeout'];
+ 
+@@ -207,6 +245,10 @@
+         return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
+     }
+ 
++    // 通知の追加・削除の結果（POST のあとに1回だけ表示する）
++    const notifyFlash = req.session.notifyFlash || null;
++    delete req.session.notifyFlash;
++
+     res.render('guild', {
+         user: req.user,
+         guilds,
+@@ -214,6 +256,12 @@
+         guildId,
+         guildConfig: getChannelConfig()[guildId] || {},
+         channels: textChannelsOf(req.app.get('client'), guildId),
++        roles: rolesOf(req.app.get('client'), guildId),
++        notifications: notify.listSubscriptions(guildId),
++        notifyPlatforms: notify.platformInfo(),
++        notifyLabel: notify.labelOf,
++        notifyMax: notify.MAX_PER_GUILD,
++        notifyFlash,
+         query: req.query // 保存完了メッセージなどの判定用
+     });
+ });
+@@ -316,6 +364,58 @@
+     } catch (error) {
+         next(error);
+     }
++});
++
++// 通知（YouTube / Twitch / X）の追加・削除。「変更を保存」を待たず、押した時点ですぐ反映する
++app.post('/dashboard/:guildId/notifications', remember.restoreLogin, async (req, res, next) => {
++    try {
++        if (!req.isAuthenticated()) {
++            return res.redirect('/auth/discord');
++        }
++        const guildId = req.params.guildId;
++        if (!manageableGuilds(req).some(g => g.id === guildId)) {
++            return res.status(403).send('このサーバーを管理する権限がないか、Botが加入していません。');
++        }
++
++        const client = req.app.get('client');
++        const flash = (type, text) => { req.session.notifyFlash = { type, text }; };
++
++        try {
++            if (req.body.action === 'remove') {
++                await notify.removeSubscription(client, guildId, String(req.body.id || ''));
++                flash('ok', '通知を削除しました。');
++            } else {
++                // 通知先・ロールは、このサーバーのものだけ受け付ける（フォームを書き換えられても他のIDは通さない）
++                const channelId = String(req.body.channelId || '');
++                if (!textChannelsOf(client, guildId).some(c => c.id === channelId)) {
++                    throw new notify.NotifyError('通知先に指定できないチャンネルです。');
++                }
++                const roleId = String(req.body.roleId || '');
++                if (roleId && roleId !== 'everyone' && !rolesOf(client, guildId).some(r => r.id === roleId)) {
++                    throw new notify.NotifyError('メンションに指定できないロールです。');
++                }
++
++                const platform = String(req.body.platform || '');
++                const entry = await notify.addSubscription(client, guildId, {
++                    platform,
++                    input: String(req.body.target || ''),
++                    channelId,
++                    roleId,
++                });
++                flash('ok', `${notify.labelOf(platform)} の「${entry.targetName}」の通知を追加しました。`);
++            }
++        } catch (error) {
++            if (error instanceof notify.NotifyError) {
++                flash('error', error.message);
++            } else {
++                console.error('[Web] 通知の設定に失敗しました:', error);
++                flash('error', '内部エラーが発生しました。しばらくしてからもう一度お試しください。');
++            }
++        }
++        res.redirect(`/dashboard/${guildId}#notifications`);
++    } catch (error) {
++        next(error);
++    }
+ });
+ 
+ // 8. エラーハンドラ
+--- a/index.js
++++ b/index.js
+@@ -11,6 +11,7 @@
+ const deployCommands = require('./deploy-commands.js');
+ const { updateChannelConfig } = require('./channel-config.js');
+ const aiMessages = require('./ai-messages.js');
++const notify = require('./utils/notify');
+ 
+ // 分離したWebサーバー（web.js）を読み込む
+ const app = require('./web.js');
+@@ -93,6 +94,9 @@
+ client.on('ready', () => {
+     console.log(`${client.user.tag}でログインしました。`);
+ 
++    // YouTube / Twitch の通知の購読を、設定に合わせて整える（環境変数が無ければ何もしない）
++    notify.start(client);
++
+     const activities = [
+         { name: `/help`, type: ActivityType.Watching },
+         { name: 'うゆゆ をプレイ中', type: ActivityType.Playing },
+--- a/views/guild.ejs
++++ b/views/guild.ejs
+@@ -148,6 +148,92 @@
+                     <a class="btn btn--ghost" href="/dashboard/<%= guildId %>">元に戻す</a>
+                 </div>
+             </form>
++
++            <section class="panel" id="notifications" aria-labelledby="notify-title">
++                <div class="panel-head">
++                    <div>
++                        <h2 class="panel-title" id="notify-title">配信・投稿の通知</h2>
++                        <p class="panel-lead">YouTubeの新着動画・ライブ配信、Twitchの配信開始を、指定したチャンネルに通知します。追加と削除は、上の「変更を保存」を待たずにすぐ反映されます。</p>
++                    </div>
++                    <span class="status<%= notifications.length ? '' : ' status--off' %>"><%= notifications.length %> / <%= notifyMax %> 件</span>
++                </div>
++
++                <% if (notifyFlash) { %>
++                <p class="alert<%= notifyFlash.type === 'error' ? ' alert--error' : '' %>" role="<%= notifyFlash.type === 'error' ? 'alert' : 'status' %>"><%= notifyFlash.text %></p>
++                <% } %>
++
++                <% if (notifications.length) { %>
++                <ul class="notify-list">
++                    <% notifications.forEach(item => {
++                        const ch = channels.find(c => c.id === item.channelId);
++                        const role = item.roleId === 'everyone' ? '@everyone' : (roles.find(r => r.id === item.roleId) || {}).name;
++                    %>
++                    <li class="notify-item">
++                        <div class="notify-main">
++                            <span class="chip"><%= notifyLabel(item.platform) %></span>
++                            <strong><%= item.targetName %></strong>
++                            <span class="notify-meta">→ <%= ch ? '#' + ch.name : '(削除されたチャンネル)' %><%= item.roleId ? ' / ' + (role ? (item.roleId === 'everyone' ? role : '@' + role) : '(削除されたロール)') : '' %></span>
++                        </div>
++                        <form action="/dashboard/<%= guildId %>/notifications" method="post">
++                            <input type="hidden" name="action" value="remove">
++                            <input type="hidden" name="id" value="<%= item.id %>">
++                            <button class="btn btn--ghost" type="submit">削除</button>
++                        </form>
++                    </li>
++                    <% }) %>
++                </ul>
++                <% } else { %>
++                <p class="unset">まだ通知は登録されていません。</p>
++                <% } %>
++
++                <% if (notifications.length < notifyMax && channels.length) { %>
++                <form class="notify-add" action="/dashboard/<%= guildId %>/notifications" method="post">
++                    <input type="hidden" name="action" value="add">
++
++                    <div class="field">
++                        <label class="field-label" for="notifyPlatform">サービス</label>
++                        <select class="select" id="notifyPlatform" name="platform" required>
++                            <% notifyPlatforms.forEach(p => { %>
++                            <option value="<%= p.id %>"<%= p.enabled ? '' : ' disabled' %>><%= p.label %><%= p.enabled ? '' : '（準備中・未設定）' %></option>
++                            <% }) %>
++                        </select>
++                        <p class="field-help">YouTube：新しい動画・ライブ配信の作成 / Twitch：配信の開始</p>
++                    </div>
++
++                    <div class="field">
++                        <label class="field-label" for="notifyTarget">通知する相手</label>
++                        <input class="input" id="notifyTarget" name="target" type="text" maxlength="200" required
++                            placeholder="YouTube: @ハンドル / チャンネルID（UC…）　Twitch: ユーザー名">
++                    </div>
++
++                    <div class="field">
++                        <label class="field-label" for="notifyChannel">通知先チャンネル</label>
++                        <select class="select" id="notifyChannel" name="channelId" required>
++                            <% channels.forEach(channel => { %>
++                            <option value="<%= channel.id %>">#<%= channel.name %></option>
++                            <% }) %>
++                        </select>
++                        <p class="field-help">Botがそのチャンネルに送信できる権限を持っている必要があります。</p>
++                    </div>
++
++                    <div class="field">
++                        <label class="field-label" for="notifyRole">メンションするロール</label>
++                        <select class="select" id="notifyRole" name="roleId">
++                            <option value="">(メンションしない)</option>
++                            <option value="everyone">@everyone</option>
++                            <% roles.forEach(role => { %>
++                            <option value="<%= role.id %>">@<%= role.name %></option>
++                            <% }) %>
++                        </select>
++                        <p class="field-help">@everyone や、メンション不可のロールを使うには、Botに「@everyone、@here、全てのロールにメンション」権限が必要です。</p>
++                    </div>
++
++                    <div class="form-actions">
++                        <button class="btn btn--primary" type="submit">通知を追加</button>
++                    </div>
++                </form>
++                <% } %>
++            </section>
+         </main>
+     </div>
+ </body>
+--- a/public/dashboard.css
++++ b/public/dashboard.css
+@@ -695,3 +695,54 @@
+         gap: .5rem;
+     }
+ }
++
++/* ---------- 配信・投稿の通知 ---------- */
++.alert--error {
++    border-color: #C0392B;
++    background: color-mix(in srgb, #C0392B 12%, var(--surface));
++}
++
++.notify-list {
++    display: grid;
++    gap: .5rem;
++    margin: 0 0 1.5rem;
++    padding: 0;
++    list-style: none;
++}
++
++.notify-item {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    justify-content: space-between;
++    gap: .75rem;
++    padding: .6rem .85rem;
++    border: 1px solid var(--line);
++    border-radius: var(--radius-s);
++    background: var(--canvas);
++}
++
++.notify-main {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: .35rem .6rem;
++    min-width: 0;
++}
++
++.notify-meta {
++    color: var(--muted);
++    font: 500 .88rem/1.5 var(--font-mono);
++    overflow-wrap: anywhere;
++}
++
++.notify-add {
++    display: grid;
++    gap: 1.1rem;
++    padding-top: 1.25rem;
++    border-top: 1px solid var(--line);
++}
++
++.notify-add .field + .field {
++    margin-top: 0;
++}
+--- a/README.md
++++ b/README.md
+@@ -29,10 +29,15 @@
+ | `GITHUB_TOKEN` / `GITHUB_REPO` / `GITHUB_BRANCH` | 設定ファイルをGitHubの `data` ブランチへ保存・起動時に読み戻し |
+ | `CONSOLE_LOG_CHANNEL_ID` | ログ転送先のDiscordチャンネル（専用チャンネル推奨） |
+ | `LOADING_EMOJI` | ローディング表示用の絵文字（省略可） |
++| `PUBLIC_BASE_URL` | 通知Webhookの受け口になる公開HTTPSのURL（例: `https://uyuyu-bot.onrender.com`）。省略すると `CALLBACK_URL` のオリジンを使う |
++| `YOUTUBE_WEBSUB_SECRET` | YouTube通知: WebSubの署名用の任意の文字列（推奨: 32文字以上のランダム値）。未設定ならYouTube通知は無効 |
++| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | Twitch通知: [Twitch Developers](https://dev.twitch.tv/console) で作ったアプリの値 |
++| `TWITCH_EVENTSUB_SECRET` | Twitch通知: EventSubの署名用の任意の文字列（10〜100文字）。変更すると既存の購読は作り直しになる |
+ 
+ ## 構成
+ - `index.js` … 起動、イベント・コマンドの読み込み、GitHub同期
+ - `web.js` / `views/` / `public/` … Webサイトとダッシュボード
++- `utils/notify/` … YouTube / Twitch の通知（`index.js` が本体、`youtube.js` `twitch.js` が各サービスの購読・受信、`x.js` は未実装の枠）
+ - `remember.js` … ログイン状態を暗号化Cookieに保存
+ - `gemini.js` … Gemini呼び出しの共通処理
+ - `channel-config.js` … `config-channels.json` の読み書き
+--- /dev/null
++++ b/utils/notify/common.js
+@@ -0,0 +1,42 @@
++// utils/notify/common.js
++// YouTube / Twitch / X の通知で共通して使う小さな道具。
++const crypto = require('node:crypto');
++
++/** 画面に見せてよいエラー（それ以外のエラーは「内部エラー」として扱う） */
++class NotifyError extends Error {}
++
++/**
++ * 外部サービスがこのBotにPOSTしてくる先のオリジン（https 必須）。
++ * PUBLIC_BASE_URL があればそれを、無ければダッシュボードの CALLBACK_URL から取る。
++ * https でなければ null（YouTube / Twitch は https の公開URLにしか送ってくれない）。
++ */
++function baseUrl() {
++    const raw = (process.env.PUBLIC_BASE_URL || '').trim() || (process.env.CALLBACK_URL || '').trim();
++    if (!raw) return null;
++    try {
++        const url = new URL(raw);
++        return url.protocol === 'https:' ? url.origin : null;
++    } catch {
++        return null;
++    }
++}
++
++/** 署名の比較（長さが違っても例外にならず、タイミング攻撃にも強い） */
++function safeEqual(a, b) {
++    const x = Buffer.from(String(a));
++    const y = Buffer.from(String(b));
++    return x.length === y.length && crypto.timingSafeEqual(x, y);
++}
++
++const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
++
++/** XMLの文字参照を戻す（フィードのタイトル用） */
++function decodeXml(text) {
++    return String(text)
++        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
++        .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
++        .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
++        .replace(/&amp;/g, '&');
++}
++
++module.exports = { NotifyError, baseUrl, safeEqual, sleep, decodeXml };
+--- /dev/null
++++ b/utils/notify/index.js
+@@ -0,0 +1,244 @@
++// utils/notify/index.js
++// YouTube / Twitch / X の通知の本体。
++//   ・サーバーごとの設定は config-channels.json の guildConfig.notifications（配列）に保存する
++//     （ダッシュボードの他の設定と同じく、GitHub の data ブランチにも反映される）
++//   ・同じチャンネルを複数のサーバーが登録しても、外部サービスへの購読は1つだけにする
++//   ・購読・受信の細かい処理は youtube.js / twitch.js / x.js
++const crypto = require('node:crypto');
++const { PermissionFlagsBits, escapeMarkdown } = require('discord.js');
++const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('../../channel-config.js');
++const { NotifyError } = require('./common.js');
++
++const providers = {
++    youtube: require('./youtube.js'),
++    twitch: require('./twitch.js'),
++    x: require('./x.js'),
++};
++
++const PLATFORMS = [
++    { id: 'youtube', label: 'YouTube', placeholder: '@ハンドル / チャンネルURL / チャンネルID (UC…)', help: '新しい動画・ライブ配信の作成を通知します。' },
++    { id: 'twitch', label: 'Twitch', placeholder: 'ユーザー名 または チャンネルURL', help: '配信の開始を通知します。' },
++    { id: 'x', label: 'X (Twitter)', placeholder: '@ユーザー名', help: '無料で使えるWebhookが無いため準備中です。' },
++];
++
++const MAX_PER_GUILD = 10;
++const RESYNC_INTERVAL_MS = 12 * 60 * 60 * 1000;
++const SEEN_TTL_MS = 24 * 60 * 60 * 1000;
++
++// ---------- 設定の読み書き ----------
++const guildList = guildId => {
++    const list = getChannelConfig()[guildId]?.notifications;
++    return Array.isArray(list) ? list : [];
++};
++
++/** Botが今いるサーバーの登録だけを返す（抜けたサーバーの分で購読を持ち続けない） */
++function activeEntries(client, platform) {
++    const result = [];
++    for (const [guildId, guildConfig] of Object.entries(getChannelConfig())) {
++        if (!client.guilds.cache.has(guildId) || !Array.isArray(guildConfig?.notifications)) continue;
++        for (const entry of guildConfig.notifications) {
++            if (!platform || entry.platform === platform) result.push({ ...entry, guildId });
++        }
++    }
++    return result;
++}
++
++const wantedTargets = (client, platform) => new Set(activeEntries(client, platform).map(e => e.targetId));
++
++function platformInfo() {
++    return PLATFORMS.map(p => ({ ...p, enabled: providers[p.id].enabled() }));
++}
++
++const labelOf = id => PLATFORMS.find(p => p.id === id)?.label ?? id;
++
++// ---------- 追加・削除（ダッシュボードから） ----------
++async function persist(client, guildId, data, message) {
++    if (client.commitJsonToGitHub) await client.commitJsonToGitHub('config-channels.json', data, message);
++}
++
++/**
++ * @param {{platform:string, input:string, channelId:string, roleId:string|null}} form
++ *        channelId / roleId は呼び出し側（web.js）で、そのサーバーのものか検証済みであること
++ */
++async function addSubscription(client, guildId, { platform, input, channelId, roleId }) {
++    const provider = providers[platform];
++    if (!provider) throw new NotifyError('通知の種類が正しくありません。');
++    if (!provider.enabled()) throw new NotifyError(`${labelOf(platform)} の通知は、現在このBotでは利用できません。`);
++    if (guildList(guildId).length >= MAX_PER_GUILD) {
++        throw new NotifyError(`通知は1サーバーあたり ${MAX_PER_GUILD} 件までです。`);
++    }
++
++    const target = await provider.resolve(input);
++    if (guildList(guildId).some(e => e.platform === platform && e.targetId === target.targetId && e.channelId === channelId)) {
++        throw new NotifyError('同じ通知がすでに登録されています。');
++    }
++
++    const entry = {
++        id: crypto.randomBytes(4).toString('hex'),
++        platform,
++        targetId: target.targetId,
++        targetName: target.targetName,
++        channelId,
++        roleId: roleId || null, // 'everyone' なら @everyone
++    };
++
++    const alreadyWatched = wantedTargets(client, platform).has(target.targetId);
++    const data = updateChannelConfig(config => {
++        const guildConfig = ensureGuildConfig(config, guildId);
++        guildConfig.notifications = [...(Array.isArray(guildConfig.notifications) ? guildConfig.notifications : []), entry];
++    });
++
++    if (!alreadyWatched) {
++        try {
++            await provider.subscribe(target.targetId);
++        } catch (error) {
++            console.error(`[Notify] ${platform} の購読に失敗したため、登録を取り消します:`, error);
++            const rolledBack = updateChannelConfig(config => {
++                const guildConfig = ensureGuildConfig(config, guildId);
++                guildConfig.notifications = guildConfig.notifications.filter(e => e.id !== entry.id);
++            });
++            await persist(client, guildId, rolledBack, `auto: rollback notification in guild ${guildId} [skip render]`);
++            throw new NotifyError(`${labelOf(platform)} への購読登録に失敗しました。しばらくしてからもう一度お試しください。`);
++        }
++    }
++
++    await persist(client, guildId, data, `auto: add ${platform} notification in guild ${guildId} [skip render]`);
++    return entry;
++}
++
++async function removeSubscription(client, guildId, id) {
++    const entry = guildList(guildId).find(e => e.id === id);
++    if (!entry) throw new NotifyError('その通知は見つかりません（すでに削除されています）。');
++
++    const data = updateChannelConfig(config => {
++        const guildConfig = ensureGuildConfig(config, guildId);
++        guildConfig.notifications = guildConfig.notifications.filter(e => e.id !== id);
++    });
++    await persist(client, guildId, data, `auto: remove ${entry.platform} notification in guild ${guildId} [skip render]`);
++
++    // 他のサーバーが同じ相手を登録していなければ、購読を解除する（失敗しても、次の同期で整理される）
++    if (!wantedTargets(client, entry.platform).has(entry.targetId)) {
++        try {
++            await providers[entry.platform].unsubscribe(entry.targetId);
++        } catch (error) {
++            console.error(`[Notify] ${entry.platform} の購読解除に失敗しました:`, error.message);
++        }
++    }
++}
++
++// ---------- 通知の送信 ----------
++const seen = new Map();
++/** すでに処理したイベントなら false。初めてなら記録して true */
++function firstTime(key) {
++    const now = Date.now();
++    for (const [k, expires] of seen) if (expires < now) seen.delete(k);
++    if (seen.has(key)) return false;
++    seen.set(key, now + SEEN_TTL_MS);
++    return true;
++}
++
++function mentionOf(roleId) {
++    if (roleId === 'everyone') return { prefix: '@everyone ', allowed: { parse: ['everyone'] } };
++    if (roleId) return { prefix: `<@&${roleId}> `, allowed: { roles: [roleId] } };
++    return { prefix: '', allowed: { parse: [] } };
++}
++
++/**
++ * 登録しているサーバーすべてに通知を送る。
++ * @param {string} platform
++ * @param {string} targetId 通知元（YouTubeチャンネルID・TwitchユーザーID など）
++ * @param {{ id: string, text: string }} event id は重複排除用、text は本文（メンションは自動で先頭に付く）
++ */
++async function dispatch(client, platform, targetId, event) {
++    if (!firstTime(`${platform}:${event.id}`)) return;
++
++    for (const entry of activeEntries(client, platform).filter(e => e.targetId === targetId)) {
++        try {
++            const guild = client.guilds.cache.get(entry.guildId);
++            const channel = guild?.channels.cache.get(entry.channelId);
++            if (!channel?.isTextBased()) continue;
++
++            const permissions = channel.permissionsFor(guild.members.me);
++            if (!permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
++                console.warn(`[Notify] #${channel.name} (${guild.name}) に送信する権限がありません。`);
++                continue;
++            }
++
++            const mention = mentionOf(entry.roleId);
++            await channel.send({ content: mention.prefix + event.text, allowedMentions: mention.allowed });
++        } catch (error) {
++            console.error(`[Notify] ${entry.guildId} への通知に失敗しました:`, error);
++        }
++    }
++}
++
++// ---------- Webhook の受け口（web.js から呼ぶ） ----------
++const webhooks = {
++    youtubeVerify(client, query) {
++        return providers.youtube.handleVerify(query, wantedTargets(client, 'youtube'));
++    },
++
++    youtubeNotify(client, rawBody, headers) {
++        const { status, event } = providers.youtube.handleNotify(rawBody, headers);
++        if (event) {
++            const text = `📺 **${escapeMarkdown(event.name || 'YouTube')}** が新しい動画・配信を投稿しました！\n` +
++                `${escapeMarkdown(event.title || '')}\n${event.url}`;
++            dispatch(client, 'youtube', event.targetId, { id: event.id, text })
++                .catch(error => console.error('[Notify/YouTube]', error));
++        }
++        return status;
++    },
++
++    twitch(client, rawBody, headers) {
++        const { status, body, event } = providers.twitch.handleWebhook(rawBody, headers);
++        if (event && firstTimePeek(`twitch:${event.id}`)) {
++            sendTwitch(client, event).catch(error => console.error('[Notify/Twitch]', error));
++        }
++        return { status, body };
++    },
++};
++
++// Twitch は配信情報の取得で数秒待つので、待つ前に「処理済みか」だけ先に調べる
++const firstTimePeek = key => !seen.has(key);
++
++async function sendTwitch(client, event) {
++    if (activeEntries(client, 'twitch').every(e => e.targetId !== event.targetId)) return;
++    const info = await providers.twitch.fetchStreamInfo(event.targetId);
++    const lines = [`🔴 **${escapeMarkdown(event.name || event.login)}** が配信を開始しました！`];
++    if (info?.title) lines.push(escapeMarkdown(info.title) + (info.game ? `（${escapeMarkdown(info.game)}）` : ''));
++    lines.push(`https://www.twitch.tv/${event.login}`);
++    await dispatch(client, 'twitch', event.targetId, { id: event.id, text: lines.join('\n') });
++}
++
++// ---------- 起動 ----------
++let started = false;
++
++function start(client) {
++    if (started) return;
++    started = true;
++
++    const active = PLATFORMS.filter(p => providers[p.id].enabled());
++    if (!active.length) {
++        console.log('[Notify] 通知機能は無効です（PUBLIC_BASE_URL / YOUTUBE_WEBSUB_SECRET / TWITCH_* の環境変数が未設定）。');
++        return;
++    }
++    console.log(`[Notify] 有効な通知: ${active.map(p => p.label).join(', ')}`);
++
++    const resyncAll = async () => {
++        for (const p of active) {
++            try {
++                await providers[p.id].resync(wantedTargets(client, p.id));
++            } catch (error) {
++                console.error(`[Notify/${p.label}] 同期に失敗しました:`, error);
++            }
++        }
++    };
++    resyncAll();
++    setInterval(resyncAll, RESYNC_INTERVAL_MS).unref();
++}
++
++module.exports = {
++    start, platformInfo, labelOf, MAX_PER_GUILD,
++    addSubscription, removeSubscription, listSubscriptions: guildList,
++    dispatch, webhooks, NotifyError,
++};
+--- /dev/null
++++ b/utils/notify/youtube.js
+@@ -0,0 +1,167 @@
++// utils/notify/youtube.js
++// YouTube の新着（動画・ライブ配信の作成）を WebSub (PubSubHubbub) で受け取る。
++//   購読 : https://pubsubhubbub.appspot.com/subscribe に POST（有効期限 lease があるので定期的に再購読）
++//   受信 : POST /webhook/youtube（X-Hub-Signature を YOUTUBE_WEBSUB_SECRET で検証）
++const crypto = require('node:crypto');
++const { NotifyError, baseUrl, safeEqual, decodeXml } = require('./common.js');
++
++const HUB_URL = 'https://pubsubhubbub.appspot.com/subscribe';
++const LEASE_SECONDS = 5 * 24 * 60 * 60; // 5日。再購読は12時間ごとに行うので余裕がある
++const MAX_AGE_MS = 48 * 60 * 60 * 1000; // 公開から2日以上たった動画の「更新通知」は無視する
++const TIMEOUT_MS = 10000;
++const CHANNEL_ID = /^UC[\w-]{22}$/;
++
++const secret = () => (process.env.YOUTUBE_WEBSUB_SECRET || '').trim();
++const callbackUrl = () => `${baseUrl()}/webhook/youtube`;
++const topicOf = channelId => `https://www.youtube.com/xml/feeds/videos.xml?channel_id=${channelId}`;
++
++function enabled() {
++    return Boolean(secret() && baseUrl());
++}
++
++/** フィード(videos.xml)からチャンネル名を取る。存在しないIDならここで弾ける */
++async function fetchChannelName(channelId) {
++    const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
++        signal: AbortSignal.timeout(TIMEOUT_MS),
++    });
++    if (res.status === 404) throw new NotifyError('そのYouTubeチャンネルが見つかりません。');
++    if (!res.ok) throw new NotifyError(`YouTubeの情報を取得できませんでした (HTTP ${res.status})。`);
++    const xml = await res.text();
++    return decodeXml(xml.match(/<title>([^<]*)<\/title>/)?.[1] ?? channelId);
++}
++
++/** 入力（チャンネルID / チャンネルURL / @ハンドル / ハンドルのURL）から { targetId, targetName } を作る */
++async function resolve(input) {
++    const text = String(input || '').trim();
++    let channelId = CHANNEL_ID.test(text) ? text : text.match(/youtube\.com\/channel\/(UC[\w-]{22})/i)?.[1];
++
++    if (!channelId) {
++        const handle = text.match(/^(@[\w.-]+)$/)?.[1] ?? text.match(/youtube\.com\/(@[\w.-]+)/i)?.[1];
++        if (!handle) throw new NotifyError('YouTubeのチャンネルID(UC…)、チャンネルURL、または @ハンドル を入力してください。');
++
++        // ハンドルからIDへの変換は公式のプッシュ手段が無いので、チャンネルページから読み取る
++        const res = await fetch(`https://www.youtube.com/${handle}`, {
++            headers: {
++                'User-Agent': 'Mozilla/5.0 (compatible; uyuyu-bot)',
++                'Accept-Language': 'ja,en;q=0.8',
++                Cookie: 'SOCS=CAI; CONSENT=YES+1', // EU向けの同意ページに飛ばされないように
++            },
++            signal: AbortSignal.timeout(TIMEOUT_MS),
++        });
++        if (res.status === 404) throw new NotifyError('そのYouTubeチャンネルが見つかりません。');
++        const html = res.ok ? await res.text() : '';
++        channelId =
++            html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/)?.[1] ??
++            html.match(/"externalId":"(UC[\w-]{22})"/)?.[1] ??
++            html.match(/"channelId":"(UC[\w-]{22})"/)?.[1];
++        if (!channelId) {
++            throw new NotifyError('ハンドルからチャンネルIDを取得できませんでした。UC から始まるチャンネルIDを直接入力してください。');
++        }
++    }
++
++    return { targetId: channelId, targetName: await fetchChannelName(channelId) };
++}
++
++async function hubRequest(mode, channelId) {
++    const res = await fetch(HUB_URL, {
++        method: 'POST',
++        body: new URLSearchParams({
++            'hub.callback': callbackUrl(),
++            'hub.topic': topicOf(channelId),
++            'hub.verify': 'async',
++            'hub.mode': mode,
++            'hub.secret': secret(),
++            'hub.lease_seconds': String(LEASE_SECONDS),
++        }),
++        signal: AbortSignal.timeout(TIMEOUT_MS),
++    });
++    // 受付済みは 202（同期確認なら 204）。実際の確認は、後で GET /webhook/youtube に届く
++    if (res.status !== 202 && res.status !== 204) {
++        throw new Error(`WebSub hub が ${res.status} を返しました: ${(await res.text()).slice(0, 200)}`);
++    }
++}
++
++const subscribe = channelId => hubRequest('subscribe', channelId);
++const unsubscribe = channelId => hubRequest('unsubscribe', channelId);
++
++/** 起動時・定期実行: 必要なチャンネルをすべて再購読して lease を延ばす */
++async function resync(wanted) {
++    for (const channelId of wanted) {
++        try {
++            await subscribe(channelId);
++        } catch (error) {
++            console.error(`[Notify/YouTube] ${channelId} の再購読に失敗しました:`, error.message);
++        }
++    }
++}
++
++/** hub からの購読確認（GET）。購読したいチャンネルのときだけ challenge を返す */
++function handleVerify(query, wanted) {
++    const mode = query['hub.mode'];
++    const topic = String(query['hub.topic'] || '');
++    const challenge = query['hub.challenge'];
++    const channelId = topic.match(/[?&]channel_id=(UC[\w-]{22})/)?.[1];
++
++    if (mode === 'denied') {
++        console.warn(`[Notify/YouTube] hub が購読を拒否しました: ${query['hub.reason'] || '(理由なし)'} (${topic})`);
++        return { status: 200, body: '' };
++    }
++    if (!channelId || typeof challenge !== 'string') return { status: 400, body: '' };
++    if (mode === 'subscribe' && wanted.has(channelId)) return { status: 200, body: challenge };
++    if (mode === 'unsubscribe' && !wanted.has(channelId)) return { status: 200, body: challenge };
++    return { status: 404, body: '' };
++}
++
++function verifySignature(rawBody, header) {
++    const match = /^(sha1|sha256|sha384|sha512)=([0-9a-f]+)$/i.exec(String(header || ''));
++    if (!match || !secret()) return false;
++    const expected = crypto.createHmac(match[1].toLowerCase(), secret()).update(rawBody).digest('hex');
++    return safeEqual(expected, match[2].toLowerCase());
++}
++
++function tag(xml, name) {
++    const match = xml.match(new RegExp(`<${name}[^>]*>([^<]*)</${name}>`));
++    return match ? decodeXml(match[1].trim()) : null;
++}
++
++function parseFeed(xml) {
++    if (/<at:deleted-entry/.test(xml)) return { deleted: true };
++    const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1];
++    if (!entry) return null;
++    const author = entry.match(/<author>[\s\S]*?<name>([^<]*)<\/name>/)?.[1];
++    return {
++        videoId: tag(entry, 'yt:videoId'),
++        channelId: tag(entry, 'yt:channelId'),
++        title: tag(entry, 'title'),
++        published: tag(entry, 'published'),
++        author: author ? decodeXml(author) : null,
++    };
++}
++
++/**
++ * hub からの新着通知（POST）。
++ * @returns {{status:number, event?:{targetId:string, id:string, text:string}}}
++ */
++function handleNotify(rawBody, headers) {
++    if (!verifySignature(rawBody, headers['x-hub-signature'])) return { status: 403 };
++
++    const feed = parseFeed(rawBody.toString('utf8'));
++    if (!feed || feed.deleted || !feed.videoId || !feed.channelId) return { status: 204 };
++
++    // 古い動画のタイトル変更などでも通知が来るので、公開が新しいものだけ通知する
++    const published = Date.parse(feed.published || '');
++    if (Number.isFinite(published) && Date.now() - published > MAX_AGE_MS) return { status: 204 };
++
++    return {
++        status: 204,
++        event: {
++            targetId: feed.channelId,
++            id: feed.videoId, // 同じ動画の更新通知を何度も流さないための目印
++            name: feed.author,
++            title: feed.title,
++            url: `https://www.youtube.com/watch?v=${feed.videoId}`,
++        },
++    };
++}
++
++module.exports = { enabled, resolve, subscribe, unsubscribe, resync, handleVerify, handleNotify };
+--- /dev/null
++++ b/utils/notify/twitch.js
+@@ -0,0 +1,212 @@
++// utils/notify/twitch.js
++// Twitch の配信開始(stream.online)を EventSub (webhook) で受け取る。
++//   必要な環境変数: TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET / TWITCH_EVENTSUB_SECRET(10〜100文字の任意の文字列)
++//   購読 : Helix の EventSub API（アプリアクセストークン）
++//   受信 : POST /webhook/twitch（Twitch-Eventsub-Message-Signature を検証）
++const crypto = require('node:crypto');
++const { NotifyError, baseUrl, safeEqual, sleep } = require('./common.js');
++
++const HELIX = 'https://api.twitch.tv/helix';
++const TIMEOUT_MS = 10000;
++const REPLAY_WINDOW_MS = 10 * 60 * 1000; // Twitch の推奨: 10分より古いリクエストは捨てる
++const ACTIVE = new Set(['enabled', 'webhook_callback_verification_pending']);
++
++const clientId = () => (process.env.TWITCH_CLIENT_ID || '').trim();
++const clientSecret = () => (process.env.TWITCH_CLIENT_SECRET || '').trim();
++const secret = () => (process.env.TWITCH_EVENTSUB_SECRET || '').trim();
++const callbackUrl = () => `${baseUrl()}/webhook/twitch`;
++
++function enabled() {
++    const s = secret();
++    return Boolean(clientId() && clientSecret() && s.length >= 10 && s.length <= 100 && baseUrl());
++}
++
++// ---------- アプリアクセストークン ----------
++let token = null;
++let tokenExpires = 0;
++
++async function appToken(force = false) {
++    if (!force && token && Date.now() < tokenExpires - 60_000) return token;
++    const res = await fetch('https://id.twitch.tv/oauth2/token', {
++        method: 'POST',
++        body: new URLSearchParams({
++            client_id: clientId(),
++            client_secret: clientSecret(),
++            grant_type: 'client_credentials',
++        }),
++        signal: AbortSignal.timeout(TIMEOUT_MS),
++    });
++    if (!res.ok) throw new Error(`Twitch のトークン取得に失敗しました (HTTP ${res.status})`);
++    const data = await res.json();
++    token = data.access_token;
++    tokenExpires = Date.now() + data.expires_in * 1000;
++    return token;
++}
++
++/** Helix を呼ぶ。401（トークン失効）なら取り直して1回だけやり直す */
++async function helix(path, { method = 'GET', body } = {}, retried = false) {
++    const res = await fetch(`${HELIX}${path}`, {
++        method,
++        headers: {
++            'Client-Id': clientId(),
++            Authorization: `Bearer ${await appToken(retried)}`,
++            ...(body ? { 'Content-Type': 'application/json' } : {}),
++        },
++        body: body ? JSON.stringify(body) : undefined,
++        signal: AbortSignal.timeout(TIMEOUT_MS),
++    });
++    if (res.status === 401 && !retried) return helix(path, { method, body }, true);
++    return res;
++}
++
++// ---------- ユーザー名 → ID ----------
++async function resolve(input) {
++    const text = String(input || '').trim();
++    const login = (text.match(/twitch\.tv\/([A-Za-z0-9_]{3,25})/i)?.[1] ?? text.replace(/^@/, '')).toLowerCase();
++    if (!/^[a-z0-9_]{3,25}$/.test(login)) {
++        throw new NotifyError('Twitchのユーザー名（またはチャンネルURL）を入力してください。');
++    }
++    const res = await helix(`/users?login=${encodeURIComponent(login)}`);
++    if (!res.ok) throw new NotifyError(`Twitchの情報を取得できませんでした (HTTP ${res.status})。`);
++    const user = (await res.json()).data?.[0];
++    if (!user) throw new NotifyError('そのTwitchユーザーが見つかりません。');
++    return { targetId: user.id, targetName: user.display_name };
++}
++
++// ---------- 購読 ----------
++async function listSubscriptions() {
++    const all = [];
++    let cursor = null;
++    do {
++        const res = await helix(`/eventsub/subscriptions?type=stream.online${cursor ? `&after=${cursor}` : ''}`);
++        if (!res.ok) throw new Error(`EventSub の一覧取得に失敗しました (HTTP ${res.status})`);
++        const page = await res.json();
++        all.push(...(page.data || []));
++        cursor = page.pagination?.cursor || null;
++    } while (cursor);
++    // このBotのコールバック宛のものだけを扱う（同じアプリの別用途の購読を消さないため）
++    return all.filter(sub => sub.transport?.callback === callbackUrl());
++}
++
++async function remove(id) {
++    const res = await helix(`/eventsub/subscriptions?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
++    if (!res.ok && res.status !== 404) console.warn(`[Notify/Twitch] 購読 ${id} を削除できませんでした (HTTP ${res.status})`);
++}
++
++async function subscribe(broadcasterId) {
++    const res = await helix('/eventsub/subscriptions', {
++        method: 'POST',
++        body: {
++            type: 'stream.online',
++            version: '1',
++            condition: { broadcaster_user_id: broadcasterId },
++            transport: { method: 'webhook', callback: callbackUrl(), secret: secret() },
++        },
++    });
++    if (res.status === 409) return; // すでに購読済み
++    if (!res.ok) throw new Error(`EventSub の登録に失敗しました (HTTP ${res.status}): ${(await res.text()).slice(0, 200)}`);
++}
++
++async function unsubscribe(broadcasterId) {
++    for (const sub of await listSubscriptions()) {
++        if (sub.condition?.broadcaster_user_id === broadcasterId) await remove(sub.id);
++    }
++}
++
++/** 起動時・定期実行: 実際の購読状態を、設定している内容に合わせる */
++async function resync(wanted) {
++    let subs;
++    try {
++        subs = await listSubscriptions();
++    } catch (error) {
++        console.error('[Notify/Twitch]', error.message);
++        return;
++    }
++
++    const have = new Set();
++    for (const sub of subs) {
++        const id = sub.condition?.broadcaster_user_id;
++        if (!ACTIVE.has(sub.status) || !wanted.has(id)) {
++            await remove(sub.id); // 失敗状態のもの・もう要らないものは削除（失敗状態は作り直す）
++        } else {
++            have.add(id);
++        }
++    }
++    for (const id of wanted) {
++        if (have.has(id)) continue;
++        try {
++            await subscribe(id);
++        } catch (error) {
++            console.error(`[Notify/Twitch] ${id} の購読に失敗しました:`, error.message);
++        }
++    }
++}
++
++// ---------- 受信 ----------
++function verifySignature(rawBody, headers) {
++    const id = headers['twitch-eventsub-message-id'];
++    const timestamp = headers['twitch-eventsub-message-timestamp'];
++    const signature = headers['twitch-eventsub-message-signature'];
++    if (!id || !timestamp || !signature || !secret()) return false;
++
++    const sent = Date.parse(timestamp);
++    if (!Number.isFinite(sent) || Math.abs(Date.now() - sent) > REPLAY_WINDOW_MS) return false;
++
++    const expected = 'sha256=' + crypto.createHmac('sha256', secret())
++        .update(id + timestamp).update(rawBody).digest('hex');
++    return safeEqual(expected, signature);
++}
++
++/**
++ * Twitch からの通知（POST）。
++ * @returns {{status:number, body?:string, event?:object}}
++ */
++function handleWebhook(rawBody, headers) {
++    if (!verifySignature(rawBody, headers)) return { status: 403 };
++
++    let payload;
++    try {
++        payload = JSON.parse(rawBody.toString('utf8'));
++    } catch {
++        return { status: 400 };
++    }
++
++    switch (headers['twitch-eventsub-message-type']) {
++        case 'webhook_callback_verification':
++            return { status: 200, body: String(payload.challenge ?? '') };
++        case 'revocation':
++            console.warn(`[Notify/Twitch] 購読が取り消されました: ${payload.subscription?.status} (${payload.subscription?.type})`);
++            return { status: 204 };
++        case 'notification': {
++            const event = payload.event || {};
++            // type は live のほか rerun / premiere などもある。通常の配信開始だけ通知する
++            if (payload.subscription?.type !== 'stream.online' || event.type !== 'live') return { status: 204 };
++            return {
++                status: 204,
++                event: {
++                    targetId: event.broadcaster_user_id,
++                    id: event.id || headers['twitch-eventsub-message-id'], // 配信ID（再送されても同じ）
++                    name: event.broadcaster_user_name,
++                    login: event.broadcaster_user_login,
++                },
++            };
++        }
++        default:
++            return { status: 204 };
++    }
++}
++
++/** 配信タイトルとゲーム名（配信開始直後はまだ取れないことがあるので少し待つ）。取れなければ null */
++async function fetchStreamInfo(broadcasterId) {
++    try {
++        await sleep(4000);
++        const res = await helix(`/streams?user_id=${encodeURIComponent(broadcasterId)}`);
++        if (!res.ok) return null;
++        const stream = (await res.json()).data?.[0];
++        return stream ? { title: stream.title, game: stream.game_name } : null;
++    } catch {
++        return null;
++    }
++}
++
++module.exports = { enabled, resolve, subscribe, unsubscribe, resync, handleWebhook, fetchStreamInfo };
+--- /dev/null
++++ b/utils/notify/x.js
+@@ -0,0 +1,17 @@
++// utils/notify/x.js
++// X (Twitter) は、無料で使えるプッシュ型の webhook がありません（Account Activity API は有料）。
++// 取得方法が決まったら、ここに youtube.js / twitch.js と同じ形で実装してください:
++//   enabled()           … 使える状態なら true（false の間は、ダッシュボードで「準備中」と表示される）
++//   resolve(input)      … 入力から { targetId, targetName } を作る
++//   subscribe/unsubscribe(targetId) … 購読の開始・解除（ポーリングなら「監視対象に追加・削除」）
++//   resync(wantedSet)   … 起動時・12時間ごとに呼ばれる
++// 通知を出すときは utils/notify/index.js の dispatch('x', targetId, { id, text }) を呼ぶだけです。
++const { NotifyError } = require('./common.js');
++
++module.exports = {
++    enabled: () => false,
++    resolve: async () => { throw new NotifyError('X (Twitter) の通知はまだ利用できません。'); },
++    subscribe: async () => {},
++    unsubscribe: async () => {},
++    resync: async () => {},
++};

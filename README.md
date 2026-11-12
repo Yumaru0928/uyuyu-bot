@@ -29,10 +29,15 @@ Node.js 20 以上が必要です。ローカルでは `config.json`、Render な
 | `GITHUB_TOKEN` / `GITHUB_REPO` / `GITHUB_BRANCH` | 設定ファイルをGitHubの `data` ブランチへ保存・起動時に読み戻し |
 | `CONSOLE_LOG_CHANNEL_ID` | ログ転送先のDiscordチャンネル（専用チャンネル推奨） |
 | `LOADING_EMOJI` | ローディング表示用の絵文字（省略可） |
+| `PUBLIC_BASE_URL` | 通知Webhookの受け口になる公開HTTPSのURL（例: `https://uyuyu-bot.onrender.com`）。省略すると `CALLBACK_URL` のオリジンを使う |
+| `YOUTUBE_WEBSUB_SECRET` | YouTube通知: WebSubの署名用の任意の文字列（推奨: 32文字以上のランダム値）。未設定ならYouTube通知は無効 |
+| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | Twitch通知: [Twitch Developers](https://dev.twitch.tv/console) で作ったアプリの値 |
+| `TWITCH_EVENTSUB_SECRET` | Twitch通知: EventSubの署名用の任意の文字列（10〜100文字）。変更すると既存の購読は作り直しになる |
 
 ## 構成
 - `index.js` … 起動、イベント・コマンドの読み込み、GitHub同期
 - `web.js` / `views/` / `public/` … Webサイトとダッシュボード
+- `utils/notify/` … YouTube / Twitch の通知（`index.js` が本体、`youtube.js` `twitch.js` が各サービスの購読・受信、`x.js` は未実装の枠）
 - `remember.js` … ログイン状態を暗号化Cookieに保存
 - `gemini.js` … Gemini呼び出しの共通処理
 - `channel-config.js` … `config-channels.json` の読み書き
