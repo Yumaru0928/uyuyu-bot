@@ -228,7 +228,11 @@ const toSet = (list, env) =>
 const excluded = {
     guilds: toSet(excludeConfig.guilds, process.env.MIRROR_EXCLUDE_GUILDS),
     categories: toSet(excludeConfig.categories, process.env.MIRROR_EXCLUDE_CATEGORIES),
-    channels: toSet(excludeConfig.channels, process.env.MIRROR_EXCLUDE_CHANNELS),
+    // コンソールログ転送先（console-forward.js）は、転送のエラー→ログ→転送…のループを防ぐため常に除外
+    channels: toSet(
+        excludeConfig.channels,
+        [process.env.MIRROR_EXCLUDE_CHANNELS, process.env.CONSOLE_LOG_CHANNEL_ID].filter(Boolean).join(','),
+    ),
     users: toSet(excludeConfig.users, process.env.MIRROR_EXCLUDE_USERS),
 };
 

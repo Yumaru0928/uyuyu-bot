@@ -14,6 +14,16 @@ const app = express();
 // Render などのリバースプロキシ配下で、HTTPS・Cookie を正しく扱うために必要
 app.set('trust proxy', 1);
 
+// Discord のイベント通知（アプリの追加・削除。utils/event-webhook.js で署名を検証して処理する）
+// 署名の検証には加工前の生の本文が必要なので、セッションなど他のミドルウェアより前に置く
+const { processEvent } = require('./utils/event-webhook.js');
+app.post('/discord/events', express.raw({ type: 'application/json' }), (req, res) => {
+    const client = req.app.get('client');
+    if (!client) return res.sendStatus(503);
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    res.sendStatus(processEvent(client, rawBody, req.headers));
+});
+
 // 1. セッション設定
 //    SESSION_SECRET が無いときに、ソースに書かれた固定値（誰でも知っている値）で署名しないよう、
 //    起動ごとのランダム値を使う（再起動でログイン中のセッションは無効になる）。

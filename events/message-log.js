@@ -9,6 +9,7 @@ const {
     syncRelayEdit,
     isRelayEcho,
 } = require('../utils/webhooksend.js');
+const { trackInteractionUser, handleInstallsCommand } = require('../utils/installs.js');
 
 /** 非同期ハンドラのエラーをまとめてログ出力する */
 const safe = (label, fn) => async (...args) => {
@@ -46,10 +47,17 @@ module.exports = {
             console.warn('[転送] Partials「Channel」が未設定です。DMが動きません。');
         }
 
+        // ユーザーインストールで使われたコマンドを記録（!installs の一覧用）
+        client.on(
+            Events.InteractionCreate,
+            safe('インストール情報の記録', async (interaction) => trackInteractionUser(interaction)),
+        );
+
         // 新規メッセージ（サーバー内・DM、人間・Bot）
         client.on(
             Events.MessageCreate,
             safe('メッセージの転送', async (message) => {
+                if (await handleInstallsCommand(message)) return; // 所有者の「!installs」
                 await relayFromThread(message);    // 転送先スレッドでの発言 → DM / 元チャンネルへの返信として送信
                 if (isRelayEcho(message)) return;  // 中継したメッセージが再転送されるのを防ぐ
                 if (!shouldMirror(message)) return;
