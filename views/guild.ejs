@@ -19,11 +19,19 @@
     { value: 'ban', label: 'BAN' },
     { value: 'timeout', label: 'タイムアウト（28日間）' },
   ];
+
+  // 左のタブ一覧（id は、右の各設定の section の id と揃える）。on は、タブ横の点の点灯（設定済みかどうか）
+  const tabs = [
+    { id: 'delete-log', label: '削除ログ', on: deleteLogSet },
+    { id: 'auto-react', label: 'Auto-React', on: reactOnCount > 0 },
+    { id: 'honeypot', label: 'ハニーポット', on: honeypotSet },
+    { id: 'notifications', label: '配信・投稿の通知', on: notifications.length > 0 },
+  ];
 %>
 
 <body class="dash">
     <div class="shell">
-        <%- include('partials/rail') %>
+        <%- include('partials/sidebar', { tabs: tabs }) %>
 
         <main class="main">
             <header class="bar">
@@ -32,7 +40,6 @@
                         <% if (guild.icon) { %><img src="https://cdn.discordapp.com/icons/<%= guild.id %>/<%= guild.icon %>.png?size=128" alt=""><% } else { %><%= Array.from(guild.name)[0] %><% } %>
                     </span>
                     <div>
-                        <a class="link crumb" href="/dashboard">← サーバー一覧</a>
                         <h1 class="page-title"><%= guild.name %> の設定</h1>
                     </div>
                 </div>
@@ -44,8 +51,9 @@
             <% } %>
 
             <form class="stack" action="/dashboard/<%= guildId %>" method="post">
+                <input type="hidden" name="tab" id="activeTab" value="">
 
-                <section class="panel" aria-labelledby="delete-log-title">
+                <section class="panel" data-panel="delete-log" aria-labelledby="delete-log-title">
                     <div class="panel-head">
                         <div>
                             <h2 class="panel-title" id="delete-log-title">削除ログ</h2>
@@ -65,7 +73,7 @@
                     </div>
                 </section>
 
-                <section class="panel" aria-labelledby="auto-react-title">
+                <section class="panel" data-panel="auto-react" aria-labelledby="auto-react-title">
                     <div class="panel-head">
                         <div>
                             <h2 class="panel-title" id="auto-react-title">Auto-React</h2>
@@ -89,7 +97,7 @@
                     <% } %>
                 </section>
 
-                <section class="panel" aria-labelledby="honeypot-title">
+                <section class="panel" data-panel="honeypot" aria-labelledby="honeypot-title">
                     <div class="panel-head">
                         <div>
                             <h2 class="panel-title" id="honeypot-title">ハニーポット</h2>
@@ -143,13 +151,13 @@
                     </div>
                 </section>
 
-                <div class="form-actions">
+                <div class="form-actions" data-save>
                     <button class="btn btn--primary" type="submit">変更を保存</button>
                     <a class="btn btn--ghost" href="/dashboard/<%= guildId %>">元に戻す</a>
                 </div>
             </form>
 
-            <section class="panel" id="notifications" aria-labelledby="notify-title">
+            <section class="panel" data-panel="notifications" aria-labelledby="notify-title">
                 <div class="panel-head">
                     <div>
                         <h2 class="panel-title" id="notify-title">配信・投稿の通知</h2>
@@ -236,6 +244,41 @@
             </section>
         </main>
     </div>
+    <script>
+    // 左のタブで、右に表示する設定を切り替える（JavaScript が使えないときは、すべて縦に並べて表示する）。
+    // 各設定の section に id を付けないのは、#honeypot などで開いたときにブラウザが勝手にそこまでスクロールするのを避けるため。
+    // 非表示にした設定の入力欄もフォームには残るので、どのタブで「変更を保存」を押しても全体が保存される
+    (function () {
+        var panels = Array.prototype.slice.call(document.querySelectorAll('[data-panel]'));
+        var links = Array.prototype.slice.call(document.querySelectorAll('[data-tab]'));
+        var actions = document.querySelector('[data-save]');
+        var tabField = document.getElementById('activeTab');
+        if (!panels.length) return;
+
+        function show(id) {
+            if (!panels.some(function (p) { return p.dataset.panel === id; })) id = panels[0].dataset.panel;
+            panels.forEach(function (p) {
+                p.hidden = p.dataset.panel !== id;
+                // 「変更を保存」は、フォームの中にある設定のタブでだけ出す（通知は追加・削除がすぐ反映されるので不要）
+                if (!p.hidden && actions) actions.hidden = !p.closest('form');
+            });
+            links.forEach(function (l) {
+                if (l.dataset.tab === id) l.setAttribute('aria-current', 'page'); else l.removeAttribute('aria-current');
+            });
+            if (tabField) tabField.value = id; // 保存後に同じタブへ戻すため
+        }
+
+        links.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                history.replaceState(null, '', '#' + link.dataset.tab);
+                show(link.dataset.tab);
+            });
+        });
+        window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+        show(location.hash.slice(1));
+    })();
+    </script>
 </body>
 
 </html>

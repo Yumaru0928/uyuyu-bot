@@ -350,7 +350,8 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
         }
 
         // 保存完了後にクエリ付きでリダイレクト（画面に「保存しました」と表示するため）
-        res.redirect(`/dashboard/${guildId}?saved=true`);
+        const tab = /^[a-z-]{1,20}$/.test(String(req.body.tab || '')) ? `#${req.body.tab}` : '';
+        res.redirect(`/dashboard/${guildId}?saved=true${tab}`);
 
         // Render は再起動で設定ファイルが消えるため、コマンド側と同じく GitHub の data ブランチにも反映する
         // （通信に数秒かかるので、画面への応答を先に返してから行う）

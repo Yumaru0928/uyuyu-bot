@@ -1,0 +1,64 @@
+<%# 引数: guilds（管理できるサーバーの配列）、guildId（表示中のサーバーID。一覧画面では null）、
+    tabs（任意。設定のタブ一覧 [{ id, label, on }]。on が true なら点灯、false なら消灯、省略なら点なし） %>
+<%
+  const current = locals.guildId || null;
+  const currentGuild = guilds.find(g => g.id === current) || null;
+  const tabList = locals.tabs || [];
+%>
+<aside class="side">
+    <a class="side-brand" href="/dashboard">
+        <img src="/uyuyu.png" alt="">
+        <span>うゆゆBot</span>
+    </a>
+
+    <details class="picker">
+        <summary class="picker-btn" aria-label="サーバーを切り替える">
+            <% if (currentGuild) { %>
+            <span class="glyph">
+                <% if (currentGuild.icon) { %><img src="https://cdn.discordapp.com/icons/<%= currentGuild.id %>/<%= currentGuild.icon %>.png?size=96" alt=""><% } else { %><%= Array.from(currentGuild.name)[0] %><% } %>
+            </span>
+            <span class="picker-name"><%= currentGuild.name %></span>
+            <% } else { %>
+            <span class="picker-name picker-ph">サーバーを選択</span>
+            <% } %>
+            <span class="picker-caret" aria-hidden="true"></span>
+        </summary>
+        <ul class="picker-list">
+            <% guilds.forEach(g => { %>
+            <li>
+                <a class="picker-item" href="/dashboard/<%= g.id %>"<% if (current === g.id) { %> aria-current="page"<% } %>>
+                    <span class="glyph">
+                        <% if (g.icon) { %><img src="https://cdn.discordapp.com/icons/<%= g.id %>/<%= g.icon %>.png?size=96" alt="" loading="lazy"><% } else { %><%= Array.from(g.name)[0] %><% } %>
+                    </span>
+                    <span class="picker-name"><%= g.name %></span>
+                </a>
+            </li>
+            <% }) %>
+            <% if (!guilds.length) { %>
+            <li class="picker-empty">管理できるサーバーがありません</li>
+            <% } %>
+            <li class="picker-foot"><a class="picker-item" href="/dashboard"><span class="picker-name">サーバー一覧</span></a></li>
+            <li><a class="picker-item" href="/invite.html"><span class="picker-name">＋ Botを招待</span></a></li>
+        </ul>
+    </details>
+
+    <% if (tabList.length) { %>
+    <nav class="side-nav" aria-label="設定項目">
+        <% tabList.forEach((tab, i) => { %>
+        <a class="side-link" href="#<%= tab.id %>" data-tab="<%= tab.id %>"<% if (i === 0) { %> aria-current="page"<% } %>>
+            <span><%= tab.label %></span>
+            <% if (tab.on !== undefined) { %><span class="dot<%= tab.on ? ' dot--on' : '' %>" title="<%= tab.on ? '設定済み' : '未設定' %>"></span><% } %>
+        </a>
+        <% }) %>
+    </nav>
+    <% } %>
+</aside>
+<script>
+// サーバー選択のメニューは、外側をクリックするか Esc キーで閉じる
+(function () {
+    var picker = document.querySelector('details.picker');
+    if (!picker) return;
+    document.addEventListener('click', function (e) { if (!picker.contains(e.target)) picker.removeAttribute('open'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') picker.removeAttribute('open'); });
+})();
+</script>

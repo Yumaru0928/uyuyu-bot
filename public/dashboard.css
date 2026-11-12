@@ -94,110 +94,225 @@ img {
     text-underline-offset: .2em;
 }
 
-/* ---------- シェル（左レール＋本文） ---------- */
+/* ---------- シェル（左サイドバー＋本文） ---------- */
 .shell {
     display: grid;
-    grid-template-columns: 4.75rem minmax(0, 1fr);
+    grid-template-columns: 16rem minmax(0, 1fr);
     min-height: 100vh;
     min-height: 100dvh;
 }
 
-/* サーバー切り替えレール。選択中は左端の黄色いバーと、角が丸四角に変わる形で示す */
-.rail {
+/* 左サイドバー: 上からロゴ → サーバー選択のドロップダウン → 設定のタブ一覧 */
+.side {
     position: sticky;
     top: 0;
-    height: 100vh;
-    height: 100dvh;
-    overflow-y: auto;
-    scrollbar-width: none;
     display: flex;
     flex-direction: column;
+    gap: 1rem;
+    height: 100vh;
+    height: 100dvh;
+    padding: 1rem .85rem;
+    overflow-y: auto;
+    background: var(--rail);
+    color: var(--rail-fg);
+}
+
+.side-brand {
+    display: flex;
     align-items: center;
     gap: .6rem;
-    padding: .9rem 0;
-    background: var(--rail);
-}
-
-.rail::-webkit-scrollbar {
-    display: none;
-}
-
-.rail-sep {
-    flex: none;
-    width: 2rem;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--rail-fg);
-    opacity: .25;
-}
-
-.rail-item {
-    --ind-len: 0;
-    position: relative;
-    flex: none;
-    display: block;
-    width: 3rem;
-    height: 3rem;
-    border-radius: var(--squircle);
+    padding: .1rem .35rem;
+    color: #fff;
+    font: 800 1.1rem/1 var(--font-display);
     text-decoration: none;
 }
 
-.rail-item::before {
-    content: "";
-    position: absolute;
-    left: -.875rem;
-    top: 50%;
-    width: .3rem;
-    height: var(--ind-len);
-    border-radius: 0 .3rem .3rem 0;
-    background: var(--sun);
-    transform: translateY(-50%);
+.side-brand img {
+    width: 2rem;
+    height: 2rem;
+    padding: .2rem;
+    border-radius: 50%;
+    background: #F4F6F2;
+    object-fit: contain;
 }
 
-.rail-item:hover {
-    --ind-len: 1rem;
-}
-
-.rail-item[aria-current="page"] {
-    --ind-len: 1.8rem;
-}
-
-.rail-item:focus-visible {
+.side-brand:focus-visible,
+.picker-btn:focus-visible,
+.side-link:focus-visible {
     outline-color: var(--sun);
 }
 
-.rail-item .glyph {
-    width: 100%;
-    height: 100%;
+/* サーバー選択（<details> を使うので、JavaScript が無くても開閉できる） */
+.picker {
+    position: relative;
 }
 
-.rail-item:hover .glyph,
-.rail-item:focus-visible .glyph,
-.rail-item[aria-current="page"] .glyph {
-    border-radius: var(--squircle);
+.picker-btn {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    min-height: 3rem;
+    padding: .45rem .7rem;
+    border-radius: var(--radius-s);
+    background: var(--rail-hover);
+    color: #fff;
+    font: 600 .95rem/1.3 var(--font-body);
+    list-style: none;
+    cursor: pointer;
 }
 
-.rail-item:hover .glyph {
-    background: var(--accent);
-    color: var(--on-accent);
+.picker-btn::-webkit-details-marker {
+    display: none;
 }
 
-.rail-add {
-    margin-top: auto;
+.picker-btn .glyph {
+    width: 1.9rem;
+    height: 1.9rem;
+    background: rgb(255 255 255 / .14);
+    color: #fff;
+    font-size: .85rem;
 }
 
-.rail .rail-add .glyph {
-    background: transparent;
-    border: 2px dashed var(--rail-fg);
+.picker-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.picker-ph {
     color: var(--rail-fg);
-    font-size: 1.5rem;
-    font-weight: 500;
 }
 
-.rail .rail-add:hover .glyph {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
+.picker-caret {
+    flex: none;
+    width: .5rem;
+    height: .5rem;
+    margin: 0 .2rem .25rem 0;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+}
+
+.picker[open] .picker-caret {
+    margin-bottom: 0;
+    margin-top: .3rem;
+    transform: rotate(-135deg);
+}
+
+.picker-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + .35rem);
+    right: 0;
+    left: 0;
+    max-height: min(22rem, 60vh);
+    margin: 0;
+    padding: .35rem;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    box-shadow: 0 .6rem 1.6rem rgb(0 0 0 / .28);
+    color: var(--ink);
+    list-style: none;
+}
+
+.picker-item {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .45rem .5rem;
+    border-radius: .4rem;
+    color: inherit;
+    font-size: .92rem;
+    text-decoration: none;
+}
+
+.picker-item:hover,
+.picker-item:focus-visible,
+.picker-item[aria-current="page"] {
+    background: var(--accent-soft);
+}
+
+.picker-item[aria-current="page"] {
+    font-weight: 700;
+}
+
+.picker-list .picker-item[aria-current="page"] .glyph,
+.picker-list .picker-item:hover .glyph {
+    background: var(--surface);
+}
+
+.picker-list .glyph {
+    width: 1.9rem;
+    height: 1.9rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: .85rem;
+}
+
+.picker-foot {
+    margin-top: .25rem;
+    padding-top: .25rem;
+    border-top: 1px solid var(--line);
+}
+
+.picker-empty {
+    padding: .5rem;
+    color: var(--muted);
+    font-size: .88rem;
+}
+
+/* 設定のタブ一覧。選択中は左端の黄色いバーで示す */
+.side-nav {
+    display: grid;
+    gap: .2rem;
+}
+
+.side-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    min-height: 2.6rem;
+    padding: .5rem .8rem;
+    border-radius: var(--radius-s);
+    color: var(--rail-fg);
+    font: 500 .95rem/1.3 var(--font-body);
+    text-decoration: none;
+}
+
+.side-link:hover {
+    background: var(--rail-hover);
+    color: #fff;
+}
+
+.side-link[aria-current="page"] {
+    background: var(--rail-hover);
+    box-shadow: inset .25rem 0 0 var(--sun);
+    color: #fff;
+    font-weight: 600;
+}
+
+.side-link:focus-visible {
+    outline-offset: -3px;
+}
+
+/* タブ横の点: 設定済みなら点灯 */
+.dot {
+    flex: none;
+    width: .55rem;
+    height: .55rem;
+    border-radius: 50%;
+    background: var(--rail-fg);
+    opacity: .3;
+}
+
+.dot--on {
+    background: var(--sun);
+    opacity: 1;
 }
 
 /* 本文 */
@@ -298,20 +413,6 @@ img {
 .glyph--m {
     width: 3.5rem;
     height: 3.5rem;
-}
-
-.rail .glyph {
-    background: var(--rail-hover);
-    color: var(--rail-fg);
-}
-
-.rail .glyph--home {
-    background: #F4F6F2;
-}
-
-.glyph--home img {
-    object-fit: contain;
-    padding: .35rem;
 }
 
 /* サーバー選択のタイル */
@@ -631,7 +732,7 @@ img {
 /* ---------- 動き（動きを減らす設定のときは付けない） ---------- */
 @media (prefers-reduced-motion: no-preference) {
 
-    .rail-item::before,
+    .side-link,
     .glyph,
     .tile,
     .btn,
@@ -642,42 +743,34 @@ img {
     }
 }
 
-/* ---------- スマホ幅: レールを画面上部の横並びに ---------- */
+/* ---------- スマホ幅: サイドバーを画面上部に移し、タブは横スクロールにする ---------- */
 @media (max-width: 47.99rem) {
     .shell {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .rail {
+    .side {
+        position: relative;
         z-index: 5;
         height: auto;
-        flex-direction: row;
-        align-items: center;
-        overflow-x: auto;
-        overflow-y: hidden;
         gap: .7rem;
-        padding: .6rem .9rem;
+        padding: .7rem .9rem;
+        overflow: visible;
     }
 
-    .rail-sep {
-        width: 2px;
-        height: 2rem;
+    .side-nav {
+        display: flex;
+        gap: .3rem;
+        margin: 0 -.2rem;
+        padding-bottom: .1rem;
+        overflow-x: auto;
+        scrollbar-width: none;
     }
 
-    .rail-add {
-        margin-top: 0;
-        margin-left: auto;
-    }
-
-    /* 選択バーは下端に出し、長さは横方向に伸ばす */
-    .rail-item::before {
-        left: 50%;
-        top: auto;
-        bottom: -.6rem;
-        width: var(--ind-len);
-        height: .3rem;
-        border-radius: .3rem .3rem 0 0;
-        transform: translateX(-50%);
+    .side-link {
+        flex: none;
+        min-height: 2.4rem;
+        white-space: nowrap;
     }
 
     .main {
@@ -700,6 +793,11 @@ img {
 .alert--error {
     border-color: #C0392B;
     background: color-mix(in srgb, #C0392B 12%, var(--surface));
+}
+
+/* フォームの外にある通知パネルも、他の設定（.stack）と同じ幅にそろえる */
+[data-panel="notifications"] {
+    max-width: 44rem;
 }
 
 .notify-list {
