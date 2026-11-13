@@ -11,7 +11,8 @@ consoleForward.install();
 const deployCommands = require('./deploy-commands.js');
 const { updateChannelConfig } = require('./channel-config.js');
 const aiMessages = require('./ai-messages.js');
-const ratings = require('./utils/rating.js'); // 対戦ゲームのレート（保存は下の GitHub 同期に接続する）
+const ratings = require('./utils/rating.js');     // 対戦ゲームのレート
+const sessions = require('./utils/sessions.js');  // 進行中の対局（再起動しても続きから遊べるようにする）
 const notify = require('./utils/notify');
 
 // 分離したWebサーバー（web.js）を読み込む
@@ -66,6 +67,7 @@ process.once('SIGTERM', async () => {
         Promise.all([
             aiMessages.flush().catch(error => console.error('[Shutdown] 記録の保存に失敗しました:', error)),
             ratings.flush().catch(error => console.error('[Shutdown] レートの保存に失敗しました:', error)),
+            sessions.flush().catch(error => console.error('[Shutdown] 対局の保存に失敗しました:', error)),
         ]),
         new Promise(resolve => setTimeout(resolve, 10000)),
     ]);
@@ -100,6 +102,14 @@ client.on('ready', () => {
 
     // YouTube / Twitch の通知の購読を、設定に合わせて整える（環境変数が無ければ何もしない）
     notify.start(client);
+
+    // 再起動前に進行中だった対局（オセロなど）を復元する。
+    // コマンドが restoreSessions(client) を持っていれば自動で呼ぶ（対戦ゲームを増やしても index.js は触らなくてよい）
+    for (const command of client.commands.values()) {
+        if (typeof command.restoreSessions === 'function') {
+            command.restoreSessions(client).catch(error => console.error(`[Restore] ${command.data.name} の対局の復元に失敗しました:`, error));
+        }
+    }
 
     const activities = [
         { name: `/help`, type: ActivityType.Watching },
@@ -284,46 +294,48 @@ if (githubSettings()) {
         commitJsonToGitHub(AI_MESSAGES_FILE, data, 'auto: update ai-messages [skip render]'));
 }
 
-// 対戦ゲームのレート（utils/rating.js）も data ブランチに保存する。
-// 対局が終わるたびに変更を記録し、10 秒ほどまとめて 1 回コミットする。
-// ・読み戻しに失敗したまま保存すると、data ブランチにある既存のレートを空の内容で上書きしてしまう。
+// 対戦ゲームのデータも data ブランチに保存する。
+//   ・レート        … ratings.json  （utils/rating.js）
+//   ・進行中の対局  … sessions.json （utils/sessions.js。再起動後に続きから遊べるようにする）
+// 変更があってから 10 秒ほどまとめて 1 回コミットする（詳しくは utils/json-store.js）。
+// ・読み戻しに失敗したまま保存すると、data ブランチにある既存のデータを空の内容で上書きしてしまう。
 //   そのため「読み戻しに成功した」または「初回でファイルがまだ無い」場合だけ、保存を有効にする。
-// ・GITHUB_TOKEN / GITHUB_REPO が無い（ローカル実行）ときは何もしない。rating.js が data/ratings.json に保存する
-const RATINGS_FILE = 'ratings.json';
+// ・GITHUB_TOKEN / GITHUB_REPO が無い（ローカル実行）ときは何もしない。data/ 配下のファイルに保存される
+const gameStores = [ratings.store, sessions.store];
 
-async function restoreRatingsFromGitHub(filePath = RATINGS_FILE) {
+async function restoreJsonStoreFromGitHub(store) {
     const github = githubSettings();
     if (!github) return;
 
     const enableSaving = () =>
-        ratings.setSaveHandler(data =>
-            commitJsonToGitHub(RATINGS_FILE, data, 'auto: update ratings [skip render]'));
+        store.setSaveHandler(data =>
+            commitJsonToGitHub(store.file, data, `auto: update ${store.label} [skip render]`));
 
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-            const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${filePath}?ref=${github.branch}`, {
+            const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${store.file}?ref=${github.branch}`, {
                 headers: github.headers,
                 signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
             });
             if (res.status === 404) {
-                console.log(`[GitHub Sync] ${filePath} はまだ ${github.branch} ブランチにありません（初回起動）。`);
+                console.log(`[GitHub Sync] ${store.file} はまだ ${github.branch} ブランチにありません（初回起動）。`);
                 enableSaving();
                 return;
             }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const file = await res.json();
-            const count = ratings.importRecords(JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8')));
-            console.log(`[GitHub Sync] レートを ${count} 人分読み戻しました。`);
+            const count = store.importRecords(JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8')));
+            console.log(`[GitHub Sync] ${store.file} を ${count} 件読み戻しました。`);
             enableSaving();
             return;
         } catch (error) {
-            console.warn(`[GitHub Sync] レートの読み戻しに失敗しました (${attempt}/${MAX_ATTEMPTS}):`, error.message);
+            console.warn(`[GitHub Sync] ${store.file} の読み戻しに失敗しました (${attempt}/${MAX_ATTEMPTS}):`, error.message);
             if (attempt < MAX_ATTEMPTS) await new Promise(resolve => setTimeout(resolve, attempt * 2000));
         }
     }
-    console.error(`[GitHub Sync] レートを読み戻せなかったため、${github.branch} ブランチへの保存を無効にしました（既存のレートを上書きしないため）。原因を解消して再起動してください。`);
+    console.error(`[GitHub Sync] ${store.file} を読み戻せなかったため、${github.branch} ブランチへの保存を無効にしました（既存のデータを上書きしないため）。原因を解消して再起動してください。`);
 }
 
 client.commitJsonToGitHub = commitJsonToGitHub;
@@ -398,7 +410,7 @@ async function main() {
     try {
         await restoreConfigFromGitHub();
         await restoreAiMessagesFromGitHub();
-        await restoreRatingsFromGitHub();
+        for (const store of gameStores) await restoreJsonStoreFromGitHub(store);
         await deployCommands();
         await client.login(token);
     } catch (error) {
