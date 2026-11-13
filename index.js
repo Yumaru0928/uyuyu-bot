@@ -11,6 +11,7 @@ consoleForward.install();
 const deployCommands = require('./deploy-commands.js');
 const { updateChannelConfig } = require('./channel-config.js');
 const aiMessages = require('./ai-messages.js');
+const ratings = require('./utils/rating.js'); // 対戦ゲームのレート（保存は下の GitHub 同期に接続する）
 const notify = require('./utils/notify');
 
 // 分離したWebサーバー（web.js）を読み込む
@@ -62,7 +63,10 @@ process.on('uncaughtException', error => console.error('[Uncaught Exception]', e
 process.once('SIGTERM', async () => {
     console.log('[Shutdown] SIGTERM を受け取りました。保存待ちの記録を書き出します...');
     await Promise.race([
-        aiMessages.flush().catch(error => console.error('[Shutdown] 記録の保存に失敗しました:', error)),
+        Promise.all([
+            aiMessages.flush().catch(error => console.error('[Shutdown] 記録の保存に失敗しました:', error)),
+            ratings.flush().catch(error => console.error('[Shutdown] レートの保存に失敗しました:', error)),
+        ]),
         new Promise(resolve => setTimeout(resolve, 10000)),
     ]);
     process.exit(0);
@@ -280,6 +284,48 @@ if (githubSettings()) {
         commitJsonToGitHub(AI_MESSAGES_FILE, data, 'auto: update ai-messages [skip render]'));
 }
 
+// 対戦ゲームのレート（utils/rating.js）も data ブランチに保存する。
+// 対局が終わるたびに変更を記録し、10 秒ほどまとめて 1 回コミットする。
+// ・読み戻しに失敗したまま保存すると、data ブランチにある既存のレートを空の内容で上書きしてしまう。
+//   そのため「読み戻しに成功した」または「初回でファイルがまだ無い」場合だけ、保存を有効にする。
+// ・GITHUB_TOKEN / GITHUB_REPO が無い（ローカル実行）ときは何もしない。rating.js が data/ratings.json に保存する
+const RATINGS_FILE = 'ratings.json';
+
+async function restoreRatingsFromGitHub(filePath = RATINGS_FILE) {
+    const github = githubSettings();
+    if (!github) return;
+
+    const enableSaving = () =>
+        ratings.setSaveHandler(data =>
+            commitJsonToGitHub(RATINGS_FILE, data, 'auto: update ratings [skip render]'));
+
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            const res = await fetch(`https://api.github.com/repos/${github.repo}/contents/${filePath}?ref=${github.branch}`, {
+                headers: github.headers,
+                signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+            });
+            if (res.status === 404) {
+                console.log(`[GitHub Sync] ${filePath} はまだ ${github.branch} ブランチにありません（初回起動）。`);
+                enableSaving();
+                return;
+            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const file = await res.json();
+            const count = ratings.importRecords(JSON.parse(Buffer.from(file.content || '', 'base64').toString('utf-8')));
+            console.log(`[GitHub Sync] レートを ${count} 人分読み戻しました。`);
+            enableSaving();
+            return;
+        } catch (error) {
+            console.warn(`[GitHub Sync] レートの読み戻しに失敗しました (${attempt}/${MAX_ATTEMPTS}):`, error.message);
+            if (attempt < MAX_ATTEMPTS) await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        }
+    }
+    console.error(`[GitHub Sync] レートを読み戻せなかったため、${github.branch} ブランチへの保存を無効にしました（既存のレートを上書きしないため）。原因を解消して再起動してください。`);
+}
+
 client.commitJsonToGitHub = commitJsonToGitHub;
 
 // ===================================================
@@ -352,6 +398,7 @@ async function main() {
     try {
         await restoreConfigFromGitHub();
         await restoreAiMessagesFromGitHub();
+        await restoreRatingsFromGitHub();
         await deployCommands();
         await client.login(token);
     } catch (error) {
