@@ -8,7 +8,9 @@
         "moves": [
           "2g2f",
           "3c3d",
-          "6i7h"
+          "6i7h",
+          "8c8d",
+          "5i6i"
         ],
         "players": {
           "0": {
@@ -24,7 +26,7 @@
         },
         "ranked": false,
         "level": "normal",
-        "updatedAt": 1794651987133
+        "updatedAt": 1794652009135
       }
     }
   }
