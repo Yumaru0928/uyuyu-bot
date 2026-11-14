@@ -25,7 +25,9 @@
           "2e2d",
           "2c2d",
           "2h2d",
-          "4a3b"
+          "4a3b",
+          "2d1d",
+          "1a1d"
         ],
         "players": {
           "0": {
@@ -41,7 +43,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794622258663
+        "updatedAt": 1794622282264
       }
     }
   }
