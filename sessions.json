@@ -37,7 +37,9 @@
           "6i7i",
           "P*2h",
           "7i8h",
-          "2h2i+"
+          "2h2i+",
+          "8h7i",
+          "2i3i"
         ],
         "players": {
           "0": {
@@ -53,7 +55,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794622558037
+        "updatedAt": 1794622594673
       }
     }
   }
