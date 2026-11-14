@@ -4,7 +4,8 @@ set -e
 npm install
 
 mkdir -p /tmp/yaneuraou-src
-curl -fL https://github.com | tar -xz -C /tmp/yaneuraou-src --strip-components=1
+curl -fL "https://github.com" -o /tmp/yaneuraou.tar.gz
+tar -xzf /tmp/yaneuraou.tar.gz -C /tmp/yaneuraou-src --strip-components=1
 
 make -C /tmp/yaneuraou-src/source tournament YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL
 mkdir -p engine
