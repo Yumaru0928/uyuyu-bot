@@ -31,7 +31,9 @@
           "5g5f",
           "S*7e",
           "4h5g",
-          "8a7c"
+          "8a7c",
+          "5g6f",
+          "7c8e"
         ],
         "players": {
           "0": {
@@ -47,7 +49,7 @@
         },
         "ranked": false,
         "level": "normal",
-        "updatedAt": 1794651689534
+        "updatedAt": 1794651750734
       }
     }
   }
