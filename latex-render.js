@@ -319,7 +319,7 @@ const MATH_RE = new RegExp([
     String.raw`\$\$(?<dd>[\s\S]+?)\$\$`,
     String.raw`\\\[(?<br>[\s\S]+?)\\\]`,
     String.raw`\\begin\{(?<envname>align\*?|aligned|alignat\*?|equation\*?|gather\*?|gathered|multline\*?|eqnarray\*?|split|cases|[pbvBV]?matrix|array)\}[\s\S]+?\\end\{\k<envname>\}`,
-    String.raw`\\begin\{(?<envname>align\*?|equation\*?|gather\*?|multline\*?)\}[\s\S]+?\\end\{\k<envname>\}`,
+    String.raw`\\begin\{(?<envname2>align\*?|equation\*?|gather\*?|multline\*?)\}[\s\S]+?\\end\{\k<envname2>\}`,
     String.raw`\\\((?<par>[\s\S]+?)\\\)`,
     String.raw`(?<![\\$])\$(?!\s)(?<inl>[^$\n]+?)(?<!\s)\$(?!\d)`
 ].join("|"), "g");
