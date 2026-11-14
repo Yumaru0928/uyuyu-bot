@@ -177,6 +177,7 @@ class UsiEngine {
   }
 
   _onExit(why) {
+    engine.stderr.on('data', (d) => console.error('[USI stderr]', d.toString()));
     this.log.warn?.(`[USI] エンジンが終了しました: ${why}`);
     const err = new Error(`エンジンが終了しました (${why})`);
     for (const w of this.waiters) {
