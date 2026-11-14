@@ -25,7 +25,9 @@
           "7g7f",
           "7b7f",
           "S*7g",
-          "7f7b"
+          "7f7b",
+          "3i4h",
+          "3c3d"
         ],
         "players": {
           "0": {
@@ -41,7 +43,7 @@
         },
         "ranked": false,
         "level": "normal",
-        "updatedAt": 1794651590545
+        "updatedAt": 1794651631334
       }
     }
   }
