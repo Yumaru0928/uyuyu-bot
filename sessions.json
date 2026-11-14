@@ -7,7 +7,9 @@
         "guildId": "1507782198391210165",
         "moves": [
           "7g7f",
-          "8c8d"
+          "8c8d",
+          "2g2f",
+          "7a6b"
         ],
         "players": {
           "0": {
@@ -23,7 +25,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794621918773
+        "updatedAt": 1794621947664
       }
     }
   }
