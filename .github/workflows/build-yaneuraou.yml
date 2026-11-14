@@ -1,0 +1,24 @@
+name: Build YaneuraOu Linux
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build YaneuraOu
+        run: |
+          git clone --depth 1 https://github.com /tmp/YaneuraOu
+          make -C /tmp/YaneuraOu/source tournament YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL
+          mkdir -p engine
+          cp /tmp/YaneuraOu/source/YaneuraOu-by-gcc engine/yaneuraou
+          chmod +x engine/yaneuraou
+      - name: Commit binary
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add engine/yaneuraou
+          git commit -m "Linux用軽量やねうら王バイナリを追加"
+          git push
