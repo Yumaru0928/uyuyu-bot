@@ -41,7 +41,10 @@ const SEARCH_GRACE_MS = 8 * 1000; // movetime に足す、応答待ちの余裕
 // { send(line), onLine(cb), onExit(cb), close() } を返す
 
 async function createProcessTransport({ exe, args = [] }) {
-  const child = spawn(exe, args, { cwd: path.dirname(exe), stdio: ['pipe', 'pipe', 'ignore'] });
+  const child = spawn(exe, args, { cwd: path.dirname(exe), stdio: ['pipe', 'pipe', 'pipe'] });
+  child.stderr.on('data', (d) => {
+    console.error('[USI stderr]', d.toString());
+  });
   const lineCbs = [];
   const exitCbs = [];
   let exited = false;
@@ -55,7 +58,7 @@ async function createProcessTransport({ exe, args = [] }) {
   });
   child.on('exit', (code, signal) => notifyExit(`exit ${code ?? signal}`));
   child.on('error', (err) => notifyExit(`error ${err.message}`));
-  child.stdin.on('error', () => {}); // 終了済みプロセスへの書き込み(EPIPE)は無視
+  child.stdin.on('error', () => { }); // 終了済みプロセスへの書き込み(EPIPE)は無視
 
   return {
     send: (line) => {
@@ -84,7 +87,7 @@ async function createWasmTransport() {
   return {
     send: (line) => engine.postMessage(line),
     onLine: (cb) => lineCbs.push(cb),
-    onExit: () => {}, // WASM はプロセスとして落ちない
+    onExit: () => { }, // WASM はプロセスとして落ちない
     close: () => {
       try { engine.postMessage('quit'); } catch { /* 無視 */ }
       try { engine.terminate?.(); } catch { /* 無視 */ }
@@ -177,7 +180,6 @@ class UsiEngine {
   }
 
   _onExit(why) {
-    engine.stderr.on('data', (d) => console.error('[USI stderr]', d.toString()));
     this.log.warn?.(`[USI] エンジンが終了しました: ${why}`);
     const err = new Error(`エンジンが終了しました (${why})`);
     for (const w of this.waiters) {
@@ -273,7 +275,7 @@ class UsiEngine {
    */
   bestMove(moves, level = 'normal') {
     const job = this.queue.then(() => this._search(moves, level));
-    this.queue = job.catch(() => {});
+    this.queue = job.catch(() => { });
     return job;
   }
 
