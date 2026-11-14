@@ -13,7 +13,9 @@
           "2f2e",
           "6b7a",
           "6i7h",
-          "7a6b"
+          "7a6b",
+          "7i6h",
+          "1c1d"
         ],
         "players": {
           "0": {
@@ -29,7 +31,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794622045264
+        "updatedAt": 1794622079171
       }
     }
   }
