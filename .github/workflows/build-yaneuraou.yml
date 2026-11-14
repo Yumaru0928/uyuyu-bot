@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build YaneuraOu
         run: |
-          git clone --depth 1 https://github.comyaneurao/YaneuraOu.git /tmp/YaneuraOu
+          git clone --depth 1 https://github.com/yaneurao/YaneuraOu.git /tmp/YaneuraOu
           make -C /tmp/YaneuraOu/source tournament YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL
           mkdir -p engine
           cp /tmp/YaneuraOu/source/YaneuraOu-by-gcc engine/yaneuraou
