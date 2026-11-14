@@ -6,6 +6,7 @@
 //   label : 表示名
 const GAMES = {
   othello: { label: 'オセロ' },
+  shogi: { label: '将棋' },
   // connect4: { label: '四目並べ' },
 };
 
