@@ -1,4 +1,29 @@
 {
   "version": 1,
-  "games": {}
+  "games": {
+    "shogi": {
+      "1571108956275744819": {
+        "channelId": "1523398914084962525",
+        "guildId": "1507782198391210165",
+        "moves": [
+          "2g2f"
+        ],
+        "players": {
+          "0": {
+            "id": "1556620719494930562",
+            "displayName": "うゆゆ",
+            "isAi": true
+          },
+          "1": {
+            "id": "1162584697457627218",
+            "displayName": "⌬",
+            "isAi": false
+          }
+        },
+        "ranked": false,
+        "level": "normal",
+        "updatedAt": 1794651966463
+      }
+    }
+  }
 }
