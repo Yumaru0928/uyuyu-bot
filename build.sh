@@ -3,8 +3,10 @@ set -e
 
 npm install
 
-git clone --depth 1 https://github.com /tmp/YaneuraOu
-make -C /tmp/YaneuraOu/source tournament YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL
+mkdir -p /tmp/yaneuraou-src
+curl -L https://github.com | tar -xz -C /tmp/yaneuraou-src --strip-components=1
+
+make -C /tmp/yaneuraou-src/source tournament YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL
 mkdir -p engine
-cp /tmp/YaneuraOu/source/YaneuraOu-by-gcc engine/yaneuraou
+cp /tmp/yaneuraou-src/source/YaneuraOu-by-gcc engine/yaneuraou
 chmod +x engine/yaneuraou
