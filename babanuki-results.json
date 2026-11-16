@@ -3,22 +3,45 @@
   "players": {
     "960004867542380555": {
       "name": "yumaru_00",
-      "wins": 3,
+      "wins": 4,
       "losses": 2,
-      "firsts": 2,
-      "games": 5,
-      "updatedAt": 1794828929325
+      "firsts": 3,
+      "games": 6,
+      "updatedAt": 1794828976314
     },
     "1060004038411825152": {
       "name": "y_sub928",
       "wins": 0,
-      "losses": 1,
+      "losses": 2,
       "firsts": 0,
-      "games": 1,
-      "updatedAt": 1794828929325
+      "games": 2,
+      "updatedAt": 1794828976314
     }
   },
   "matches": [
+    {
+      "at": 1794828976314,
+      "winnerId": "960004867542380555",
+      "winnerName": "yumaru_00",
+      "loserId": "1060004038411825152",
+      "loserName": "y_sub928",
+      "vsBot": false,
+      "playerCount": 2,
+      "players": [
+        {
+          "id": "1060004038411825152",
+          "name": "y_sub928",
+          "place": 2,
+          "bot": false
+        },
+        {
+          "id": "960004867542380555",
+          "name": "yumaru_00",
+          "place": 1,
+          "bot": false
+        }
+      ]
+    },
     {
       "at": 1794828929325,
       "winnerId": "bot",
