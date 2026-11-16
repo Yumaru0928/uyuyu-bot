@@ -6,7 +6,9 @@
         "channelId": "1523398914084962525",
         "guildId": "1507782198391210165",
         "moves": [
-          "2g2f"
+          "2g2f",
+          "3c3d",
+          "4g4f"
         ],
         "players": {
           "0": {
@@ -24,7 +26,7 @@
         "ranked": false,
         "level": "easy",
         "notifyMessageId": null,
-        "updatedAt": 1794811010951
+        "updatedAt": 1794811047091
       }
     }
   }
