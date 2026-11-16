@@ -9,7 +9,8 @@
 // (4) Discordコマンド経由のルーム（createRoom）で、相手が先に参加しても待機になり、
 //     ホストがログイン接続で着席したら対局が始まること
 // (5) Discord経由のBotルームはホスト以外参加できず、ホストが入ると即始まること
-// (6) 待機ルームの有効期限で破棄され、onExpire フックが呼ばれること を確認する。
+// (6) 待機ルームの有効期限で破棄され、onExpire フックが呼ばれること
+// (7) ペア捨てが起きた state では view.lastEvent.pair に捨てた2枚が入っていること を確認する。
 // Discord ログインの代わりに、検証用トークンの verifyToken スタブを使う。
 
 process.env.BABANUKI_LOCAL_PATH = require('node:path').join(__dirname, 'tmp-babanuki-results.json');
@@ -62,9 +63,11 @@ function connect(port) {
 }
 
 // state を受け取るたびに、自分の番ならランダムな位置を引く。勝敗が決まったらその state を返す
-async function playUntilEnd(client, label) {
+// onState があれば、各 state を受け取るたびに呼ぶ（lastEvent.pair の確認用）
+async function playUntilEnd(client, label, onState) {
   for (let guard = 0; guard < 500; guard++) {
     const msg = await client.waitFor((m) => m.type === 'state');
+    if (onState) onState(msg);
     const v = msg.view;
     if (v.youWon !== null) return msg;
     if (v.yourTurn) {
@@ -91,11 +94,23 @@ async function main() {
     console.log('HTTP（ページ / me）: OK');
   }
 
+  // (7) ペア捨ての state では lastEvent.pair に捨てた2枚（同じ rank・ジョーカーなし）が入ること
+  let pairStatesSeen = 0;
+  const checkPairEvent = (msg) => {
+    const ev = msg.view && msg.view.lastEvent;
+    if (!ev || !ev.discardedPair) return;
+    pairStatesSeen++;
+    assert(Array.isArray(ev.pair), 'discardedPair=true なのに lastEvent.pair がない');
+    assert.strictEqual(ev.pair.length, 2, 'lastEvent.pair は2枚のはず');
+    assert.strictEqual(ev.pair[0].rank, ev.pair[1].rank, 'lastEvent.pair の2枚は同じ rank のはず');
+    assert(!ev.pair[0].joker && !ev.pair[1].joker, 'lastEvent.pair にジョーカーが含まれている');
+  };
+
   // (1) Bot戦（ゲスト）: 最後まで進み、結果が出る
   {
     const c = await connect(port);
     c.send({ type: 'create', mode: 'bot', name: 'ゲスト' });
-    const end = await playUntilEnd(c, 'bot');
+    const end = await playUntilEnd(c, 'bot', checkPairEvent);
     assert(end.view.youWon !== null);
     console.log(`Bot戦: OK（${end.view.youWon ? 'プレイヤーの勝ち' : 'Botの勝ち'}）`);
 
@@ -115,9 +130,15 @@ async function main() {
     const waiting = await a.waitFor((m) => m.type === 'waiting');
     b.send({ type: 'join', code: waiting.code, token: 'token-b' });
 
-    const [endA, endB] = await Promise.all([playUntilEnd(a, 'A'), playUntilEnd(b, 'B')]);
+    const [endA, endB] = await Promise.all([
+      playUntilEnd(a, 'A', checkPairEvent),
+      playUntilEnd(b, 'B', checkPairEvent),
+    ]);
     assert.strictEqual(endA.view.youWon, !endB.view.youWon, '両者の勝敗が食い違っている');
     console.log(`人間同士: OK（勝者: ${endA.view.youWon ? 'A' : 'B'}）`);
+
+    assert(pairStatesSeen > 0, 'ペア捨ての state が1局も観測できなかった');
+    console.log(`ペア捨てイベント（lastEvent.pair）: OK（${pairStatesSeen}件で2枚を確認）`);
 
     // 再戦: A が申し込み → B に offer → B が rematch で承諾 → 新しい対局の state が両方に来る
     a.send({ type: 'rematch' });

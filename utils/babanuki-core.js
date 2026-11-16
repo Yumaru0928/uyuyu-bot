@@ -132,6 +132,9 @@ function drawCard(state, position, rng = Math.random) {
     type: 'draw',
     player: me,
     discardedPair,
+    // 捨てたペアの2枚（捨てた時点で公開情報なので、両プレイヤーへ送ってよい）。
+    // ペア捨てのアニメーション表示用。無ければ null。
+    pair: discardedPair ? [...discarded] : null,
     handCounts: [state.hands[0].length, state.hands[1].length],
   };
 
@@ -171,6 +174,8 @@ function publicView(state, player) {
           // 「引いたのが自分かどうか」だけを伝える。相手が引いたカードの中身は伝えない
           byYou: state.lastEvent.player === player,
           discardedPair: state.lastEvent.discardedPair,
+          // 捨てたペアは公開情報なので、そのまま両プレイヤーに伝える（表示用）
+          pair: state.lastEvent.pair ? state.lastEvent.pair.map((c) => ({ ...c })) : null,
           handCounts: [...state.lastEvent.handCounts],
         }
       : null,
