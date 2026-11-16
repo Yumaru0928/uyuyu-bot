@@ -32,7 +32,9 @@
         "moves": [
           "5g5f",
           "3c3d",
-          "4i3h"
+          "4i3h",
+          "8c8d",
+          "5i4i"
         ],
         "players": {
           "0": {
@@ -49,7 +51,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794792647598
+        "updatedAt": 1794792667185
       }
     }
   }
