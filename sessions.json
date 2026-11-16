@@ -55,9 +55,9 @@
             1,
             0,
             2,
+            2,
             0,
-            0,
-            0,
+            1,
             1
           ]
         ],
@@ -71,21 +71,22 @@
           "2": {
             "id": "960004867542380555",
             "displayName": "うゆまる",
-            "isAi": false
+            "isAi": false,
+            "confirm": false
           }
         },
         "ranked": false,
         "level": "easy",
         "events": [
-          "🟡 うゆまる: **3列**",
-          "🔴 うゆゆ: **7列**"
+          "🟡 うゆまる: **4列**",
+          "🔴 うゆゆ: **6列**"
         ],
         "lastMove": {
-          "x": 6,
+          "x": 5,
           "y": 5
         },
         "notifyMessageId": null,
-        "updatedAt": 1794803415714
+        "updatedAt": 1794803423666
       }
     }
   }
