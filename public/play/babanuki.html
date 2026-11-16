@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Web版ババ抜き | うゆゆBot</title>
+<meta name="description" content="うゆゆBotのWeb対戦ゲーム「ババ抜き」。Bot戦と、招待コードでの人間同士の対戦が遊べます。">
+<link rel="icon" href="/uyuyu.png">
+<style>
+  :root {
+    --bg: #0d1f1a;
+    --panel: #143129;
+    --panel2: #1a3d33;
+    --fg: #eef7f3;
+    --muted: #9db8ae;
+    --accent: #0E7A5C;
+    --accent2: #35c08f;
+    --danger: #e05d5d;
+    --card: #fdfdf8;
+    --card-fg: #1c2422;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: "Noto Sans JP", system-ui, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  }
+  header { width: 100%; max-width: 760px; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; margin: 0; }
+  header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
+  main { width: 100%; max-width: 760px; padding: 0 16px 32px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 18px; font-size: 15px; cursor: pointer; margin: 4px 4px 4px 0;
+  }
+  button:hover { background: var(--accent2); }
+  button:disabled { background: #3a554c; cursor: default; }
+  button.secondary { background: var(--panel2); }
+  input[type="text"] {
+    background: var(--panel2); color: var(--fg); border: 1px solid #2c5749;
+    border-radius: 8px; padding: 10px; font-size: 15px; width: 180px; margin-right: 4px;
+  }
+  .status { font-size: 17px; font-weight: 700; min-height: 24px; margin: 8px 0; }
+  .event { color: var(--muted); font-size: 14px; min-height: 20px; }
+  .hand { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .label { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .card {
+    width: 46px; height: 64px; border-radius: 6px; background: var(--card); color: var(--card-fg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; line-height: 1.1; user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+  .card .suit { font-size: 17px; }
+  .card.red { color: #c0392b; }
+  .card.joker { background: #2b2b3a; color: #ffd75e; font-size: 11px; }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #14532d 0 6px, #0E7A5C 6px 12px);
+    border: 2px solid #d9e8e1; color: transparent; padding: 0; cursor: pointer;
+  }
+  .card.back:hover:not(:disabled) { outline: 3px solid var(--accent2); }
+  .card.back:disabled { opacity: .75; cursor: default; }
+  .invite { word-break: break-all; background: var(--panel2); border-radius: 8px; padding: 10px; font-size: 14px; }
+  .big { font-size: 26px; font-weight: 900; text-align: center; margin: 12px 0; }
+  .win { color: #ffd75e; }
+  .lose { color: var(--danger); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🃏 Web版ババ抜き</h1>
+  <a href="/">うゆゆBot 公式サイトへ</a>
+</header>
+<main>
+  <!-- ロビー -->
+  <section id="lobby" class="panel">
+    <p id="me-line" class="muted">読み込み中…</p>
+    <div id="guest-box">
+      <label class="muted">ゲスト名（Bot戦用）<br>
+        <input type="text" id="guest-name" maxlength="24" placeholder="ゲスト">
+      </label>
+      <p class="muted">人間同士の対戦には <a href="/auth/discord" style="color:var(--accent2)">Discord ログイン</a> が必要です。Bot戦はゲストでも遊べます。</p>
+    </div>
+    <div>
+      <button id="btn-bot">🤖 Botと対戦</button>
+      <button id="btn-create">👥 ルームを作る（人間同士）</button>
+    </div>
+    <div style="margin-top:10px">
+      <input type="text" id="join-code" maxlength="6" placeholder="招待コード（6文字）" style="text-transform:uppercase">
+      <button id="btn-join" class="secondary">コードで参加</button>
+    </div>
+    <p class="muted">ルール: 53枚（ジョーカー1枚）を配り、ペアは自動で捨てます。自分の番では相手の裏向きカードから1枚引きます。先に手札をなくした方が勝ちです。</p>
+  </section>
+
+  <!-- 相手待ち -->
+  <section id="waiting" class="panel" hidden>
+    <p class="status">相手を待っています。リンクを共有してください</p>
+    <p class="muted">この招待URL（またはコード）を相手に渡してください。リンクを知っている人は、別のサーバーからでも参加できます。</p>
+    <p class="invite" id="invite-text"></p>
+    <button id="btn-copy" class="secondary">招待URLをコピー</button>
+    <button id="btn-cancel-wait" class="secondary">やめる</button>
+  </section>
+
+  <!-- 対局 -->
+  <section id="game" class="panel" hidden>
+    <p class="status" id="status"></p>
+    <p class="event" id="event"></p>
+    <p class="label" id="opp-label">相手の手札</p>
+    <div class="hand" id="opp-hand"></div>
+    <p class="label">あなたの手札</p>
+    <div class="hand" id="my-hand"></div>
+    <div id="result-box" hidden>
+      <p class="big" id="result-text"></p>
+      <div style="text-align:center">
+        <button id="btn-rematch">🔄 再戦</button>
+        <button id="btn-back" class="secondary">ロビーに戻る</button>
+      </div>
+      <p class="event" id="rematch-note" style="text-align:center"></p>
+    </div>
+    <div id="rematch-offer-box" hidden>
+      <p class="status" id="rematch-offer-text"></p>
+      <button id="btn-rematch-accept">🔄 再戦する</button>
+      <button id="btn-rematch-decline" class="secondary">やめておく</button>
+    </div>
+    <button id="btn-leave" class="secondary">退出する</button>
+  </section>
+
+  <p class="event" id="toast"></p>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const SUIT_MARK = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const RANK_LABEL = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+
+let me = { loggedIn: false, name: '', token: null };
+let ws = null;
+let roomCode = null;
+let mode = null; // 'bot' | 'human'
+let view = null;
+let rematchSent = false;
+
+function toast(msg) { $('toast').textContent = msg || ''; }
+function myName() { return me.loggedIn ? me.name : ($('guest-name').value.trim() || 'ゲスト'); }
+function authPayload() { return me.loggedIn ? { token: me.token } : { name: myName() }; }
+
+function cardEl(card) {
+  const el = document.createElement('div');
+  if (card.joker) {
+    el.className = 'card joker';
+    el.innerHTML = '<div>🃏</div><div>JOKER</div>';
+    return el;
+  }
+  el.className = 'card' + (card.suit === 'H' || card.suit === 'D' ? ' red' : '');
+  el.innerHTML = '<div>' + (RANK_LABEL[card.rank] || card.rank) + '</div><div class="suit">' + SUIT_MARK[card.suit] + '</div>';
+  return el;
+}
+
+function show(section) {
+  for (const id of ['lobby', 'waiting', 'game']) $(id).hidden = id !== section;
+}
+
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/play/babanuki/ws');
+  ws.addEventListener('open', onOpen);
+  ws.addEventListener('message', (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    handle(msg);
+  });
+  // 切断時の自動再接続は v1 では行わない（人間同士は60秒以内にページを再読み込みすれば席を取り戻せる）
+}
+
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+function handle(msg) {
+  if (msg.type === 'error') { toast(msg.message); return; }
+  if (msg.type === 'created') {
+    roomCode = msg.code;
+    return;
+  }
+  if (msg.type === 'waiting') {
+    roomCode = msg.code;
+    show('waiting');
+    const url = location.origin + '/play/babanuki?room=' + msg.code;
+    $('invite-text').textContent = 'コード: ' + msg.code + ' ／ 招待URL: ' + url;
+    $('btn-copy').onclick = () => navigator.clipboard && navigator.clipboard.writeText(url);
+    return;
+  }
+  if (msg.type === 'state') {
+    view = msg.view;
+    render(msg);
+    return;
+  }
+  if (msg.type === 'rematch_offer') {
+    $('rematch-offer-text').textContent = msg.fromName + ' さんから再戦の申し込みです';
+    $('rematch-offer-box').hidden = false;
+    return;
+  }
+  if (msg.type === 'rematch_sent') {
+    rematchSent = true;
+    $('rematch-note').textContent = '再戦を申し込みました。相手の返事を待っています…';
+    return;
+  }
+  if (msg.type === 'rematch_declined') {
+    rematchSent = false;
+    $('rematch-note').textContent = '再戦は見送られました。';
+    $('btn-rematch').disabled = false;
+    return;
+  }
+  if (msg.type === 'opponent_disconnected') {
+    toast('相手の接続が切れました。' + msg.graceSec + '秒以内に戻れば対局を続けられます。');
+    return;
+  }
+  if (msg.type === 'opponent_back') { toast('相手が戻りました。'); return; }
+  if (msg.type === 'opponent_left') {
+    toast('相手が退出しました。ロビーに戻ります。');
+    setTimeout(() => location.reload(), 1200);
+    return;
+  }
+  if (msg.type === 'room_expired') {
+    toast('待機時間の期限が切れたため、ルームは閉じました。ロビーに戻ります。');
+    setTimeout(() => location.reload(), 1200);
+    return;
+  }
+}
+
+function render(msg) {
+  show('game');
+  const v = msg.view;
+  $('opp-label').textContent = '相手（' + msg.opponentName + '）の手札: ' + v.opponentCount + '枚';
+
+  const opp = $('opp-hand');
+  opp.innerHTML = '';
+  for (let i = 0; i < v.opponentCount; i++) {
+    const b = document.createElement('button');
+    b.className = 'card back';
+    b.textContent = '裏';
+    b.disabled = !v.yourTurn;
+    b.onclick = () => { send({ type: 'draw', position: i }); };
+    opp.appendChild(b);
+  }
+
+  const mine = $('my-hand');
+  mine.innerHTML = '';
+  const sorted = [...v.yourHand].sort((a, b2) => {
+    if (a.joker) return 1;
+    if (b2.joker) return -1;
+    return a.rank - b2.rank;
+  });
+  for (const card of sorted) mine.appendChild(cardEl(card));
+
+  const ev = v.lastEvent;
+  if (ev) {
+    $('event').textContent =
+      (ev.byYou ? 'あなたが1枚引きました' : '相手が1枚引きました') +
+      (ev.discardedPair ? '（ペアができて捨てました）' : '');
+  } else {
+    $('event').textContent = '対局開始！最初のペアは自動で捨ててあります。';
+  }
+
+  if (v.winner !== null && v.winner !== undefined && v.youWon !== null) {
+    $('status').textContent = '';
+    $('result-box').hidden = false;
+    $('rematch-offer-box').hidden = true;
+    if (!rematchSent) $('rematch-note').textContent = '';
+    $('btn-rematch').disabled = rematchSent;
+    const rt = $('result-text');
+    rt.textContent = v.youWon ? '🎉 あなたの勝ち！' : 'ジョーカーが残って負け…';
+    rt.className = 'big ' + (v.youWon ? 'win' : 'lose');
+  } else {
+    $('result-box').hidden = true;
+    rematchSent = false;
+    $('status').textContent = v.yourTurn ? 'あなたの番です。相手のカードを1枚選んでください' : '相手の番です…';
+  }
+}
+
+$('btn-bot').onclick = () => {
+  mode = 'bot';
+  toast('');
+  connect(() => send({ type: 'create', mode: 'bot', ...authPayload() }));
+};
+$('btn-create').onclick = () => {
+  if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
+  mode = 'human';
+  toast('');
+  connect(() => send({ type: 'create', mode: 'human', ...authPayload() }));
+};
+$('btn-join').onclick = () => {
+  if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
+  const code = $('join-code').value.trim().toUpperCase();
+  if (!code) { toast('招待コードを入力してください'); return; }
+  mode = 'human';
+  roomCode = code;
+  toast('');
+  connect(() => send({ type: 'join', code, ...authPayload() }));
+};
+$('btn-cancel-wait').onclick = () => { send({ type: 'leave' }); location.reload(); };
+$('btn-leave').onclick = () => { send({ type: 'leave' }); location.reload(); };
+$('btn-back').onclick = () => { send({ type: 'leave' }); location.reload(); };
+$('btn-rematch').onclick = () => {
+  send({ type: 'rematch' });
+  if (mode === 'human') { rematchSent = true; $('btn-rematch').disabled = true; $('rematch-note').textContent = '再戦を申し込みました。相手の返事を待っています…'; }
+};
+$('btn-rematch-accept').onclick = () => { $('rematch-offer-box').hidden = true; send({ type: 'rematch' }); };
+$('btn-rematch-decline').onclick = () => { $('rematch-offer-box').hidden = true; send({ type: 'rematch_decline' }); };
+
+(async () => {
+  try {
+    const res = await fetch('/api/babanuki/me');
+    me = await res.json();
+  } catch { me = { loggedIn: false }; }
+  if (me.loggedIn) {
+    $('me-line').textContent = 'Discord アカウント「' + me.name + '」でログイン中です。';
+    $('guest-box').hidden = true;
+  } else {
+    $('me-line').textContent = '未ログイン（ゲスト）です。Bot戦はこのまま遊べます。';
+  }
+  const roomParam = new URLSearchParams(location.search).get('room');
+  if (roomParam) {
+    const code = roomParam.toUpperCase();
+    $('join-code').value = code;
+    if (me.loggedIn) {
+      // 招待リンク（Discordコマンドや自動投稿から）を開いたら、そのままルームに参加する
+      mode = 'human';
+      roomCode = code;
+      toast('招待ルームに参加しています…');
+      connect(() => send({ type: 'join', code, ...authPayload() }));
+    } else {
+      toast('人間同士の対戦には Discord ログインが必要です。上の案内からログインしてから、このリンクを開き直してください。');
+    }
+  }
+})();
+</script>
+</body>
+</html>

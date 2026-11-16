@@ -27,8 +27,10 @@ function attach(server) {
 
     server.on('upgrade', (req, socket, head) => {
         const url = new URL(req.url, 'http://localhost');
+        // 他の WebSocket（例: Web版ババ抜きの /play/babanuki/ws）の upgrade は触らない
+        if (url.pathname !== AGENT_PATH) return;
         const token = (req.headers['authorization'] || '').replace(/^Bearer /, '');
-        if (url.pathname !== AGENT_PATH || !process.env.AGENT_TOKEN || !safeEqual(token, process.env.AGENT_TOKEN)) {
+        if (!process.env.AGENT_TOKEN || !safeEqual(token, process.env.AGENT_TOKEN)) {
             socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
             socket.destroy();
             return;

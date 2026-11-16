@@ -223,6 +223,56 @@ app.post('/logout', async (req, res, next) => {
     });
 });
 
+// 5.5 Web版ババ抜き（/play/babanuki）
+//    対局は WebSocket（utils/babanuki-server.js）で進む。WS の upgrade では express-session を
+//    そのまま使えないため、ログイン済みセッションから短命の署名付きトークンを発行し、
+//    WS 側はそれを検証するだけにする（認証そのものは上の Discord OAuth を流用）。
+//    署名鍵はセッションと同じ sessionSecret（未設定時は起動ごとのランダム値なので、
+//    再起動でトークンも無効になる。セッションが切れる挙動と揃っている）。
+const BABANUKI_TOKEN_TTL_MS = 6 * 60 * 60 * 1000; // 6時間
+
+function issueBabanukiToken(user) {
+    const payload = Buffer.from(JSON.stringify({
+        id: String(user.id),
+        name: user.username || 'プレイヤー',
+        exp: Date.now() + BABANUKI_TOKEN_TTL_MS
+    }), 'utf-8').toString('base64url');
+    const sig = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
+    return `${payload}.${sig}`;
+}
+
+function verifyBabanukiToken(token) {
+    try {
+        const [payload, sig] = String(token).split('.');
+        if (!payload || !sig) return null;
+        const expected = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
+        const a = Buffer.from(sig);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+        const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+        if (!data.id || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
+        return { id: String(data.id), name: String(data.name || 'プレイヤー') };
+    } catch {
+        return null;
+    }
+}
+// index.js が対局サーバーを立てる時に使う
+app.set('babanukiVerifyToken', verifyBabanukiToken);
+
+// 対戦ページ本体（静的HTML）。express.static でも /play/babanuki.html で届くが、
+// シートの想定どおり拡張子なしのURLで入れるようにする
+app.get('/play/babanuki', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'play', 'babanuki.html'));
+});
+
+// ログイン状態と WS 用トークンを返す（remember Cookie からの復元もここで効かせる）
+app.get('/api/babanuki/me', remember.restoreLogin, (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+        return res.json({ loggedIn: true, name: req.user.username || 'プレイヤー', token: issueBabanukiToken(req.user) });
+    }
+    res.json({ loggedIn: false });
+});
+
 // 6. ダッシュボード（管理できるサーバー一覧画面）
 app.get('/dashboard', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
@@ -292,6 +342,12 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
             return res.status(400).send('削除ログの送信先に指定できないチャンネルです。');
         }
 
+        // ババ抜きの招待リンク自動投稿先（/babanuki コマンドで人間対戦の待機ルームが作られたときに使う）
+        const babanukiChannel = String(req.body.babanukiChannel || '');
+        if (babanukiChannel && !channelIds.has(babanukiChannel)) {
+            return res.status(400).send('ババ抜きの自動投稿先に指定できないチャンネルです。');
+        }
+
         // ハニーポット設定。チェックボックスは未チェックだと項目ごと届かないので「'1' かどうか」で判定する
         const honeypotChannel = String(req.body.honeypotChannel || '');
         const honeypotLogChannel = String(req.body.honeypotLogChannel || '');
@@ -319,6 +375,13 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
                     guildConfig.deleteLogChannel = deleteLogChannel;
                 } else {
                     delete guildConfig.deleteLogChannel;
+                }
+
+                // ババ抜きの自動投稿先（空なら設定を消す）
+                if (babanukiChannel) {
+                    guildConfig.babanukiChannel = babanukiChannel;
+                } else {
+                    delete guildConfig.babanukiChannel;
                 }
 
                 // Auto-React を無効にするチャンネル = 「画面に出ていてオフにされたもの」
