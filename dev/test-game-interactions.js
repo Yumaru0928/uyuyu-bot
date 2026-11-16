@@ -83,7 +83,11 @@ function interaction(userId, customId, values, promptAnswer) {
       }
       return {};
     },
-    async fetchReply() { throw new Error('fetchReply は使われないはず'); },
+    async fetchReply() {
+      if (this.replyMessage) return this.replyMessage;
+      throw new Error('fetchReply は使われないはず');
+    },
+    async deferReply() { this.deferred = true; },
     async editReply(p) { this.editedReply = p; },
     async update(p) { this.updates.push(p); return {}; },
     async deferUpdate() {},
@@ -155,6 +159,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert(resign.promptWaited, '投了確認は確認メッセージ自身で待っている');
     assert(board.edits.some((e) => (e.content || '').includes('投了')), '盤面が投了結果に更新された');
     assert.strictEqual(sessions.list('othello').length, 0, '終局でセッション削除');
+    const resultEdit = board.edits[board.edits.length - 1];
+    assert(JSON.stringify(resultEdit.components || []).includes('rematch'), '結果画面に再戦ボタンがある');
+
+    // alice: 再戦 → bob へ申し込み → bob が承諾 → 先手・後手を入れ替えて新しい対局
+    const rematchMsg = makeMessage('m-oth-rematch', channel);
+    channel.byId.set('m-oth-rematch', rematchMsg);
+    const rematch = interaction('alice', 'rematch');
+    rematch.replyMessage = rematchMsg;
+    const rematchDone = col.fire(rematch);
+    await sleep(50);
+    const challengeCol = rematchMsg.collector;
+    assert(challengeCol, '再戦の申し込みメッセージが出た');
+    await challengeCol.fire(interaction('bob', 'challenge:accept'));
+    await rematchDone;
+    await sleep(50);
+    const rematchSession = sessions.list('othello').find((x) => x.messageId === 'm-oth-rematch');
+    assert(rematchSession, '再戦の対局が保存された');
+    assert.strictEqual(rematchSession.players[oc.BLACK].id, 'bob', '再戦では先手・後手が入れ替わる');
+    assert(rematchMsg.collector && rematchMsg.collector !== challengeCol, '再戦の対局にコレクタが張られた');
     console.log('OTHELLO INTERACTION TESTS PASSED');
   }
 
@@ -188,6 +211,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.strictEqual(resign.promptWaited.time, 30000, '制限時間30秒');
     assert(board.edits.some((e) => (e.content || '').includes('投了')), '将棋: 投了結果が盤面に反映');
     assert.strictEqual(sessions.list('shogi').length, 0, '将棋: 終局でセッション削除');
+
+    // alice: 再戦 → bob が承諾 → 先手・後手を入れ替えて新しい対局
+    const rematchMsg = makeMessage('m-sho-rematch', channel);
+    channel.byId.set('m-sho-rematch', rematchMsg);
+    const rematch = interaction('alice', 'rematch');
+    rematch.replyMessage = rematchMsg;
+    const rematchDone = board.collector.fire(rematch);
+    await sleep(50);
+    const challengeCol = rematchMsg.collector;
+    assert(challengeCol, '将棋: 再戦の申し込みメッセージが出た');
+    await challengeCol.fire(interaction('bob', 'challenge:accept'));
+    await rematchDone;
+    await sleep(50);
+    const rematchSession = sessions.list('shogi').find((x) => x.messageId === 'm-sho-rematch');
+    assert(rematchSession, '将棋: 再戦の対局が保存された');
+    assert.strictEqual(rematchSession.players[sc.BLACK].id, 'bob', '将棋: 再戦では先手・後手が入れ替わる');
     console.log('SHOGI RESIGN TESTS PASSED');
   }
 
@@ -226,7 +265,105 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(50);
     assert.strictEqual(sessions.list('connect4').length, 0, '終局でセッション削除');
     assert(conf.updates.some((e) => (e.content || '').includes('🏆')), '勝ちの結果が盤面に反映');
+    const resultPayload = conf.updates[conf.updates.length - 1];
+    assert(JSON.stringify(resultPayload.components || []).includes('rematch'), '結果画面に再戦ボタンがある');
+
+    // alice: 再戦 → bob が承諾 → 先手・後手を入れ替えて新しい対局
+    const rematchMsg = makeMessage('m-c4-rematch', channel);
+    channel.byId.set('m-c4-rematch', rematchMsg);
+    const rematch = interaction('alice', 'rematch');
+    rematch.replyMessage = rematchMsg;
+    const rematchDone = col.fire(rematch);
+    await sleep(50);
+    const challengeCol = rematchMsg.collector;
+    assert(challengeCol, '再戦の申し込みメッセージが出た');
+    await challengeCol.fire(interaction('bob', 'challenge:accept'));
+    await rematchDone;
+    await sleep(50);
+    const rematchSession = sessions.list('connect4').find((x) => x.messageId === 'm-c4-rematch');
+    assert(rematchSession, '再戦の対局が保存された');
+    assert.strictEqual(rematchSession.players[c4.RED].id, 'bob', '再戦では先手・後手が入れ替わる');
     console.log('CONNECT4 INTERACTION TESTS PASSED');
+  }
+
+  // ============ Bot戦の再戦（オセロ・将棋） ============
+  {
+    const oc = require('../utils/othello-core.js');
+    const othello = require('../commands/games/othello.js');
+    const channel = makeChannel('c4');
+    const board = makeMessage('m-oth-bot', channel);
+    channel.byId.set('m-oth-bot', board);
+
+    sessions.put('othello', 'm-oth-bot', {
+      channelId: 'c4', guildId: 'g1',
+      board: oc.createBoard(), turn: oc.BLACK,
+      players: {
+        [oc.BLACK]: { id: 'alice', displayName: 'Alice', isAi: false },
+        [oc.WHITE]: { id: 'uyuyu-bot', displayName: 'うゆゆBot', isAi: true },
+      },
+      ranked: false, level: 'normal', events: [],
+    });
+    const client = { channels: { fetch: async () => channel } };
+    await othello.restoreSessions(client);
+    await sleep(50);
+    assert(board.collector, 'Bot戦コレクタが張られた');
+
+    // alice が投了 → 結果画面 → 再戦（Bot戦は申し込みなしで即開始）
+    await board.collector.fire(interaction('alice', 'resign', undefined, 'resign:yes'));
+    await sleep(50);
+    assert.strictEqual(sessions.list('othello').filter((x) => x.messageId === 'm-oth-bot').length, 0, 'Bot戦: 終局でセッション削除');
+
+    const board2 = makeMessage('m-oth-bot2', channel);
+    channel.byId.set('m-oth-bot2', board2);
+    const rematch = interaction('alice', 'rematch');
+    rematch.replyMessage = board2;
+    await board.collector.fire(rematch);
+    await sleep(50);
+    const next = sessions.list('othello').find((x) => x.messageId === 'm-oth-bot2');
+    assert(next, 'Bot戦: 再戦の対局が保存された');
+    assert.strictEqual(next.players[oc.BLACK].isAi, true, 'Bot戦再戦: 先手がBotに入れ替わった');
+    const stones = next.board.flat().filter((c) => c !== oc.EMPTY).length;
+    assert.strictEqual(stones, 5, 'Bot戦再戦: Botの初手が打たれている（初期4+1）');
+    assert(board2.collector, 'Bot戦再戦: コレクタが張られた');
+    console.log('OTHELLO BOT REMATCH TESTS PASSED');
+  }
+
+  {
+    const sc = require('../utils/shogi-core.js');
+    const shogi = require('../commands/games/shogi.js');
+    const channel = makeChannel('c5');
+    const board = makeMessage('m-sho-bot', channel);
+    channel.byId.set('m-sho-bot', board);
+
+    // Bot（先手）が1手目（7七歩→7六歩）を指した後の局面を復元する
+    sessions.put('shogi', 'm-sho-bot', {
+      channelId: 'c5', guildId: 'g1',
+      moves: ['7g7f'],
+      players: {
+        [sc.BLACK]: { id: 'uyuyu-bot', displayName: 'うゆゆBot', isAi: true },
+        [sc.WHITE]: { id: 'alice', displayName: 'Alice', isAi: false },
+      },
+      ranked: false, level: 'normal',
+    });
+    const client = { channels: { fetch: async () => channel } };
+    await shogi.restoreSessions(client);
+    await sleep(50);
+    assert(board.collector, '将棋Bot戦コレクタが張られた');
+
+    // alice（後手）が投了 → 再戦すると alice が先手になって即開始（エンジンは不要な側）
+    await board.collector.fire(interaction('alice', 'resign', undefined, 'resign:yes'));
+    await sleep(50);
+    const board2 = makeMessage('m-sho-bot2', channel);
+    channel.byId.set('m-sho-bot2', board2);
+    const rematch = interaction('alice', 'rematch');
+    rematch.replyMessage = board2;
+    await board.collector.fire(rematch);
+    await sleep(50);
+    const next = sessions.list('shogi').find((x) => x.messageId === 'm-sho-bot2');
+    assert(next, '将棋Bot戦: 再戦の対局が保存された');
+    assert.strictEqual(next.players[sc.BLACK].id, 'alice', '将棋Bot戦再戦: 先手がaliceに入れ替わった');
+    assert.strictEqual(next.moves.length, 0, '将棋Bot戦再戦: 初期局面から');
+    console.log('SHOGI BOT REMATCH TESTS PASSED');
   }
 
   console.log('ALL INTERACTION TESTS PASSED');
