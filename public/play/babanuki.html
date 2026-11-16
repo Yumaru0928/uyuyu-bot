@@ -270,7 +270,11 @@ let lastDiscardSig = null; // ペア捨てアニメーションの二重再生�
 
 function cardKeyClient(card) { return card.joker ? 'JOKER' : card.suit + '-' + card.rank; }
 
-function toast(msg) { $('toast').textContent = msg || ''; }
+let toastAt = 0;
+function toast(msg) { $('toast').textContent = msg || ''; toastAt = msg ? Date.now() : 0; }
+// 画面遷移のタイミングで、古くなったトースト（参加時の案内など）を消す。
+// 直近のトースト（切断通知など）は次の描画で消えてしまわないよう、4秒は保持する
+function clearStaleToast() { if (toastAt && Date.now() - toastAt > 4000) toast(''); }
 function myName() { return me.loggedIn ? me.name : ($('guest-name').value.trim() || 'ゲスト'); }
 function authPayload() { return me.loggedIn ? { token: me.token } : { name: myName() }; }
 
@@ -352,6 +356,7 @@ function handle(msg) {
 }
 
 function renderRoom(msg) {
+  clearStaleToast();
   roomCode = msg.code;
   mode = 'human';
   show('room');
@@ -399,6 +404,7 @@ function renderRoom(msg) {
 }
 
 function render(msg) {
+  clearStaleToast();
   show('game');
   mySeat = msg.seat;
   const v = msg.view;
@@ -550,7 +556,7 @@ function render(msg) {
       status.classList.remove('opp-turn');
     } else {
       const turnPlayer = players[v.turn];
-      status.textContent = nameOf(v.turn) + 'さんの番です…' + (turnPlayer && !turnPlayer.connected ? '（再接続を待っています）' : '');
+      status.textContent = nameOf(v.turn) + 'さんの番です…' + (turnPlayer && !turnPlayer.bot && !turnPlayer.connected ? '（再接続を待っています）' : '');
       status.classList.remove('my-turn');
       status.classList.add('opp-turn');
     }
