@@ -40,7 +40,9 @@
           "8e8f",
           "8g8f",
           "8b8f",
-          "8h2b+"
+          "8h2b+",
+          "3a2b",
+          "P*8h"
         ],
         "players": {
           "0": {
@@ -57,7 +59,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794792708685
+        "updatedAt": 1794792726985
       }
     }
   }
