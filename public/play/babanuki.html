@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Web版ババ抜き | うゆゆBot</title>
-<meta name="description" content="うゆゆBotのWeb対戦ゲーム「ババ抜き」。Bot戦と、招待コードでの人間同士の対戦が遊べます。">
+<meta name="description" content="うゆゆBotのWeb対戦ゲーム「ババ抜き」。Bot戦と、招待リンクでの最大4人の対戦が遊べます。">
 <link rel="icon" href="/uyuyu.png">
 <style>
   :root {
@@ -51,6 +51,15 @@
   button:focus-visible, input:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
   button:disabled { background: #3a554c; cursor: default; }
   button.secondary { background: var(--panel2); }
+  button.small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+  .discord-login-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 48px; margin: 10px 0 4px; border-radius: 8px;
+    background: #5865F2; color: #fff; font-size: 16px; font-weight: 700;
+    text-decoration: none; transition: filter .12s ease, transform .12s ease;
+  }
+  .discord-login-btn:hover { filter: brightness(1.12); }
+  .discord-login-btn:active { transform: scale(.98); }
   input[type="text"] {
     background: var(--panel2); color: var(--fg); border: 1px solid #2c5749;
     border-radius: var(--radius-sm); padding: 10px; font-size: 15px; width: 180px; margin-right: 4px;
@@ -70,9 +79,20 @@
     padding: 10px; min-height: 88px; align-content: flex-start;
     border: 1px solid var(--line); border-radius: var(--radius-sm);
   }
-  #opp-hand { background: var(--panel-deep); }
+  .hand.small { min-height: 60px; padding: 8px; }
   #my-hand { background: rgba(238,247,243,.04); }
+  .opp-block { margin-bottom: 10px; }
+  .opp-block .hand { background: var(--panel-deep); }
+  .opp-block.turn .label { color: var(--accent2); font-weight: 700; }
   .label { font-size: 13px; color: var(--text-faint); margin-top: 10px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; line-height: 1;
+    padding: 3px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px;
+    background: var(--panel2); color: var(--text-dim); border: 1px solid var(--line);
+  }
+  .badge.host { background: var(--accent); color: #fff; }
+  .badge.turn { background: var(--accent2); color: #06231a; }
+  .badge.done { background: rgba(232,193,90,.18); color: var(--gold); border-color: rgba(232,193,90,.45); }
   .card {
     width: 46px; height: 64px; border-radius: 6px; background: var(--card); color: var(--card-fg);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -90,7 +110,17 @@
   .card.back:hover:not(:disabled) { outline: 3px solid var(--accent2); transform: translateY(-4px); }
   .card.back:active:not(:disabled) { transform: translateY(-2px) scale(.97); }
   .card.back:disabled { opacity: .75; cursor: default; }
+  .card.mini { width: 30px; height: 42px; border-width: 1px; border-radius: 4px; box-shadow: none; }
   .invite { word-break: break-all; background: var(--panel2); border-radius: var(--radius-sm); padding: 10px; font-size: 14px; }
+  .seat-list { list-style: none; margin: 10px 0; padding: 0; }
+  .seat-list li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; margin-bottom: 6px;
+    background: var(--panel-deep); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-size: 15px;
+  }
+  .seat-list li.empty { color: var(--text-faint); border-style: dashed; }
+  .seat-list .spacer { flex: 1; }
   .big { font-size: 26px; font-weight: 900; text-align: center; margin: 12px 0; }
   .win {
     color: var(--gold); background: rgba(232,193,90,.12);
@@ -100,6 +130,14 @@
     color: var(--danger); background: rgba(224,93,93,.10);
     border: 1px solid rgba(224,93,93,.4); border-radius: var(--radius-sm); padding: 14px 10px;
   }
+  .result-list { list-style: none; margin: 8px auto; padding: 0; max-width: 340px; }
+  .result-list li {
+    display: flex; gap: 8px; align-items: center;
+    padding: 7px 12px; margin-bottom: 5px;
+    background: var(--panel-deep); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-size: 15px;
+  }
+  .result-list .place { font-weight: 900; min-width: 3em; }
   [hidden] { display: none !important; }
 
   /* アニメーション（すべて短め。prefers-reduced-motion で実質無効化する） */
@@ -147,9 +185,13 @@
   <a href="/">うゆゆBot 公式サイトへ</a>
 </header>
 <main>
-  <!-- ロビー -->
+  <!-- 入口 -->
   <section id="lobby" class="panel">
     <p id="me-line" class="muted">読み込み中…</p>
+    <div id="login-box" hidden>
+      <a class="discord-login-btn" href="/auth/discord">Discord でログイン</a>
+      <p class="muted">ログインすると、人間同士の対戦（ルーム作成・参加）と戦績の記録ができます。</p>
+    </div>
     <div id="guest-box">
       <label class="muted">ゲスト名（Bot戦用）<br>
         <input type="text" id="guest-name" maxlength="24" placeholder="ゲスト">
@@ -158,44 +200,47 @@
     </div>
     <div>
       <button id="btn-bot">🤖 Botと対戦</button>
-      <button id="btn-create">👥 ルームを作る（人間同士）</button>
+      <button id="btn-create">👥 ルームを作る（最大4人）</button>
     </div>
     <div style="margin-top:10px">
       <input type="text" id="join-code" maxlength="6" placeholder="招待コード（6文字）" style="text-transform:uppercase">
       <button id="btn-join" class="secondary">コードで参加</button>
     </div>
-    <p class="muted">ルール: 53枚（ジョーカー1枚）を配り、ペアは自動で捨てます。自分の番では相手の裏向きカードから1枚引きます。先に手札をなくした方が勝ちです。</p>
+    <p class="muted">ルール: 53枚（ジョーカー1枚）を全員に配り、ペアは自動で捨てます。自分の番では、次の人の裏向きカードから1枚引きます。手札をなくした人から上がりで、最後まで残った人が負けです。</p>
   </section>
 
-  <!-- 相手待ち -->
-  <section id="waiting" class="panel" hidden>
-    <p class="status">相手を待っています<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span></p>
+  <!-- 待機ルーム -->
+  <section id="room" class="panel" hidden>
+    <p class="status">参加者を待っています<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span></p>
     <p class="muted">この招待URL（またはコード）を相手に渡してください。リンクを知っている人は、別のサーバーからでも参加できます。</p>
     <p class="invite" id="invite-text"></p>
     <button id="btn-copy" class="secondary">招待URLをコピー</button>
-    <button id="btn-cancel-wait" class="secondary">やめる</button>
+    <p class="label">参加者（最大4人）</p>
+    <ul class="seat-list" id="seat-list"></ul>
+    <div id="host-controls" hidden>
+      <button id="btn-add-bot">🤖 Bot を追加</button>
+      <button id="btn-start">▶️ 対局開始</button>
+      <p class="muted">ホストは空き席に Bot を追加できます。2人以上で対局を開始できます。</p>
+    </div>
+    <p class="muted" id="guest-note" hidden>ホストが対局を開始するのを待っています…</p>
+    <button id="btn-leave-room" class="secondary">退出する</button>
   </section>
 
   <!-- 対局 -->
   <section id="game" class="panel" hidden>
     <p class="status" id="status"></p>
     <p class="event" id="event"></p>
-    <p class="label" id="opp-label">相手の手札</p>
-    <div class="hand" id="opp-hand"></div>
+    <div id="opponents"></div>
     <p class="label">あなたの手札</p>
     <div class="hand" id="my-hand"></div>
     <div id="result-box" hidden>
       <p class="big" id="result-text"></p>
+      <ul class="result-list" id="result-list"></ul>
       <div style="text-align:center">
         <button id="btn-rematch">🔄 再戦</button>
         <button id="btn-back" class="secondary">ロビーに戻る</button>
       </div>
       <p class="event" id="rematch-note" style="text-align:center"></p>
-    </div>
-    <div id="rematch-offer-box" hidden>
-      <p class="status" id="rematch-offer-text"></p>
-      <button id="btn-rematch-accept">🔄 再戦する</button>
-      <button id="btn-rematch-decline" class="secondary">やめておく</button>
     </div>
     <button id="btn-leave" class="secondary">退出する</button>
   </section>
@@ -208,18 +253,19 @@
 const $ = (id) => document.getElementById(id);
 const SUIT_MARK = { S: '♠', H: '♥', D: '♦', C: '♣' };
 const RANK_LABEL = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+const MAX_PLAYERS = 4;
 
 let me = { loggedIn: false, name: '', token: null };
 let ws = null;
 let roomCode = null;
 let mode = null; // 'bot' | 'human'
-let view = null;
+let mySeat = null; // 対局内のプレイヤー番号
 let rematchSent = false;
 
 // アニメーション制御用：前回描画時の状態を覚えておき、変化したときだけ再生する
 let prevHandKeys = null;   // 前回の自分の手札のキー集合（引いたカードの特定用）
 let prevYourTurn = null;   // 前回の手番（自分の番に切り替わった瞬間だけ光らせる用）
-let prevWinner = null;     // 前回の勝者（結果ポップを対局ごとに1回だけ出す用）
+let prevGameOver = false;  // 結果ポップを対局ごとに1回だけ出す用
 let lastDiscardSig = null; // ペア捨てアニメーションの二重再生防止（再接続時の再送対策）
 
 function cardKeyClient(card) { return card.joker ? 'JOKER' : card.suit + '-' + card.rank; }
@@ -240,8 +286,15 @@ function cardEl(card) {
   return el;
 }
 
+function backEl(mini) {
+  const el = document.createElement(mini ? 'div' : 'button');
+  el.className = 'card back' + (mini ? ' mini' : '');
+  el.textContent = '裏';
+  return el;
+}
+
 function show(section) {
-  for (const id of ['lobby', 'waiting', 'game']) $(id).hidden = id !== section;
+  for (const id of ['lobby', 'room', 'game']) $(id).hidden = id !== section;
 }
 
 function connect(onOpen) {
@@ -253,10 +306,15 @@ function connect(onOpen) {
     try { msg = JSON.parse(ev.data); } catch { return; }
     handle(msg);
   });
-  // 切断時の自動再接続は v1 では行わない（人間同士は60秒以内にページを再読み込みすれば席を取り戻せる）
+  // 切断時の自動再接続は行わない（60秒以内にページを再読み込みすれば席を取り戻せる）
 }
 
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+function backToTop(message) {
+  if (message) toast(message);
+  setTimeout(() => location.reload(), 1400);
+}
 
 function handle(msg) {
   if (msg.type === 'error') { toast(msg.message); return; }
@@ -264,69 +322,131 @@ function handle(msg) {
     roomCode = msg.code;
     return;
   }
-  if (msg.type === 'waiting') {
-    roomCode = msg.code;
-    show('waiting');
-    const url = location.origin + '/play/babanuki?room=' + msg.code;
-    $('invite-text').textContent = 'コード: ' + msg.code + ' ／ 招待URL: ' + url;
-    $('btn-copy').onclick = () => navigator.clipboard && navigator.clipboard.writeText(url);
-    return;
-  }
-  if (msg.type === 'state') {
-    view = msg.view;
-    render(msg);
-    return;
-  }
-  if (msg.type === 'rematch_offer') {
-    $('rematch-offer-text').textContent = msg.fromName + ' さんから再戦の申し込みです';
-    $('rematch-offer-box').hidden = false;
-    return;
-  }
-  if (msg.type === 'rematch_sent') {
-    rematchSent = true;
-    $('rematch-note').textContent = '再戦を申し込みました。相手の返事を待っています…';
+  if (msg.type === 'lobby') { renderRoom(msg); return; }
+  if (msg.type === 'state') { render(msg); return; }
+  if (msg.type === 'rematch_status') {
+    const parts = [];
+    if (msg.agreed.length) parts.push('承諾済み: ' + msg.agreed.join('、'));
+    if (msg.waiting.length) parts.push('待ち: ' + msg.waiting.join('、'));
+    $('rematch-note').textContent = parts.length ? '再戦 ' + parts.join(' ／ ') : '';
+    if (me.loggedIn && msg.agreed.includes(me.name)) {
+      rematchSent = true;
+      $('btn-rematch').disabled = true;
+    }
     return;
   }
   if (msg.type === 'rematch_declined') {
     rematchSent = false;
-    $('rematch-note').textContent = '再戦は見送られました。';
     $('btn-rematch').disabled = false;
+    $('rematch-note').textContent = (msg.byName || '相手') + ' さんが見送ったため、再戦はなくなりました。';
     return;
   }
-  if (msg.type === 'opponent_disconnected') {
-    toast('相手の接続が切れました。' + msg.graceSec + '秒以内に戻れば対局を続けられます。');
+  if (msg.type === 'player_disconnected') {
+    toast(msg.name + ' さんの接続が切れました。' + msg.graceSec + '秒以内に戻れば対局を続けられます。');
     return;
   }
-  if (msg.type === 'opponent_back') { toast('相手が戻りました。'); return; }
-  if (msg.type === 'opponent_left') {
-    toast('相手が退出しました。ロビーに戻ります。');
-    setTimeout(() => location.reload(), 1200);
-    return;
+  if (msg.type === 'player_back') { toast(msg.name + ' さんが戻りました。'); return; }
+  if (msg.type === 'game_aborted') { backToTop(msg.message); return; }
+  if (msg.type === 'room_closed') { backToTop(msg.message || 'ルームは解散しました。ロビーに戻ります。'); return; }
+  if (msg.type === 'room_expired') { backToTop('待機時間の期限が切れたため、ルームは閉じました。ロビーに戻ります。'); return; }
+}
+
+function renderRoom(msg) {
+  roomCode = msg.code;
+  mode = 'human';
+  show('room');
+  const url = location.origin + '/play/babanuki?room=' + msg.code;
+  $('invite-text').textContent = 'コード: ' + msg.code + ' ／ 招待URL: ' + url;
+  $('btn-copy').onclick = () => navigator.clipboard && navigator.clipboard.writeText(url);
+
+  const bySeat = new Map(msg.players.map((p) => [p.seat, p]));
+  const list = $('seat-list');
+  list.innerHTML = '';
+  for (let seat = 0; seat < MAX_PLAYERS; seat++) {
+    const li = document.createElement('li');
+    const p = bySeat.get(seat);
+    if (!p) {
+      li.className = 'empty';
+      li.textContent = '空き席';
+    } else {
+      const label = document.createElement('span');
+      label.textContent = p.name;
+      li.appendChild(label);
+      if (p.bot) li.insertAdjacentHTML('beforeend', '<span class="badge">Bot</span>');
+      if (p.isHost) li.insertAdjacentHTML('beforeend', '<span class="badge host">ホスト</span>');
+      if (seat === msg.youSeat) li.insertAdjacentHTML('beforeend', '<span class="badge">あなた</span>');
+      if (!p.bot && !p.connected) li.insertAdjacentHTML('beforeend', '<span class="badge">接続待ち</span>');
+      if (msg.isHost && p.bot) {
+        const spacer = document.createElement('span');
+        spacer.className = 'spacer';
+        li.appendChild(spacer);
+        const btn = document.createElement('button');
+        btn.className = 'secondary small';
+        btn.textContent = '外す';
+        btn.onclick = () => send({ type: 'remove_bot', seat });
+        li.appendChild(btn);
+      }
+    }
+    list.appendChild(li);
   }
-  if (msg.type === 'room_expired') {
-    toast('待機時間の期限が切れたため、ルームは閉じました。ロビーに戻ります。');
-    setTimeout(() => location.reload(), 1200);
-    return;
+
+  $('host-controls').hidden = !msg.isHost;
+  $('guest-note').hidden = msg.isHost;
+  if (msg.isHost) {
+    $('btn-add-bot').disabled = msg.players.length >= MAX_PLAYERS;
+    $('btn-start').disabled = !msg.canStart;
   }
 }
 
 function render(msg) {
   show('game');
+  mySeat = msg.seat;
   const v = msg.view;
+  const players = msg.players;
+  const nameOf = (idx) => (players[idx] ? players[idx].name : 'プレイヤー');
   const isGameStart = !v.lastEvent; // 対局開始の state（配り直し・再戦含む）はアニメーションしない
-  if (isGameStart) lastDiscardSig = null;
-  $('opp-label').textContent = '相手（' + msg.opponentName + '）の手札: ' + v.opponentCount + '枚';
-
-  const opp = $('opp-hand');
-  opp.innerHTML = '';
-  for (let i = 0; i < v.opponentCount; i++) {
-    const b = document.createElement('button');
-    b.className = 'card back';
-    b.textContent = '裏';
-    b.disabled = !v.yourTurn;
-    b.onclick = () => { send({ type: 'draw', position: i }); };
-    opp.appendChild(b);
+  if (isGameStart) {
+    lastDiscardSig = null;
+    rematchSent = false;
+    $('btn-rematch').disabled = false;
+    $('rematch-note').textContent = '';
   }
+  const gameOver = v.placements !== null && v.placements !== undefined;
+
+  // 相手全員のエリア（自分が引く相手だけ大きな裏向きカードでクリックできる）
+  const opps = $('opponents');
+  opps.innerHTML = '';
+  players.forEach((p, idx) => {
+    if (idx === mySeat) return;
+    const block = document.createElement('div');
+    block.className = 'opp-block' + (!gameOver && v.turn === idx ? ' turn' : '');
+    const label = document.createElement('p');
+    label.className = 'label';
+    let badges = '';
+    if (p.bot) badges += '<span class="badge">Bot</span>';
+    if (!gameOver && v.turn === idx) badges += '<span class="badge turn">手番</span>';
+    if (v.finished[idx]) badges += '<span class="badge done">🏆 上がり</span>';
+    if (gameOver && v.placements[idx] === players.length) badges += '<span class="badge">🃏 負け</span>';
+    if (!p.connected) badges += '<span class="badge">切断中</span>';
+    label.innerHTML = '';
+    label.appendChild(document.createTextNode(p.name + ' の手札: ' + v.counts[idx] + '枚'));
+    label.insertAdjacentHTML('beforeend', badges);
+    block.appendChild(label);
+    const hand = document.createElement('div');
+    hand.className = 'hand small';
+    hand.id = 'opp-hand-' + idx;
+    const isTarget = !gameOver && v.yourTurn && v.drawTarget === idx;
+    for (let i = 0; i < v.counts[idx]; i++) {
+      const b = backEl(!isTarget);
+      if (isTarget) {
+        b.disabled = false;
+        b.onclick = () => { send({ type: 'draw', position: i }); };
+      }
+      hand.appendChild(b);
+    }
+    block.appendChild(hand);
+    opps.appendChild(block);
+  });
 
   const mine = $('my-hand');
   mine.innerHTML = '';
@@ -346,45 +466,72 @@ function render(msg) {
 
   const ev = v.lastEvent;
   if (ev) {
-    $('event').textContent =
-      (ev.byYou ? 'あなたが1枚引きました' : '相手が1枚引きました') +
-      (ev.discardedPair ? '（ペアができて捨てました）' : '');
+    let text = nameOf(ev.player) + 'さんが' + nameOf(ev.from) + 'さんから1枚引きました';
+    if (ev.discardedPair) text += '（ペアができて捨てました）';
+    if (Array.isArray(ev.finishedNow)) {
+      for (const idx of ev.finishedNow) text += ' 🏆 ' + nameOf(idx) + 'さんが上がり！';
+    }
+    $('event').textContent = text;
   } else {
     $('event').textContent = '対局開始！最初のペアは自動で捨ててあります。';
   }
 
-  // ペア捨てアニメーション: 捨てた側の手札エリアに、その2枚（公開情報）を一時表示して消す。
+  // ペア捨てアニメーション: 捨てた人のエリアに、その2枚（公開情報）を一時表示して消す。
   // ゲーム進行は止めない（タイマーで除去するだけ）
   if (ev && ev.discardedPair && Array.isArray(ev.pair) && ev.pair.length === 2) {
-    const sig = (ev.byYou ? 'you' : 'opp') + ':' + ev.pair.map(cardKeyClient).join(',') + ':' + (ev.handCounts || []).join('-');
+    const sig = ev.player + ':' + ev.pair.map(cardKeyClient).join(',') + ':' + (ev.handCounts || []).join('-');
     if (sig !== lastDiscardSig) {
       lastDiscardSig = sig;
-      const area = ev.byYou ? mine : opp;
-      const temps = ev.pair.map((card) => {
-        const el = cardEl(card);
-        el.classList.add('discarding');
-        area.appendChild(el);
-        return el;
-      });
-      setTimeout(() => temps.forEach((el) => el.remove()), 380);
+      const area = ev.player === mySeat ? mine : $('opp-hand-' + ev.player);
+      if (area) {
+        const temps = ev.pair.map((card) => {
+          const el = cardEl(card);
+          el.classList.add('discarding');
+          area.appendChild(el);
+          return el;
+        });
+        setTimeout(() => temps.forEach((el) => el.remove()), 380);
+      }
     }
   }
 
   const status = $('status');
-  const gameOver = v.winner !== null && v.winner !== undefined && v.youWon !== null;
   if (gameOver) {
     status.hidden = true;
     status.classList.remove('my-turn', 'opp-turn', 'turn-glow');
     mine.classList.remove('turn-glow');
     prevYourTurn = null;
     $('result-box').hidden = false;
-    $('rematch-offer-box').hidden = true;
     if (!rematchSent) $('rematch-note').textContent = '';
     $('btn-rematch').disabled = rematchSent;
     const rt = $('result-text');
-    rt.textContent = v.youWon ? '🎉 あなたの勝ち！' : 'ジョーカーが残って負け…';
-    rt.className = 'big ' + (v.youWon ? 'win' : 'lose');
-    if (prevWinner === null) {
+    const place = v.placements[mySeat];
+    if (place === 1) {
+      rt.textContent = '🎉 あなたの勝ち！';
+      rt.className = 'big win';
+    } else if (place === players.length) {
+      rt.textContent = 'ジョーカーが残って負け…';
+      rt.className = 'big lose';
+    } else {
+      rt.textContent = place + '位でした';
+      rt.className = 'big';
+    }
+    const list = $('result-list');
+    list.innerHTML = '';
+    players
+      .map((p, idx) => ({ p, idx, place: v.placements[idx] }))
+      .sort((a, b) => a.place - b.place)
+      .forEach(({ p, idx, place: pl }) => {
+        const li = document.createElement('li');
+        const placeSpan = document.createElement('span');
+        placeSpan.className = 'place';
+        placeSpan.textContent = pl + '位';
+        li.appendChild(placeSpan);
+        li.appendChild(document.createTextNode(p.name + (idx === mySeat ? '（あなた）' : '') + (p.bot ? '（Bot）' : '')));
+        if (pl === players.length) li.insertAdjacentHTML('beforeend', '<span class="badge">🃏</span>');
+        list.appendChild(li);
+      });
+    if (!prevGameOver) {
       const box = $('result-box');
       box.classList.remove('result-pop');
       void box.offsetWidth; // 再戦後の2局目でも確実に再生し直す
@@ -392,11 +539,21 @@ function render(msg) {
     }
   } else {
     $('result-box').hidden = true;
-    rematchSent = false;
     status.hidden = false;
-    status.textContent = v.yourTurn ? 'あなたの番です。相手のカードを1枚選んでください' : '相手の番です…';
-    status.classList.toggle('my-turn', v.yourTurn);
-    status.classList.toggle('opp-turn', !v.yourTurn);
+    if (v.youFinished) {
+      status.textContent = '🏆 上がり！他のプレイヤーの対局が終わるのを待っています';
+      status.classList.remove('my-turn');
+      status.classList.add('opp-turn');
+    } else if (v.yourTurn) {
+      status.textContent = 'あなたの番です。' + nameOf(v.drawTarget) + 'さんのカードを1枚選んでください';
+      status.classList.add('my-turn');
+      status.classList.remove('opp-turn');
+    } else {
+      const turnPlayer = players[v.turn];
+      status.textContent = nameOf(v.turn) + 'さんの番です…' + (turnPlayer && !turnPlayer.connected ? '（再接続を待っています）' : '');
+      status.classList.remove('my-turn');
+      status.classList.add('opp-turn');
+    }
     // 自分の番に「切り替わった」ときだけ、ステータスと自分の手札枠をそっと光らせる
     if (v.yourTurn && prevYourTurn === false && !isGameStart) {
       for (const el of [status, mine]) {
@@ -408,7 +565,7 @@ function render(msg) {
     }
     prevYourTurn = v.yourTurn;
   }
-  prevWinner = gameOver ? v.winner : null;
+  prevGameOver = gameOver;
 }
 
 $('btn-bot').onclick = () => {
@@ -431,15 +588,17 @@ $('btn-join').onclick = () => {
   toast('');
   connect(() => send({ type: 'join', code, ...authPayload() }));
 };
-$('btn-cancel-wait').onclick = () => { send({ type: 'leave' }); location.reload(); };
+$('btn-add-bot').onclick = () => send({ type: 'add_bot' });
+$('btn-start').onclick = () => send({ type: 'start' });
+$('btn-leave-room').onclick = () => { send({ type: 'leave' }); location.reload(); };
 $('btn-leave').onclick = () => { send({ type: 'leave' }); location.reload(); };
 $('btn-back').onclick = () => { send({ type: 'leave' }); location.reload(); };
 $('btn-rematch').onclick = () => {
   send({ type: 'rematch' });
-  if (mode === 'human') { rematchSent = true; $('btn-rematch').disabled = true; $('rematch-note').textContent = '再戦を申し込みました。相手の返事を待っています…'; }
+  rematchSent = true;
+  $('btn-rematch').disabled = true;
+  if (mode === 'human') $('rematch-note').textContent = '再戦を申し込みました。全員の承諾を待っています…';
 };
-$('btn-rematch-accept').onclick = () => { $('rematch-offer-box').hidden = true; send({ type: 'rematch' }); };
-$('btn-rematch-decline').onclick = () => { $('rematch-offer-box').hidden = true; send({ type: 'rematch_decline' }); };
 
 (async () => {
   try {
@@ -451,6 +610,7 @@ $('btn-rematch-decline').onclick = () => { $('rematch-offer-box').hidden = true;
     $('guest-box').hidden = true;
   } else {
     $('me-line').textContent = '未ログイン（ゲスト）です。Bot戦はこのまま遊べます。';
+    $('login-box').hidden = false;
   }
   const roomParam = new URLSearchParams(location.search).get('room');
   if (roomParam) {
@@ -463,7 +623,7 @@ $('btn-rematch-decline').onclick = () => { $('rematch-offer-box').hidden = true;
       toast('招待ルームに参加しています…');
       connect(() => send({ type: 'join', code, ...authPayload() }));
     } else {
-      toast('人間同士の対戦には Discord ログインが必要です。上の案内からログインしてから、このリンクを開き直してください。');
+      toast('人間同士の対戦には Discord ログインが必要です。上のボタンからログインしてから、このリンクを開き直してください。');
     }
   }
 })();

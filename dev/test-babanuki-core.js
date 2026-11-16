@@ -146,4 +146,118 @@ for (let seed = 1; seed <= 30; seed++) {
   assert.strictEqual(state.hands[state.winner].length, 0);
 }
 
+// ---- 多人数（v2） ----
+
+// 配布（3人・4人）: 合計53枚からペアを捨てた残り、ペア無し、ジョーカーは1枚だけ
+for (const n of [3, 4]) {
+  const state = core.createGame({ rng: lcg(100 + n), playerCount: n });
+  assert.strictEqual(state.hands.length, n);
+  const total = state.hands.reduce((s, h) => s + h.length, 0);
+  assert(total <= 53 && (53 - total) % 2 === 0);
+  for (const h of state.hands) assert(core.hasNoPairs(h));
+  const jokers = state.hands.flat().filter(core.isJoker).length;
+  assert.strictEqual(jokers, 1);
+  assert.strictEqual(state.placements, null);
+  assert(state.hands.every((h) => h.length > 0), '配布直後に上がっている人がいる');
+}
+
+// 手番ローテーション: 引く相手は「次のプレイヤー」で、手番は時計回りに移る
+{
+  // rng = () => 0.99 でシャッフルは並びを変えない（位置が決定的になる）
+  const state = core.createGameFromHands(
+    [[C('S', 1), C('S', 2)], [C('H', 3), C('H', 4)], [C('D', 5), C('D', 6)]],
+    0
+  );
+  let r = core.drawCard(state, 0, () => 0.99); // P0 が P1 の先頭 (H3) を引く
+  assert(r.ok);
+  assert.strictEqual(r.drawnFrom, 1);
+  assert.strictEqual(state.turn, 1);
+  r = core.drawCard(state, 0, () => 0.99); // P1 が P2 の先頭 (D5) を引く
+  assert.strictEqual(r.drawnFrom, 2);
+  assert.strictEqual(state.turn, 2);
+  r = core.drawCard(state, 0, () => 0.99); // P2 が P0 の先頭を引く（一周する）
+  assert.strictEqual(r.drawnFrom, 0);
+  assert.strictEqual(state.turn, 0);
+}
+
+// 上がりとスキップ: 手札が空になったプレイヤーは上がり、手番と引く相手から外れる
+{
+  const state = core.createGameFromHands(
+    [[C('S', 1), C('S', 2)], [C('H', 1)], [C('D', 5), C('D', 6)]],
+    0
+  );
+  // P0 が P1 の最後の1枚 (H1) を引く → ペアで捨てて P0 は S2 のみ、P1 は空で上がり
+  const r = core.drawCard(state, 0, () => 0.99);
+  assert(r.ok);
+  assert.deepStrictEqual(r.finishedNow, [1]);
+  assert.strictEqual(state.finished[1], true);
+  assert.strictEqual(state.placements, null, 'まだ2人残っているので決着していない');
+  assert.strictEqual(state.turn, 2, '手番は上がった P1 を飛ばして P2 へ');
+  assert.strictEqual(core.drawTarget(state), 0, 'P2 の引く相手は P1 を飛ばして P0');
+}
+
+// 順位確定（3人）: 上がった順に順位が付き、最後に残ったジョーカー保持者が負け
+{
+  const state = core.createGameFromHands(
+    [[C('S', 1)], [C('H', 1), C('H', 9)], [C('D', 9), JOKER]],
+    0
+  );
+  // P0 が P1 の H1 を引く → ペアを捨てて P0 が上がり（1位）
+  let r = core.drawCard(state, 0, () => 0.99);
+  assert(r.ok);
+  assert.deepStrictEqual(state.finishOrder, [0]);
+  assert.strictEqual(state.turn, 1);
+  // P1 が P2 の D9 を引く → ペアを捨てて P1 が上がり（2位）。残り P2 が負け
+  // ※ P2 の手札は初期ペア捨て（removePairs）の並び替えで [JOKER, D9] になっているので位置は 1
+  r = core.drawCard(state, 1, () => 0.99);
+  assert(r.ok);
+  assert.deepStrictEqual(state.placements, [1, 2, 3]);
+  assert.strictEqual(state.loser, 2);
+  assert.strictEqual(state.winner, 0);
+  assert(state.hands[2].some(core.isJoker), '敗者はジョーカーを持っているはず');
+  assert.strictEqual(core.drawCard(state, 0).ok, false, '決着後は引けない');
+}
+
+// publicView（多人数）: 全員の枚数と上がり状態は見えるが、他人の手札の中身は見えない
+{
+  const state = core.createGameFromHands(
+    [[C('S', 1), C('S', 2)], [C('H', 3)], [C('C', 13), JOKER]],
+    2
+  );
+  const view = core.publicView(state, 0);
+  assert.deepStrictEqual(view.counts, [2, 1, 2]);
+  assert.deepStrictEqual(view.finished, [false, false, false]);
+  assert.strictEqual(view.turn, 2);
+  assert.strictEqual(view.yourTurn, false);
+  assert.strictEqual(view.drawTarget, 0, 'P2 の引く相手は P0');
+  assert(!JSON.stringify(view).includes('"rank":13'), '他人のカードが見えてはいけない');
+  assert(!JSON.stringify(view).includes('"rank":3'), '他人のカードが見えてはいけない');
+  const view2 = core.publicView(state, 2);
+  assert.strictEqual(view2.yourTurn, true);
+  assert.strictEqual(view2.yourHand.length, 2);
+}
+
+// Bot だけのシミュレーション（3人・4人）: 必ず終わり、順位は 1..n の順列、敗者はジョーカー持ち
+for (const n of [3, 4]) {
+  for (let seed = 1; seed <= 20; seed++) {
+    const rng = lcg(seed * 777 + n);
+    const state = core.createGame({ rng, firstPlayer: seed % n, playerCount: n });
+    let guard = 0;
+    while (state.placements === null && guard++ < 10000) {
+      const target = core.drawTarget(state);
+      assert(target !== null && !state.finished[target]);
+      const r = core.drawCard(state, core.chooseBotPosition(state.hands[target].length, rng), rng);
+      assert(r.ok, `n=${n} seed=${seed} で着手が失敗`);
+      for (const h of state.hands) assert(core.hasNoPairs(h));
+    }
+    assert(state.placements !== null, `n=${n} seed=${seed} で対局が終わらなかった`);
+    assert.deepStrictEqual([...state.placements].sort((a, b) => a - b), Array.from({ length: n }, (_, i) => i + 1));
+    assert(state.hands[state.loser].some(core.isJoker), `n=${n} seed=${seed} で敗者がジョーカーを持っていない`);
+    state.hands.forEach((h, i) => {
+      if (i !== state.loser) assert.strictEqual(h.length, 0, `n=${n} seed=${seed} で敗者以外に手札が残っている`);
+    });
+    assert.strictEqual(state.winner, state.finishOrder[0]);
+  }
+}
+
 console.log('test-babanuki-core: OK');
