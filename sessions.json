@@ -34,7 +34,11 @@
           "3c3d",
           "4i3h",
           "8c8d",
-          "5i4i"
+          "5i4i",
+          "8d8e",
+          "7g7f",
+          "8e8f",
+          "8g8f"
         ],
         "players": {
           "0": {
@@ -51,7 +55,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794792667185
+        "updatedAt": 1794792687192
       }
     }
   }
