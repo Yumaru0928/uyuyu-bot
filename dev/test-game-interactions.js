@@ -191,6 +191,44 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('SHOGI RESIGN TESTS PASSED');
   }
 
+  // ============ 四目並べ ============
+  {
+    const c4 = require('../utils/connect4-core.js');
+    const connect4 = require('../commands/games/connect4.js');
+    const channel = makeChannel('c3');
+    const board = makeMessage('m-c4', channel);
+    channel.byId.set('m-c4', board);
+
+    const b = c4.createBoard();
+    c4.drop(b, 0, c4.RED); c4.drop(b, 1, c4.RED); c4.drop(b, 2, c4.RED);
+    c4.drop(b, 5, c4.YELLOW); c4.drop(b, 6, c4.YELLOW);
+    sessions.put('connect4', 'm-c4', {
+      channelId: 'c3', guildId: 'g1',
+      board: b, turn: c4.RED,
+      players: {
+        [c4.RED]: { id: 'alice', displayName: 'Alice', isAi: false },
+        [c4.YELLOW]: { id: 'bob', displayName: 'Bob', isAi: false },
+      },
+      ranked: true, level: 'normal', events: [],
+    });
+    const client = { channels: { fetch: async () => channel } };
+    await connect4.restoreSessions(client);
+    await sleep(50);
+    assert(board.collector, '四目並べコレクタが張られた');
+    assert(channel.sent.some((m) => m.content.includes('<@alice>')), '四目並べでも手番通知');
+
+    const col = board.collector;
+    // alice: 列を選ぶ → 確認画面 → 落とす → 横4つで勝ち
+    await col.fire(interaction('alice', 'col', ['3']));
+    const conf = interaction('alice', 'confirm');
+    // 確認画面を経ずに直接は進まないこと（段階ガード）も含め、確認で確定する
+    await col.fire(conf);
+    await sleep(50);
+    assert.strictEqual(sessions.list('connect4').length, 0, '終局でセッション削除');
+    assert(conf.updates.some((e) => (e.content || '').includes('🏆')), '勝ちの結果が盤面に反映');
+    console.log('CONNECT4 INTERACTION TESTS PASSED');
+  }
+
   console.log('ALL INTERACTION TESTS PASSED');
   fs.rmSync(tmp, { recursive: true, force: true });
 })().catch((err) => {

@@ -167,4 +167,63 @@ function renderShogi(pos, core, { marks = new Map(), lastMoveTo = null } = {}) {
   return canvas.toBuffer('image/png');
 }
 
-module.exports = { renderOthello, renderShogi, available: !!createCanvas };
+// ---------- 四目並べ ----------
+// board[y][x]（y=0 が上）。winLine: [{x, y} ×4] を渡すと勝ちの4つを金色の輪で囲む
+function renderConnect4(board, { lastMove = null, winLine = null } = {}) {
+  if (!createCanvas) return null;
+  const CELL = 64;
+  const PAD_X = 30;
+  const PAD_TOP = 34; // 列番号の余白
+  const PAD_BOTTOM = 16;
+  const COLS = 7;
+  const ROWS = 6;
+  const w = PAD_X * 2 + CELL * COLS;
+  const h = PAD_TOP + CELL * ROWS + PAD_BOTTOM;
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#10131a';
+  ctx.fillRect(0, 0, w, h);
+
+  // 列番号
+  ctx.fillStyle = '#cfd8dc';
+  ctx.font = `bold 17px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let x = 0; x < COLS; x++) ctx.fillText(String(x + 1), PAD_X + x * CELL + CELL / 2, PAD_TOP / 2 + 2);
+
+  // 盤（青い板に穴）
+  ctx.fillStyle = '#1565c0';
+  ctx.fillRect(PAD_X - 8, PAD_TOP - 6, CELL * COLS + 16, CELL * ROWS + 12);
+  const winSet = new Set((winLine ?? []).map((c) => `${c.x},${c.y}`));
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const cx = PAD_X + x * CELL + CELL / 2;
+      const cy = PAD_TOP + y * CELL + CELL / 2;
+      const v = board[y][x];
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = v === 1 ? '#e53935' : v === 2 ? '#fdd835' : '#0d1b2a';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.stroke();
+      if (winSet.has(`${x},${y}`)) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL * 0.46, 0, Math.PI * 2);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#ffd700';
+        ctx.stroke();
+      } else if (lastMove && lastMove.x === x && lastMove.y === y) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL * 0.46, 0, Math.PI * 2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.stroke();
+      }
+    }
+  }
+  return canvas.toBuffer('image/png');
+}
+
+module.exports = { renderOthello, renderShogi, renderConnect4, available: !!createCanvas };
