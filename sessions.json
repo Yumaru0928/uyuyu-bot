@@ -13,7 +13,8 @@
           "0": {
             "id": "960004867542380555",
             "displayName": "うゆまる",
-            "isAi": false
+            "isAi": false,
+            "confirm": true
           },
           "1": {
             "id": "1556620719494930562",
@@ -23,7 +24,7 @@
         },
         "ranked": false,
         "level": "easy",
-        "updatedAt": 1794792535790
+        "updatedAt": 1794792580750
       }
     }
   }
