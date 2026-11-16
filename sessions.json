@@ -46,7 +46,7 @@
             0,
             0,
             0,
-            0,
+            2,
             0,
             0,
             0
@@ -55,7 +55,7 @@
             0,
             0,
             0,
-            0,
+            1,
             0,
             0,
             0
@@ -76,10 +76,16 @@
         },
         "ranked": false,
         "level": "normal",
-        "events": [],
-        "lastMove": null,
+        "events": [
+          "🔴 うゆまる: **4列**",
+          "🟡 うゆゆ: **4列**"
+        ],
+        "lastMove": {
+          "x": 3,
+          "y": 4
+        },
         "notifyMessageId": null,
-        "updatedAt": 1794806586607
+        "updatedAt": 1794806626748
       }
     }
   }
