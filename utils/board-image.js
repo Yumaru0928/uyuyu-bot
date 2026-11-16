@@ -26,7 +26,7 @@ function renderOthello(board, { candidates = [], lastMove = null } = {}) {
   if (!createCanvas) return null;
   const CELL = 64;
   const PAD = 28; // 座標ラベルの余白（左・上）
-  const size = PAD + CELL * 8 + 8;
+  const size = PAD + CELL * 8 + 16; // 右・下にも余白を取って端のマスを詰まらせない
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
 
@@ -85,10 +85,11 @@ function renderOthello(board, { candidates = [], lastMove = null } = {}) {
 function renderShogi(pos, core, { marks = new Map(), lastMoveTo = null } = {}) {
   if (!createCanvas) return null;
   const CELL = 56;
-  const PAD_X = 34; // 右に段（漢数字）、上に筋（数字）の余白
-  const PAD_TOP = 26;
-  const w = PAD_X + CELL * 9 + 6;
-  const h = PAD_TOP + CELL * 9 + 6;
+  const PAD_X = 34; // 左右の余白（右に段の漢数字、左は盤の余白）
+  const PAD_TOP = 26; // 上に筋（数字）の余白
+  const PAD_BOTTOM = 20;
+  const w = PAD_X * 2 + CELL * 9;
+  const h = PAD_TOP + CELL * 9 + PAD_BOTTOM;
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext('2d');
 
