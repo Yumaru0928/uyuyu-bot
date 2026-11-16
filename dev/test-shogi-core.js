@@ -150,4 +150,22 @@ assert.strictEqual(c.describeMove(g3.pos, c.findLegalByUsi(g3.legalMoves(), '2g2
 p = sfen('4k4/9/9/9/9/9/9/9/4K4 b 2P 1');
 assert.strictEqual(c.describeMove(p, c.findLegalByUsi(c.legalMoves(p), 'P*5e')), '▲５五歩打');
 assert.strictEqual(c.kanjiCount(2), '二'); assert.strictEqual(c.kanjiCount(10), '十'); assert.strictEqual(c.kanjiCount(13), '十三');
+// --- 局面の複製(確認画面で「指した後の盤面」を作るのに使う) ---
+const orig = c.startPosition();
+const copy = c.clonePosition(orig);
+c.doMove(copy, c.findLegalByUsi(c.legalMoves(copy), '7g7f'));
+assert.strictEqual(c.toSfen(orig), c.START_SFEN, '複製を動かしても元の局面は変わらない');
+assert.notStrictEqual(c.toSfen(copy), c.START_SFEN);
+assert.deepStrictEqual([...copy.king], [...orig.king]);
+p = sfen('4k4/9/9/9/9/9/9/9/4K4 b 2P 1'); const cp = c.clonePosition(p);
+c.doMove(cp, c.findLegalByUsi(c.legalMoves(cp), 'P*5e'));
+assert.strictEqual(p.hands[0][c.PAWN], 2, '持ち駒も独立している'); assert.strictEqual(cp.hands[0][c.PAWN], 1);
+
+// --- 「不成」の表記 ---
+p = sfen('4k4/9/9/9/9/9/6B2/9/4K4 b - 1');
+const lg = c.legalMoves(p);
+assert.strictEqual(c.describeMove(p, c.findLegalByUsi(lg, '3g7c+')), '▲７三角成(37)');
+assert.strictEqual(c.describeMove(p, c.findLegalByUsi(lg, '3g7c'), { noPromo: true }), '▲７三角不成(37)');
+assert.strictEqual(c.describeMove(p, c.findLegalByUsi(lg, '3g4f')), '▲４六角(37)', '成れない手には付かない');
+
 console.log('ALL RULE TESTS PASSED');

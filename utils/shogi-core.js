@@ -149,6 +149,18 @@ function toSfen(pos, withPly = true) {
 
 const startPosition = () => fromSfen(START_SFEN);
 
+/** 局面の複製（指す前の確認画面で「指した後の盤面」を作るときなどに使う） */
+function clonePosition(pos) {
+  const copy = new Position();
+  copy.board.set(pos.board);
+  copy.hands[0].set(pos.hands[0]);
+  copy.hands[1].set(pos.hands[1]);
+  copy.turn = pos.turn;
+  copy.ply = pos.ply;
+  copy.king = [...pos.king];
+  return copy;
+}
+
 // ---------- 王手の判定 ----------
 // (x, y) のマスが by 側の駒に利かされているか
 function isAttacked(board, x, y, by) {
@@ -392,14 +404,17 @@ function kanjiCount(n) {
   return `十${n > 10 ? KAN_NUM[n - 11] : ''}`;
 }
 
-/** 指す前の局面で、その手を「▲７六歩(77)」のように表す */
-function describeMove(pos, mv) {
+/**
+ * 指す前の局面で、その手を「▲７六歩(77)」のように表す。
+ * noPromo: 成れる場面で成らない手のとき true にすると「不成」を付ける
+ */
+function describeMove(pos, mv, { noPromo = false } = {}) {
   const mark = pos.turn === BLACK ? '▲' : '△';
   if (mv.drop) return `${mark}${squareLabel(mv.to)}${KANJI[mv.drop]}打`;
   const piece = pos.board[mv.from];
   const fx = 9 - (mv.from % 9);
   const fy = ((mv.from / 9) | 0) + 1;
-  return `${mark}${squareLabel(mv.to)}${pieceKanji(piece)}${mv.promo ? '成' : ''}(${fx}${fy})`;
+  return `${mark}${squareLabel(mv.to)}${pieceKanji(piece)}${mv.promo ? '成' : noPromo ? '不成' : ''}(${fx}${fy})`;
 }
 
 // ---------- 対局の進行 ----------
@@ -475,7 +490,7 @@ module.exports = {
   BLACK, WHITE,
   PAWN, LANCE, KNIGHT, SILVER, GOLD, BISHOP, ROOK, KING,
   typeOf, colorOf, isPromoted, makePiece,
-  Position, START_SFEN, fromSfen, toSfen, startPosition,
+  Position, START_SFEN, fromSfen, toSfen, startPosition, clonePosition,
   inCheck, isAttacked, isKingAttacked,
   legalMoves, doMove, undoMove, perft,
   sqToUsi, moveToUsi, findLegalByUsi,

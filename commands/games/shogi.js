@@ -15,6 +15,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
+  ComponentType,
   MessageFlags,
 } = require('discord.js');
 
@@ -31,6 +32,16 @@ const { BLACK, WHITE } = core;
 // ---------- 設定 ----------
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 無操作30分で終了（レート戦は手番の人が時間切れ負け）
 const SESSION_STALE_MS = 24 * 60 * 60 * 1000; // 再起動後、最後の操作からこれ以上たった対局は復元せず中断する
+const RESIGN_CONFIRM_MS = 30 * 1000; // 投了の確認ボタンを待つ時間
+
+// 操作ミス対策: 各操作が有効になる画面の段階。古い画面（連打・再接続後など）からの操作は無視する
+const REQUIRED_STAGE = {
+  pick: 'pick', drop: 'pick', toggle: 'pick',
+  dest: 'dest',
+  promo1: 'promote', promo0: 'promote',
+  dtype: 'droptype', dfile: 'dropfile', drank: 'droprank',
+  confirm: 'confirm', cancel: 'confirm',
+};
 
 // ---------- 表示用 ----------
 const SIDE = {
@@ -39,6 +50,15 @@ const SIDE = {
 };
 const LEVEL_LABEL = { easy: '弱い', normal: '普通', hard: '強い' };
 const HAND_ORDER = [core.ROOK, core.BISHOP, core.GOLD, core.SILVER, core.KNIGHT, core.LANCE, core.PAWN];
+
+// 指す前の確認（既定はオン。「確認: ON/OFF」ボタンで、手番の人が自分の設定を切り替えられる）
+const needsConfirm = (game, color) => game.players[color].confirm !== false;
+
+// 手を「▲７六歩(77)」のように表す。成れる場面で成らない手には「不成」を付ける
+function describe(game, mv) {
+  const noPromo = !mv.drop && !mv.promo && game.game.legalMoves().some((m) => m.from === mv.from && m.to === mv.to && m.promo);
+  return core.describeMove(game.game.pos, mv, { noPromo });
+}
 
 function handText(pos, color) {
   const parts = HAND_ORDER.filter((t) => pos.hands[color][t] > 0).map((t) => {
@@ -111,6 +131,22 @@ function marksFor(game) {
   return marks;
 }
 
+// 盤面の表示。確認画面では「指した後の盤面」を見せる（移動先は * 、元の位置は 〇）
+function boardFor(game) {
+  const g = game.game;
+  if (game.stage === 'confirm') {
+    const mv = core.findLegalByUsi(g.legalMoves(), game.sel.usi);
+    if (mv) {
+      const pos = core.clonePosition(g.pos);
+      core.doMove(pos, mv);
+      const marks = new Map([[mv.to, 'capture']]);
+      if (!mv.drop) marks.set(mv.from, 'move');
+      return { pos, marks };
+    }
+  }
+  return { pos: g.pos, marks: marksFor(game) };
+}
+
 function hintFor(game) {
   const pos = game.game.pos;
   const sel = game.sel;
@@ -119,6 +155,17 @@ function hintFor(game) {
       return `選択中: ${core.squareLabel(sel.from)}の${core.pieceKanji(pos.board[sel.from])} → 動かす先を選んでください（〇=空き / *=取れる）`;
     case 'promote':
       return `${core.squareLabel(sel.to)}へ動かします。成りますか？`;
+    case 'confirm': {
+      const mv = core.findLegalByUsi(game.game.legalMoves(), sel.usi);
+      if (!mv) return '';
+      const notes = [];
+      if (!mv.drop && pos.board[mv.to]) notes.push(`${core.pieceKanji(pos.board[mv.to])}を取ります`);
+      const after = core.clonePosition(pos);
+      core.doMove(after, mv);
+      if (core.inCheck(after)) notes.push('王手になります');
+      const legend = mv.drop ? '* = 打つ場所' : '* = 移動先 / 〇 = 元の位置';
+      return `✅ この手でよろしいですか？ **${describe(game, mv)}**${notes.length ? `（${notes.join('・')}）` : ''}\n（${legend}。まだ指していません）`;
+    }
     case 'droptype':
       return '打つ駒を選んでください';
     case 'dropfile':
@@ -148,7 +195,8 @@ function buildPlayMessage(game) {
   const lines = buildHeader(game);
   lines.push(`手番: ${SIDE[turn].mark}${SIDE[turn].name} <@${game.players[turn].id}>（${g.moves.length}手）${check}`);
   lines.push(hintFor(game));
-  lines.push('```\n' + renderBoard(g.pos, marksFor(game)) + '\n```');
+  const view = boardFor(game);
+  lines.push('```\n' + renderBoard(view.pos, view.marks) + '\n```');
   return { content: lines.join('\n'), components: buildComponents(game) };
 }
 
@@ -185,7 +233,10 @@ function buildComponents(game) {
           }));
         rows.push(selectRow('pick', '① 動かす駒を選んでください', options));
       }
-      buttons.push(button('drop', '持ち駒を打つ', ButtonStyle.Primary, dropTypesOf(legal).size === 0));
+      buttons.push(
+        button('drop', '持ち駒を打つ', ButtonStyle.Primary, dropTypesOf(legal).size === 0),
+        button('toggle', `確認: ${needsConfirm(game, g.turn) ? 'ON' : 'OFF'}`),
+      );
       break;
     }
     case 'dest': {
@@ -208,6 +259,9 @@ function buildComponents(game) {
     }
     case 'promote':
       buttons.push(button('promo1', '成る', ButtonStyle.Success), button('promo0', '成らない', ButtonStyle.Primary), button('back', '戻る'));
+      break;
+    case 'confirm':
+      buttons.push(button('confirm', 'この手で指す', ButtonStyle.Success), button('cancel', 'やり直す'));
       break;
     case 'droptype': {
       const options = [...dropTypesOf(legal).entries()]
@@ -326,7 +380,7 @@ async function aiTurn(game) {
     mv = legal[Math.floor(Math.random() * legal.length)];
     game.note = '⚠️ Botの思考エンジンが応答しなかったため、ランダムな手を指しました。';
   }
-  game.events.push(core.describeMove(g.pos, mv));
+  game.events.push(describe(game, mv));
   g.play(mv);
   return g.outcome();
 }
@@ -367,13 +421,21 @@ function startSession(game, message) {
   const collector = message.createMessageComponentCollector({ idle: IDLE_TIMEOUT_MS });
   const deny = (i, text) => i.reply({ content: text, flags: MessageFlags.Ephemeral });
 
+  // 終局の確定はここに集約する。投了の確認中に時間切れになるなどしても、二重に結果・レートを記録しない
+  function endGame(outcome) {
+    if (game.ended) return null;
+    game.ended = true;
+    collector.stop('finished');
+    return settle(game, outcome);
+  }
+
   // 手を指す（Bot が相手なら続けてBotの手も指す）。画面の更新までここで行う
   async function commitMove(i, mv) {
     const g = game.game;
     game.events = [];
     game.note = null;
     Object.assign(game, newUiState());
-    game.events.push(core.describeMove(g.pos, mv));
+    game.events.push(describe(game, mv));
     g.play(mv);
 
     let outcome = g.outcome();
@@ -391,25 +453,59 @@ function startSession(game, message) {
       }
     }
 
+    if (game.ended) return undefined; // Botが考えている間に、投了などで終局が確定していた
     if (outcome) {
-      collector.stop('finished');
-      return respond(buildResult(game, settle(game, outcome)));
+      const text = endGame(outcome);
+      return text ? respond(buildResult(game, text)) : undefined;
     }
     saveSession(game, message);
     return respond(buildPlayMessage(game));
   }
 
+  // 投了は、押した本人にだけ見える確認を出してから確定する（ほかの人の画面は変えない）
+  async function confirmResign(i) {
+    const prompt = await i.reply({
+      content: '⚠️ 本当に投了しますか？ 投了すると**負け**になります。',
+      components: [
+        new ActionRowBuilder().addComponents(
+          button('resign:yes', '投了する', ButtonStyle.Danger),
+          button('resign:no', '続ける', ButtonStyle.Secondary),
+        ),
+      ],
+      flags: MessageFlags.Ephemeral,
+    });
+    const waiter = typeof prompt?.awaitMessageComponent === 'function' ? prompt : prompt?.resource?.message;
+
+    let answer;
+    try {
+      answer = await waiter.awaitMessageComponent({
+        componentType: ComponentType.Button,
+        filter: (c) => c.user.id === i.user.id,
+        time: RESIGN_CONFIRM_MS,
+      });
+    } catch {
+      await i.editReply({ content: '投了の確認がタイムアウトしました。対局は続行します。', components: [] }).catch(() => {});
+      return;
+    }
+
+    if (answer.customId !== 'resign:yes') {
+      await answer.update({ content: '投了をやめました。対局を続けます。', components: [] }).catch(() => {});
+      return;
+    }
+    const loser = i.user.id === game.players[BLACK].id ? BLACK : WHITE;
+    const text = endGame({ winner: 1 - loser, reason: 'resign' }); // 確認している間に終局していたら null
+    await answer.update({ content: text ? '投了しました。' : '対局はすでに終了しています。', components: [] }).catch(() => {});
+    if (text) await message.edit(buildResult(game, text)).catch((err) => console.error('[shogi] resign edit error:', err));
+  }
+
   collector.on('collect', async (i) => {
     try {
       if (!humanIds.has(i.user.id)) return deny(i, 'この対局の参加者ではありません。');
-      if (game.busy) return deny(i, 'Botが考え中です。少しお待ちください。');
 
-      // 投了（どちらでも可）
-      if (i.customId === 'resign') {
-        const loser = i.user.id === game.players[BLACK].id ? BLACK : WHITE;
-        collector.stop('finished');
-        return i.update(buildResult(game, settle(game, { winner: 1 - loser, reason: 'resign' })));
-      }
+      // 投了（どちらでも可）。確認を挟む
+      if (i.customId === 'resign') return confirmResign(i);
+
+      if (game.busy) return deny(i, 'Botが考え中です。少しお待ちください。');
 
       const g = game.game;
       if (i.user.id !== game.players[g.turn].id) return deny(i, 'あなたの手番ではありません。');
@@ -420,6 +516,18 @@ function startSession(game, message) {
       const refresh = () => i.update(buildPlayMessage(game));
       const reset = () => {
         Object.assign(game, newUiState());
+        return refresh();
+      };
+
+      // 古い画面からの操作（連打・再接続後など）は、何も実行せず最新の画面に更新するだけにする
+      const needStage = REQUIRED_STAGE[i.customId];
+      if (needStage && game.stage !== needStage) return refresh();
+
+      // 指す前の確認が必要なら確認画面へ。不要（確認OFF）ならそのまま指す
+      const proposeMove = (mv) => {
+        if (!needsConfirm(game, g.turn)) return commitMove(i, mv);
+        game.stage = 'confirm';
+        game.sel = { usi: core.moveToUsi(mv), ply: g.moves.length };
         return refresh();
       };
 
@@ -435,10 +543,18 @@ function startSession(game, message) {
           game.sel = {};
           return refresh();
 
+        case 'toggle': {
+          const me = game.players[g.turn];
+          me.confirm = !needsConfirm(game, g.turn);
+          game.note = me.confirm ? '✅ 指す前に確認します。' : '⚡ 確認なしで、選んだらすぐ指します。';
+          saveSession(game, message);
+          return refresh();
+        }
+
         case 'dest': {
           const moves = legal.filter((m) => m.from === sel.from && m.to === num);
           if (moves.length === 0) return reset();
-          if (moves.length === 1) return commitMove(i, moves[0]);
+          if (moves.length === 1) return proposeMove(moves[0]);
           game.stage = 'promote'; // 成る・成らないの両方が可能
           game.sel = { from: sel.from, to: num };
           return refresh();
@@ -448,7 +564,7 @@ function startSession(game, message) {
         case 'promo0': {
           const wantPromo = i.customId === 'promo1';
           const mv = legal.find((m) => m.from === sel.from && m.to === sel.to && m.promo === wantPromo);
-          return mv ? commitMove(i, mv) : reset();
+          return mv ? proposeMove(mv) : reset();
         }
 
         case 'dtype':
@@ -464,8 +580,18 @@ function startSession(game, message) {
 
         case 'drank': {
           const mv = legal.find((m) => m.drop === sel.dropType && m.to === num * 9 + sel.file);
-          return mv ? commitMove(i, mv) : reset();
+          return mv ? proposeMove(mv) : reset();
         }
+
+        case 'confirm': {
+          // 確認画面を出したときと同じ局面で、まだ合法な手のときだけ指す
+          const mv = core.findLegalByUsi(legal, sel.usi);
+          if (!mv || sel.ply !== g.moves.length) return reset();
+          return commitMove(i, mv);
+        }
+
+        case 'cancel':
+          return reset();
 
         case 'back': {
           const prev = { dest: 'pick', droptype: 'pick', dropfile: 'droptype', droprank: 'dropfile' };
@@ -492,7 +618,8 @@ function startSession(game, message) {
     activeIds.delete(message.id);
     sessions.remove(GAME_ID, message.id);
 
-    if (reason !== 'idle') return;
+    if (reason !== 'idle' || game.ended) return;
+    game.ended = true;
     try {
       const text = game.ranked
         ? settle(game, { winner: 1 - game.game.turn, reason: 'timeout' }) // 手番の人が時間切れ負け
@@ -549,6 +676,7 @@ async function restoreOne(client, s) {
     events: [],
     note: '♻️ Botが再起動したため、対局を復元しました。続きから遊べます。',
     busy: false,
+    ended: false,
     ...newUiState(),
   };
 
@@ -648,6 +776,7 @@ module.exports = {
       events: [],
       note: null,
       busy: false,
+      ended: false,
       ...newUiState(),
     };
 
