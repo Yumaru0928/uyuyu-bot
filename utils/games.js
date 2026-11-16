@@ -7,7 +7,7 @@
 const GAMES = {
   othello: { label: 'オセロ' },
   shogi: { label: '将棋' },
-  // connect4: { label: '四目並べ' },
+  connect4: { label: '四目並べ' },
 };
 
 const DEFAULT_GAME = Object.keys(GAMES)[0];

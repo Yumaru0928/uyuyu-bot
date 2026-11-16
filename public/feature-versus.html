@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>対戦ゲーム(オセロ・将棋・ランキング) | うゆゆBot</title>
-  <meta name="description" content="うゆゆBotの対戦ゲーム。オセロ(/othello)と将棋(/shogi)の対人戦・Bot戦、Eloレートとランキング(/ranking)、対局の保存と復元の仕組みを説明します。">
+  <meta name="description" content="うゆゆBotの対戦ゲーム。オセロ(/othello)と将棋(/shogi)と四目並べ(/connect4)の対人戦・Bot戦、Eloレートとランキング(/ranking)、対局の保存と復元の仕組みを説明します。">
   <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-versus.html">
   <meta property="og:title" content="対戦ゲーム(オセロ・将棋・ランキング) | うゆゆBot" />
   <meta property="og:description" content="うゆゆBotの対戦ゲーム。オセロと将棋の対人戦・Bot戦、Eloレートとランキング、対局の保存と復元の仕組みを説明します。" />
@@ -44,19 +44,19 @@
     <section class="doc">
       <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
       <h1 class="page-title">対戦ゲーム</h1>
-      <p class="meta">オセロ・将棋・ランキング</p>
+      <p class="meta">オセロ・将棋・四目並べ・ランキング</p>
 
-      <p>サーバーのメンバー同士で対戦できる、オセロと将棋の2つのゲームがあります。相手にBotを指定すると、ひとりでBot戦もできます。対人戦の結果は<strong>Eloレート</strong>に反映され、ランキングで競えます。</p>
+      <p>サーバーのメンバー同士で対戦できる、オセロ・将棋・四目並べの3つのゲームがあります。相手にBotを指定すると、ひとりでBot戦もできます。対人戦の結果は<strong>Eloレート</strong>に反映され、ランキングで競えます。</p>
 
-<ul class="related"><li><a href="#flow">対戦の流れ</a></li><li><a href="#othello">オセロ</a></li><li><a href="#shogi">将棋</a></li><li><a href="#ranking">レートとランキング</a></li><li><a href="#save">対局の保存と復元</a></li><li><a href="#roadmap">今後の予定</a></li></ul>
+<ul class="related"><li><a href="#flow">対戦の流れ</a></li><li><a href="#othello">オセロ</a></li><li><a href="#shogi">将棋</a></li><li><a href="#connect4">四目並べ</a></li><li><a href="#ranking">レートとランキング</a></li><li><a href="#save">対局の保存と復元</a></li><li><a href="#roadmap">今後の予定</a></li></ul>
 
       <h2 id="flow">対戦の流れ</h2>
       <ul>
         <li>対戦したい相手を指定してコマンドを実行すると、相手に「挑戦」が届きます。相手が<strong>承諾</strong>すると対局が始まり、<strong>拒否</strong>すると始まりません。</li>
         <li>対局は、盤面のメッセージについたボタンやメニューで操作します。操作できるのは対局の参加者だけで、手番でない人が操作しても進みません。</li>
         <li>手番が移ると、手番の人にメンションで通知が届きます（盤面は画像で表示されます）。</li>
-        <li>投了ボタンから、いつでも投了できます（将棋では、押し間違いを防ぐために確認画面が出ます）。</li>
-        <li>手番の人が一定時間操作しないと、時間切れで負けになります（オセロは10分、将棋は30分）。Bot戦では記録なしで終了します。</li>
+        <li>投了ボタンから、いつでも投了できます（押し間違いを防ぐため、どのゲームでも確認画面が出ます）。</li>
+        <li>手番の人が一定時間操作しないと、時間切れで負けになります（オセロ・四目並べは10分、将棋は30分）。Bot戦では記録なしで終了します。</li>
       </ul>
 
       <h2 id="othello">オセロ(/othello)</h2>
@@ -79,6 +79,16 @@
         <li>詰み、千日手、連続王手の千日手（反則負け）などに対応しています。</li>
       </ul>
 
+      <h2 id="connect4">四目並べ(/connect4)</h2>
+      <p>相手を指定して対戦します。Botを指定するとBot戦です。</p>
+<pre class="usage"><code>/connect4 opponent:@ユーザー</code></pre>
+      <ul>
+        <li>列を選んで駒を落とし、縦・横・斜めのどれかで4つ並べれば勝ちです。盤面がいっぱいになると引き分けです。</li>
+        <li>押し間違い対策として、落とす前に確認画面を出す設定があります（既定はオン。対局中のボタンで自分の設定だけ切り替えられます）。投了にも確認画面が出ます。</li>
+        <li>Bot戦の強さは「弱い」「普通」「強い」の3段階から選べます。Bot戦はレートが変動しません。</li>
+        <li>勝った4つの駒は、盤面の画像で金色に光って表示されます。</li>
+      </ul>
+
       <h2 id="ranking">レートとランキング(/ranking)</h2>
 <pre class="usage"><code>/ranking top
 /ranking profile user:@ユーザー</code></pre>
@@ -98,10 +108,10 @@
       <h2 id="roadmap">今後の予定</h2>
       <p>対戦ゲームまわりでは、次のような機能の追加・改善を予定しています。内容や順番は変わることがあります。</p>
       <ul>
-        <li><strong>新しい対戦ゲーム</strong>：四目並べなど、レート・ランキングに対応した対戦ゲームの追加を検討しています。</li>
+        <li><strong>新しい対戦ゲーム</strong>：五目並べなど、レート・ランキングに対応した対戦ゲームの追加を検討しています。</li>
         <li><strong>棋譜の再生と再戦</strong>：終わった対局を振り返る機能や、結果画面からそのまま再戦できるボタンの追加を検討しています。</li>
       </ul>
-      <p>追加済み：オセロの操作ミス防止（段階チェックと置く前の確認）、手番が来たときのメンション通知、Canvasによる盤面の画像表示。</p>
+      <p>追加済み：四目並べ、オセロの操作ミス防止（段階チェックと置く前の確認）、手番が来たときのメンション通知、Canvasによる盤面の画像表示。</p>
 
 <h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-games.html">ゲーム(スロット・ガチャ・ブラックジャックほか)</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
     </section>
