@@ -1,22 +1,31 @@
 'use strict';
 
-// ババ抜き（2人）のルール。UI・通信からは分離した純粋なロジックだけを置く。
+// ババ抜き（2〜4人）のルール。UI・通信からは分離した純粋なロジックだけを置く。
 //
 // カードは { suit, rank } のオブジェクト。suit は 'S'|'H'|'D'|'C'、rank は 1〜13。
 // ジョーカーは { joker: true }。ペアは「同じ rank の2枚」で、スートは問わない。
-// 山札は 52枚＋ジョーカー1枚の53枚を配り切る（先手27枚・後手26枚）。
+// 山札は 52枚＋ジョーカー1枚の53枚を全員に配り切る。
 //
 // 状態（state）:
 // {
-//   hands: [ [card...], [card...] ],  // プレイヤー0 / プレイヤー1 の手札
-//   turn: 0 | 1,                      // いま引く番のプレイヤー
-//   winner: null | 0 | 1,             // 勝者が決まったらそのプレイヤー
-//   lastEvent: null | {...}           // 直近の出来事（表示用。引いたカードそのものは含めない）
+//   hands: [ [card...], ... ],   // プレイヤーごとの手札（添字がプレイヤー番号）
+//   turn: number,                 // いま引く番のプレイヤー
+//   finished: [bool, ...],        // 手札が空になって「上がり」になったかどうか
+//   finishOrder: [number, ...],   // 上がった順のプレイヤー番号（敗者は含まない）
+//   loser: null | number,         // 最後まで残った1人（ジョーカー保持者）。決着まで null
+//   winner: null | number,        // 1位のプレイヤー（決着まで null。2人対戦の v1 互換）
+//   placements: null | [number],  // プレイヤーごとの順位（1始まり）。決着まで null
+//   lastEvent: null | {...}       // 直近の出来事（表示用。引いたカードそのものは含めない）
 // }
 //
-// 勝敗: 先に手札をなくした方が勝ち。最後にジョーカーを持っていた方が負け。
-// 手札が空になるのは「ペアを捨てて空になる」か「最後の1枚を相手に引かれる」かのどちらかで、
-// どちらもそのプレイヤーの勝ちとして扱う。
+// ルール: 手番の人は「時計回りで次の、まだ上がっていないプレイヤー」の手札から裏向きで
+// 1枚引く（引かれる側の手札は引く前にシャッフルする）。ペアができたら自動で捨てる。
+// 手札が0枚になったプレイヤーは上がりで、以降の手番はスキップされる。
+// 最後まで残った1人が負け（ジョーカーを持っている）。順位は上がった順。
+// 相手の最後の1枚を引いて相手が空になった場合も、相手が上がりになる
+// （2人対戦の v1 で「相手の勝ち」としていた解釈の一般化）。
+// 1手で引いた側と引かれた側が同時に空になった場合は、行動を完結させた引いた側を
+// 先の上がりとする（v1 の「両方同時に空なら引いた側の勝ち」という解釈の踏襲）。
 
 const SUITS = ['S', 'H', 'D', 'C'];
 const JOKER = Object.freeze({ joker: true });
@@ -78,44 +87,94 @@ function hasNoPairs(hand) {
   return true;
 }
 
+// まだ上がっていない（手札が残っている）プレイヤーの一覧
+function activePlayers(state) {
+  const out = [];
+  state.hands.forEach((_, i) => { if (!state.finished[i]) out.push(i); });
+  return out;
+}
+
+// from の時計回りで次にいる、まだ上がっていないプレイヤー（from 自身は除く）。
+// いなければ null（＝残り1人以下で、対局は終了しているはず）
+function nextActivePlayer(state, from) {
+  const n = state.hands.length;
+  for (let step = 1; step < n; step++) {
+    const idx = (from + step) % n;
+    if (!state.finished[idx]) return idx;
+  }
+  return null;
+}
+
+// いま手番のプレイヤーが引く相手（次の未上がりプレイヤー）。対局終了時は null
+function drawTarget(state) {
+  if (state.placements !== null) return null;
+  return nextActivePlayer(state, state.turn);
+}
+
+// 残り1人以下になったら決着を付ける（順位・敗者・勝者を確定させる）
+function finalizeIfOver(state) {
+  if (state.placements !== null) return;
+  const active = activePlayers(state);
+  if (active.length > 1) return;
+  const n = state.hands.length;
+  const placements = new Array(n).fill(null);
+  state.finishOrder.forEach((player, i) => { placements[player] = i + 1; });
+  state.loser = active.length === 1 ? active[0] : null;
+  if (state.loser !== null) placements[state.loser] = n;
+  state.placements = placements;
+  state.winner = state.finishOrder.length > 0 ? state.finishOrder[0] : null;
+}
+
 // 対局の初期状態を作る。配って、最初のペアは自動で捨てる。
-// firstPlayer は最初に引く番（0 か 1）。
-function createGame({ rng = Math.random, firstPlayer = 0 } = {}) {
+// firstPlayer は最初に引く番。playerCount は 2〜4（ルームの定員はサーバー側で制限）。
+function createGame({ rng = Math.random, firstPlayer = 0, playerCount = 2 } = {}) {
+  const count = Math.max(2, Math.min(8, Math.floor(playerCount) || 2));
   const deck = shuffle(createDeck(), rng);
-  const hands = [[], []];
-  deck.forEach((card, i) => hands[i % 2].push(card));
+  const hands = Array.from({ length: count }, () => []);
+  deck.forEach((card, i) => hands[i % count].push(card));
   return createGameFromHands(hands, firstPlayer);
 }
 
 // 任意の手札から対局を始める（初期ペア捨てと勝敗判定を含む。テスト・再戦用）
 function createGameFromHands(hands, firstPlayer = 0) {
   const cleaned = hands.map((h) => removePairs(h).hand);
-  const state = { hands: cleaned, turn: firstPlayer, winner: null, lastEvent: null };
-  // 配った時点で手札が空になったら、その場で勝ち（53枚配布では実質起きないが、規則として揃える）
-  if (cleaned[0].length === 0 && cleaned[1].length === 0) {
-    state.winner = firstPlayer; // 両方空はあり得ない想定。起きたら先手番側を勝ちとする
-  } else if (cleaned[0].length === 0) {
-    state.winner = 0;
-  } else if (cleaned[1].length === 0) {
-    state.winner = 1;
+  const state = {
+    hands: cleaned,
+    turn: firstPlayer,
+    finished: cleaned.map((h) => h.length === 0),
+    finishOrder: [],
+    loser: null,
+    winner: null,
+    placements: null,
+    lastEvent: null,
+  };
+  // 配った時点で手札が空のプレイヤーは上がり扱い。同時上がりの順序は席順で確定させる
+  state.finished.forEach((f, i) => { if (f) state.finishOrder.push(i); });
+  finalizeIfOver(state);
+  // 手番が上がり済みのプレイヤーを指していたら、次の未上がりプレイヤーへ進める
+  if (state.placements === null && state.finished[state.turn]) {
+    const next = nextActivePlayer(state, state.turn);
+    if (next !== null) state.turn = next;
   }
   return state;
 }
 
 /**
- * 手番のプレイヤーが、相手の手札から position 番目の1枚を引く。
+ * 手番のプレイヤーが、次の未上がりプレイヤーの手札から position 番目の1枚を引く。
  * 相手の手札は引く前にシャッフルする（並び順から中身が推測できないようにするため）。
  * 引いたカードとペアになるカードがあれば自動で捨てる。
- * @returns {{ ok: true, drawn: object, discardedPair: boolean, winner: null|0|1 }
+ * @returns {{ ok: true, drawn: object, drawnFrom: number, discardedPair: boolean,
+ *             finishedNow: number[], loser: null|number }
  *          | { ok: false, reason: string }}
  *          drawn は「引いた本人」にだけ見せる想定の情報。相手向けの表示には使わない。
  */
 function drawCard(state, position, rng = Math.random) {
-  if (state.winner !== null) return { ok: false, reason: '対局は終了しています' };
+  if (state.placements !== null) return { ok: false, reason: '対局は終了しています' };
   const me = state.turn;
-  const opp = 1 - me;
+  if (state.finished[me]) return { ok: false, reason: 'そのプレイヤーは上がり済みです' };
+  const opp = nextActivePlayer(state, me);
+  if (opp === null) return { ok: false, reason: '引く相手がいません' };
   const oppHand = state.hands[opp];
-  if (oppHand.length === 0) return { ok: false, reason: '相手の手札がありません' };
   if (!Number.isInteger(position) || position < 0 || position >= oppHand.length) {
     return { ok: false, reason: 'その位置のカードは引けません' };
   }
@@ -123,33 +182,37 @@ function drawCard(state, position, rng = Math.random) {
   state.hands[opp] = shuffle(oppHand, rng);
   const [drawn] = state.hands[opp].splice(position, 1);
   state.hands[me].push(drawn);
-  const before = state.hands[me].length;
   const { hand, discarded } = removePairs(state.hands[me]);
   state.hands[me] = hand;
   const discardedPair = discarded.length > 0;
 
+  // 上がり判定。同時に空になった場合は引いた側を先とする（ファイル冒頭の解釈どおり）
+  const finishedNow = [];
+  if (state.hands[me].length === 0 && !state.finished[me]) finishedNow.push(me);
+  if (state.hands[opp].length === 0 && !state.finished[opp]) finishedNow.push(opp);
+  for (const p of finishedNow) {
+    state.finished[p] = true;
+    state.finishOrder.push(p);
+  }
+
   state.lastEvent = {
     type: 'draw',
     player: me,
+    from: opp,
     discardedPair,
-    // 捨てたペアの2枚（捨てた時点で公開情報なので、両プレイヤーへ送ってよい）。
+    // 捨てたペアの2枚（捨てた時点で公開情報なので、全プレイヤーへ送ってよい）。
     // ペア捨てのアニメーション表示用。無ければ null。
     pair: discardedPair ? [...discarded] : null,
-    handCounts: [state.hands[0].length, state.hands[1].length],
+    finishedNow: [...finishedNow],
+    handCounts: state.hands.map((h) => h.length),
   };
 
-  // 勝敗判定。引いた側がペアを捨てて空になったら引いた側の勝ち。
-  // 相手の最後の1枚を引いて相手が空になったら、相手の勝ち（先に手札をなくしたのは相手）。
-  // 両方同時に空になるのは「引いた側がペアを捨てて空＋相手も空」のときだけで、その場合は
-  // 行動を完結させた引いた側の勝ちとする（最小解釈。決定シートへの逸脱ではなく規則の穴埋め）。
-  if (state.hands[me].length === 0) {
-    state.winner = me;
-  } else if (state.hands[opp].length === 0) {
-    state.winner = opp;
+  finalizeIfOver(state);
+  if (state.placements === null) {
+    const next = nextActivePlayer(state, me);
+    if (next !== null) state.turn = next;
   }
-
-  if (state.winner === null) state.turn = opp;
-  return { ok: true, drawn, discardedPair, winner: state.winner };
+  return { ok: true, drawn, drawnFrom: opp, discardedPair, finishedNow, loser: state.loser };
 }
 
 // Bot の手: 相手の手札からランダムな位置を1つ選ぶ（ババ抜きの Bot に読みは要らない）
@@ -158,24 +221,40 @@ function chooseBotPosition(opponentHandSize, rng = Math.random) {
   return Math.floor(rng() * opponentHandSize);
 }
 
-// そのプレイヤー視点の公開情報（相手の手札の中身は含めない）
+// そのプレイヤー視点の公開情報（他のプレイヤーの手札の中身は含めない）
 function publicView(state, player) {
+  const counts = state.hands.map((h) => h.length);
+  const over = state.placements !== null;
   return {
     yourHand: [...state.hands[player]],
-    opponentCount: state.hands[1 - player].length,
-    yourCount: state.hands[player].length,
+    yourCount: counts[player],
+    counts,
+    // 2人対戦の v1 互換: 相手全員の合計枚数（2人なら相手の枚数そのもの）
+    opponentCount: counts.reduce((sum, c, i) => (i === player ? sum : sum + c), 0),
+    finished: [...state.finished],
+    finishOrder: [...state.finishOrder],
+    youFinished: Boolean(state.finished[player]),
     turn: state.turn,
-    yourTurn: state.winner === null && state.turn === player,
+    yourTurn: !over && state.turn === player && !state.finished[player],
+    drawTarget: drawTarget(state),
+    loser: state.loser,
     winner: state.winner,
-    youWon: state.winner === null ? null : state.winner === player,
+    placements: state.placements ? [...state.placements] : null,
+    yourPlace: state.placements ? state.placements[player] : null,
+    youWon: state.placements ? state.placements[player] === 1 : null,
     lastEvent: state.lastEvent
       ? {
           type: state.lastEvent.type,
-          // 「引いたのが自分かどうか」だけを伝える。相手が引いたカードの中身は伝えない
+          // 引いた人と引かれた人のプレイヤー番号（名前はサーバー側が付ける）
+          player: state.lastEvent.player,
+          from: state.lastEvent.from,
+          // 「引いたのが自分かどうか」「引かれたのが自分かどうか」だけでも判定できるように
           byYou: state.lastEvent.player === player,
+          drawnFromYou: state.lastEvent.from === player,
           discardedPair: state.lastEvent.discardedPair,
-          // 捨てたペアは公開情報なので、そのまま両プレイヤーに伝える（表示用）
+          // 捨てたペアは公開情報なので、そのまま全プレイヤーに伝える（表示用）
           pair: state.lastEvent.pair ? state.lastEvent.pair.map((c) => ({ ...c })) : null,
+          finishedNow: [...state.lastEvent.finishedNow],
           handCounts: [...state.lastEvent.handCounts],
         }
       : null,
@@ -196,4 +275,7 @@ module.exports = {
   drawCard,
   chooseBotPosition,
   publicView,
+  activePlayers,
+  nextActivePlayer,
+  drawTarget,
 };

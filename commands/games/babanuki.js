@@ -34,7 +34,7 @@ module.exports = {
                 .setName('opponent')
                 .setDescription('対戦相手（省略時は人間）')
                 .addChoices(
-                    { name: '人間（対戦相手を募集）', value: 'human' },
+                    { name: '人間（待機ルームで募集・最大4人）', value: 'human' },
                     { name: 'Bot（すぐに対戦）', value: 'bot' },
                 ),
         ),
@@ -107,10 +107,11 @@ module.exports = {
         }
         return interaction.reply({
             content:
-                `🃏 ババ抜きの待機ルームを作りました！\n` +
+                `🃏 ババ抜きの待機ルームを作りました！（最大4人）\n` +
                 `まず、あなた自身がこのリンクを開いて待機してください（サイトでDiscordログイン済みだとホスト席に入ります）。\n` +
                 `相手にはこのリンクを渡してください。別のサーバーの人や、DMで渡した相手でも参加できます:\n${url}\n` +
-                `⏰ ${WAITING_MINUTES}分以内に相手が来ないと、ルームは自動で閉じます。` +
+                `待機画面では、ホストが空き席にBotを追加したり、2人以上そろったら対局を開始したりできます。\n` +
+                `⏰ ${WAITING_MINUTES}分以内に対局が始まらないと、ルームは自動で閉じます。` +
                 postNote,
             components: [linkRow],
             flags: MessageFlags.Ephemeral,
