@@ -24,7 +24,9 @@
           "3a3b",
           "2a1a",
           "5a4b",
-          "2c3b"
+          "2c3b",
+          "4b3b",
+          "2g2a+"
         ],
         "players": {
           "0": {
@@ -42,7 +44,7 @@
         "ranked": false,
         "level": "normal",
         "notifyMessageId": null,
-        "updatedAt": 1794808325692
+        "updatedAt": 1794808404492
       }
     }
   }
