@@ -18,7 +18,9 @@
           "4d7g+",
           "8i7g",
           "P*2g",
-          "2h2g"
+          "2h2g",
+          "7a6b",
+          "2b2a+"
         ],
         "players": {
           "0": {
@@ -29,13 +31,14 @@
           "1": {
             "id": "960004867542380555",
             "displayName": "うゆまる",
-            "isAi": false
+            "isAi": false,
+            "confirm": false
           }
         },
         "ranked": false,
         "level": "normal",
         "notifyMessageId": null,
-        "updatedAt": 1794808028393
+        "updatedAt": 1794808110761
       }
     }
   }
