@@ -5,7 +5,10 @@
       "1571852654798307461": {
         "channelId": "1523398914084962525",
         "guildId": "1507782198391210165",
-        "moves": [],
+        "moves": [
+          "7g7f",
+          "8c8d"
+        ],
         "players": {
           "0": {
             "id": "1162584697457627218",
@@ -22,7 +25,7 @@
         "ranked": false,
         "level": "easy",
         "notifyMessageId": null,
-        "updatedAt": 1794829283925
+        "updatedAt": 1794829317865
       }
     }
   }
