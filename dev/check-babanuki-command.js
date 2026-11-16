@@ -87,7 +87,7 @@ async function main() {
     assert.strictEqual(channelConfig.getChannelConfig()[GUILD_WITH].babanukiChannel, 'ch-post');
     console.log('チャンネル設定の読み書き（babanukiChannel）: OK');
 
-    // (3a) 設定あり＋人間対戦 → 投稿する。返信は ephemeral で同じリンクを含む
+    // (3a) 設定あり＋人間対戦 → 投稿する。返信は公開（ephemeral でない）で同じリンクを含む
     {
       const stub = makeChannelStub('ch-post');
       const interaction = makeInteraction({ guildId: GUILD_WITH, mode: 'human', channelStub: stub });
@@ -97,7 +97,7 @@ async function main() {
       const code = roomCodeOf(stub.sent[0].content);
       assert(code, '投稿に招待リンクが含まれていない');
       assert.strictEqual(interaction.replies.length, 1);
-      assert.strictEqual(interaction.replies[0].flags, MessageFlags.Ephemeral, '返信が ephemeral ではない');
+      assert.notStrictEqual(interaction.replies[0].flags, MessageFlags.Ephemeral, '返信が ephemeral になっている（公開返信のはず）');
       assert(interaction.replies[0].content.includes(`/play/babanuki?room=${code}`), '返信と投稿のリンクが一致しない');
       assert(interaction.replies[0].content.includes('自動投稿チャンネルにも募集を投稿しました'), '返信に自動投稿の注記がない');
       const room = babanukiServer.rooms.get(code);

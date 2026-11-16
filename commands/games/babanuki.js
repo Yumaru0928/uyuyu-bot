@@ -6,7 +6,7 @@
 // Discord は「リンク発行・募集」の入口に徹するハイブリッド方式（決定シート参照）。
 // リンクは URL なので、別のサーバーの人や DM 経由でも参加できる（クロスサーバー対戦）。
 //
-// ・返信は ephemeral（リンクをコピーして好きな場所に貼れるように、他人には見せない）
+// ・返信は全員に見える公開返信（その場にいる人がリンクからそのまま参加できるように）
 // ・人間対戦のとき、そのサーバーに自動投稿チャンネル（ダッシュボードで設定する
 //   guildConfig.babanukiChannel）があれば、Bot がそこへも募集を投稿する。
 //   投稿は対局が始まったら「募集終了」に、待機期限が切れたら「時間切れ」に編集される。
@@ -102,7 +102,6 @@ module.exports = {
                     `🤖 Bot対戦ルームを作りました！\n` +
                     `このリンクを開くと対戦が始まります（あなたがホストとして入ります）:\n${url}`,
                 components: [linkRow],
-                flags: MessageFlags.Ephemeral,
             });
         }
         return interaction.reply({
@@ -114,7 +113,6 @@ module.exports = {
                 `⏰ ${WAITING_MINUTES}分以内に対局が始まらないと、ルームは自動で閉じます。` +
                 postNote,
             components: [linkRow],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };
