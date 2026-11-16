@@ -25,43 +25,6 @@
         "ranked": false,
         "level": "easy",
         "updatedAt": 1794792580750
-      },
-      "1571698872454094929": {
-        "channelId": "1523398914084962525",
-        "guildId": "1507782198391210165",
-        "moves": [
-          "5g5f",
-          "3c3d",
-          "4i3h",
-          "8c8d",
-          "5i4i",
-          "8d8e",
-          "7g7f",
-          "8e8f",
-          "8g8f",
-          "8b8f",
-          "8h2b+",
-          "3a2b",
-          "P*8h",
-          "8f7f",
-          "B*6e"
-        ],
-        "players": {
-          "0": {
-            "id": "1556620719494930562",
-            "displayName": "うゆゆ",
-            "isAi": true
-          },
-          "1": {
-            "id": "1162584697457627218",
-            "displayName": "⌬",
-            "isAi": false,
-            "confirm": false
-          }
-        },
-        "ranked": false,
-        "level": "easy",
-        "updatedAt": 1794792753085
       }
     }
   }
