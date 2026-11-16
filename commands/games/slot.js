@@ -9,7 +9,7 @@ const {
     ApplicationIntegrationType,
     InteractionContextType
 } = require("discord.js");
-const { UYUYU_EMOJIS, SLOT_TRANSPARENT, SLOT_EXTRA, asText } = require("../../emojis.js");
+const { UYUYU_EMOJIS, SLOT_TRANSPARENT, SLOT_EXTRA, asText } = require("../../utils/emojis.js");
 
 // スロットに使う絵文字（透明のアニメーション絵文字と、通常のカスタム絵文字）
 // ※ uyuyu_1 は元からスロットには入っていない

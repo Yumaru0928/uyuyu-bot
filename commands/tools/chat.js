@@ -14,9 +14,9 @@ const {
     describeError,
     withModelFallback,
     urlToGenerativePart
-} = require("../../gemini.js");
-const { buildReplyMessages } = require("../../latex-render.js");
-const { QUESTION_HEADER, registerAiMessage } = require("../../ai-messages.js");
+} = require("../../utils/gemini.js");
+const { buildReplyMessages } = require("../../utils/latex-render.js");
+const { QUESTION_HEADER, registerAiMessage } = require("../../utils/ai-messages.js");
 
 // スレッドの元メッセージに表示する質問の最大文字数（超えた分は prompt.txt に逃がす）
 const QUESTION_MAX = 1700;

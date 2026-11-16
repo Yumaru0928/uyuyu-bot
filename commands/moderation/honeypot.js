@@ -10,7 +10,7 @@ const {
     ChannelSelectMenuBuilder,
     ChannelType,
 } = require('discord.js');
-const { updateChannelConfig, ensureGuildConfig } = require('../../channel-config.js');
+const { updateChannelConfig, ensureGuildConfig } = require('../../utils/channel-config.js');
 
 // 処罰の種類（キー: 内部名, 値: 表示名）
 const PUNISHMENT_LABELS = {

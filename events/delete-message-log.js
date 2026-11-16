@@ -1,6 +1,6 @@
 // events/delete-message-log.js
 const { Events, AuditLogEvent, EmbedBuilder } = require('discord.js');
-const { getChannelConfig } = require('../channel-config.js');
+const { getChannelConfig } = require('../utils/channel-config.js');
 
 // 監査ログは削除の直後にはまだ書かれていないことがあるので、少し待ってから取得する
 const AUDIT_LOG_DELAY_MS = 1000;

@@ -5,7 +5,7 @@ const {
     ApplicationIntegrationType,
     InteractionContextType
 } = require("discord.js");
-const { generateLatexImage } = require("../../latex-render.js");
+const { generateLatexImage } = require("../../utils/latex-render.js");
 
 const LOADING = "<a:load:1559811422261747783>";
 
