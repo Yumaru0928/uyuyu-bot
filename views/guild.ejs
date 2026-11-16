@@ -7,6 +7,7 @@
   const disabledReact = Array.isArray(guildConfig.disableAutoReact) ? guildConfig.disableAutoReact : [];
   const reactOnCount = channels.filter(c => !disabledReact.includes(c.id)).length;
   const deleteLogSet = channels.some(c => c.id === guildConfig.deleteLogChannel);
+  const babanukiSet = channels.some(c => c.id === guildConfig.babanukiChannel);
 
   // ハニーポット設定（未設定の項目は既定値で補う）
   const honeypot = Object.assign(
@@ -25,6 +26,7 @@
     { id: 'delete-log', label: '削除ログ', on: deleteLogSet },
     { id: 'auto-react', label: 'Auto-React', on: reactOnCount > 0 },
     { id: 'honeypot', label: 'ハニーポット', on: honeypotSet },
+    { id: 'babanuki', label: 'ババ抜き', on: babanukiSet },
     { id: 'notifications', label: '配信・投稿の通知', on: notifications.length > 0 },
   ];
 %>
@@ -148,6 +150,26 @@
                             <% }) %>
                         </select>
                         <p class="field-help">引っかかったユーザーの情報と処罰の結果を送信します。Botがそのチャンネルに送信できる権限を持っている必要があります。</p>
+                    </div>
+                </section>
+
+                <section class="panel" data-panel="babanuki" aria-labelledby="babanuki-title">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title" id="babanuki-title">ババ抜き</h2>
+                            <p class="panel-lead">/babanuki コマンドで人間同士の待機ルームが作られたときに、招待リンクを自動で投稿するチャンネルです。対局が始まると、投稿は募集終了の表示に書き換わります。</p>
+                        </div>
+                        <span class="status<%= babanukiSet ? '' : ' status--off' %>"><%= babanukiSet ? '有効' : '未設定' %></span>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="babanukiChannel">自動投稿先チャンネル</label>
+                        <select class="select" id="babanukiChannel" name="babanukiChannel">
+                            <option value="">(未設定: 自動投稿しない)</option>
+                            <% channels.forEach(channel => { %>
+                            <option value="<%= channel.id %>"<%= guildConfig.babanukiChannel === channel.id ? ' selected' : '' %>>#<%= channel.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">Botがそのチャンネルに送信できる権限を持っている必要があります。Bot戦のルームは投稿されません。</p>
                     </div>
                 </section>
 

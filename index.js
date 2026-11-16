@@ -13,6 +13,7 @@ const { updateChannelConfig } = require('./utils/channel-config.js');
 const aiMessages = require('./utils/ai-messages.js');
 const ratings = require('./utils/rating.js');     // 対戦ゲームのレート
 const sessions = require('./utils/sessions.js');  // 進行中の対局（再起動しても続きから遊べるようにする）
+const babanukiRecords = require('./utils/babanuki-records.js'); // Web版ババ抜きの勝敗記録（レートなし）
 const notify = require('./utils/notify');
 
 // 分離したWebサーバー（web.js）を読み込む
@@ -27,6 +28,10 @@ const server = app.listen(PORT, () => console.log(`[Web Server] Listening on por
 // 自宅PC（マイクラサーバー）の常駐スクリプトからのWebSocket接続を受け付ける（/agent）
 const agentBridge = require('./utils/agent-bridge.js');
 agentBridge.attach(server);
+
+// Web版ババ抜きの対局WebSocket（/play/babanuki/ws）。ログイン確認は web.js が発行するトークンで行う
+const babanukiServer = require('./utils/babanuki-server.js');
+babanukiServer.attach(server, { verifyToken: app.get('babanukiVerifyToken') });
 
 // ===================================================
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
@@ -68,6 +73,7 @@ process.once('SIGTERM', async () => {
             aiMessages.flush().catch(error => console.error('[Shutdown] 記録の保存に失敗しました:', error)),
             ratings.flush().catch(error => console.error('[Shutdown] レートの保存に失敗しました:', error)),
             sessions.flush().catch(error => console.error('[Shutdown] 対局の保存に失敗しました:', error)),
+            babanukiRecords.flush().catch(error => console.error('[Shutdown] ババ抜きの勝敗記録の保存に失敗しました:', error)),
         ]),
         new Promise(resolve => setTimeout(resolve, 10000)),
     ]);
@@ -297,11 +303,12 @@ if (githubSettings()) {
 // 対戦ゲームのデータも data ブランチに保存する。
 //   ・レート        … ratings.json  （utils/rating.js）
 //   ・進行中の対局  … sessions.json （utils/sessions.js。再起動後に続きから遊べるようにする）
+//   ・ババ抜き勝敗  … babanuki-results.json （utils/babanuki-records.js。レートは付けず勝敗だけ）
 // 変更があってから 10 秒ほどまとめて 1 回コミットする（詳しくは utils/json-store.js）。
 // ・読み戻しに失敗したまま保存すると、data ブランチにある既存のデータを空の内容で上書きしてしまう。
 //   そのため「読み戻しに成功した」または「初回でファイルがまだ無い」場合だけ、保存を有効にする。
 // ・GITHUB_TOKEN / GITHUB_REPO が無い（ローカル実行）ときは何もしない。data/ 配下のファイルに保存される
-const gameStores = [ratings.store, sessions.store];
+const gameStores = [ratings.store, sessions.store, babanukiRecords.store];
 
 async function restoreJsonStoreFromGitHub(store) {
     const github = githubSettings();
