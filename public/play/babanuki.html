@@ -18,6 +18,15 @@
     --danger: #e05d5d;
     --card: #fdfdf8;
     --card-fg: #1c2422;
+    /* 階層・装飾用（デザイン改善で追加） */
+    --text-dim: #b9cfc6;
+    --text-faint: #7d9a8e;
+    --line: rgba(238,247,243,.12);
+    --panel-deep: #0f2921;
+    --gold: #e8c15a;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --tap: 44px;
   }
   * { box-sizing: border-box; }
   body {
@@ -29,43 +38,107 @@
   header h1 { font-size: 20px; margin: 0; }
   header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
   main { width: 100%; max-width: 760px; padding: 0 16px 32px; }
-  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
   .muted { color: var(--muted); font-size: 14px; }
   button {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);
     padding: 10px 18px; font-size: 15px; cursor: pointer; margin: 4px 4px 4px 0;
+    min-height: var(--tap);
+    transition: background .15s ease, transform .1s ease;
   }
   button:hover { background: var(--accent2); }
+  button:active { transform: scale(.97); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
   button:disabled { background: #3a554c; cursor: default; }
   button.secondary { background: var(--panel2); }
   input[type="text"] {
     background: var(--panel2); color: var(--fg); border: 1px solid #2c5749;
-    border-radius: 8px; padding: 10px; font-size: 15px; width: 180px; margin-right: 4px;
+    border-radius: var(--radius-sm); padding: 10px; font-size: 15px; width: 180px; margin-right: 4px;
+    min-height: var(--tap);
   }
-  .status { font-size: 17px; font-weight: 700; min-height: 24px; margin: 8px 0; }
-  .event { color: var(--muted); font-size: 14px; min-height: 20px; }
-  .hand { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
-  .label { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .status {
+    font-size: 19px; font-weight: 700; text-align: center;
+    min-height: 52px; margin: 8px 0; padding: 12px 10px;
+    background: var(--panel2); border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .status.my-turn { background: var(--accent); color: #fff; }
+  .status.opp-turn { background: var(--panel-deep); color: var(--text-dim); }
+  .event { color: var(--text-dim); font-size: 13px; min-height: 20px; text-align: center; }
+  .hand {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px;
+    padding: 10px; min-height: 88px; align-content: flex-start;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+  }
+  #opp-hand { background: var(--panel-deep); }
+  #my-hand { background: rgba(238,247,243,.04); }
+  .label { font-size: 13px; color: var(--text-faint); margin-top: 10px; }
   .card {
     width: 46px; height: 64px; border-radius: 6px; background: var(--card); color: var(--card-fg);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     font-weight: 700; font-size: 15px; line-height: 1.1; user-select: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    box-shadow: 0 2px 6px rgba(0,0,0,.45);
+    transition: transform .18s ease, box-shadow .18s ease;
   }
   .card .suit { font-size: 17px; }
   .card.red { color: #c0392b; }
-  .card.joker { background: #2b2b3a; color: #ffd75e; font-size: 11px; }
+  .card.joker { background: #2b2b3a; color: var(--gold); font-size: 11px; }
   .card.back {
     background: repeating-linear-gradient(45deg, #14532d 0 6px, #0E7A5C 6px 12px);
     border: 2px solid #d9e8e1; color: transparent; padding: 0; cursor: pointer;
   }
-  .card.back:hover:not(:disabled) { outline: 3px solid var(--accent2); }
+  .card.back:hover:not(:disabled) { outline: 3px solid var(--accent2); transform: translateY(-4px); }
+  .card.back:active:not(:disabled) { transform: translateY(-2px) scale(.97); }
   .card.back:disabled { opacity: .75; cursor: default; }
-  .invite { word-break: break-all; background: var(--panel2); border-radius: 8px; padding: 10px; font-size: 14px; }
+  .invite { word-break: break-all; background: var(--panel2); border-radius: var(--radius-sm); padding: 10px; font-size: 14px; }
   .big { font-size: 26px; font-weight: 900; text-align: center; margin: 12px 0; }
-  .win { color: #ffd75e; }
-  .lose { color: var(--danger); }
+  .win {
+    color: var(--gold); background: rgba(232,193,90,.12);
+    border: 1px solid rgba(232,193,90,.45); border-radius: var(--radius-sm); padding: 14px 10px;
+  }
+  .lose {
+    color: var(--danger); background: rgba(224,93,93,.10);
+    border: 1px solid rgba(224,93,93,.4); border-radius: var(--radius-sm); padding: 14px 10px;
+  }
   [hidden] { display: none !important; }
+
+  /* アニメーション（すべて短め。prefers-reduced-motion で実質無効化する） */
+  @keyframes draw-in {
+    from { opacity: 0; transform: translateY(-10px) scale(.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .card.drawn { animation: draw-in .3s ease; }
+  @keyframes discard-pair {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    35% { transform: translateY(-8px) scale(1.03); opacity: 1; }
+    100% { transform: translateY(4px) scale(.6); opacity: 0; }
+  }
+  .card.discarding { animation: discard-pair .35s ease forwards; }
+  @keyframes turn-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(53,192,143,0); }
+    50% { box-shadow: 0 0 0 3px rgba(53,192,143,.55), 0 0 18px rgba(53,192,143,.35); }
+  }
+  .turn-glow { animation: turn-glow 1.6s ease-in-out 2; }
+  @keyframes result-pop {
+    0% { transform: scale(.9); opacity: 0; }
+    60% { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .result-pop { animation: result-pop .35s ease; }
+  @keyframes waiting-dot {
+    0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+  .waiting-dots span { display: inline-block; animation: waiting-dot 1.2s ease-in-out infinite; }
+  .waiting-dots span:nth-child(2) { animation-delay: .15s; }
+  .waiting-dots span:nth-child(3) { animation-delay: .3s; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -96,7 +169,7 @@
 
   <!-- 相手待ち -->
   <section id="waiting" class="panel" hidden>
-    <p class="status">相手を待っています。リンクを共有してください</p>
+    <p class="status">相手を待っています<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span></p>
     <p class="muted">この招待URL（またはコード）を相手に渡してください。リンクを知っている人は、別のサーバーからでも参加できます。</p>
     <p class="invite" id="invite-text"></p>
     <button id="btn-copy" class="secondary">招待URLをコピー</button>
@@ -142,6 +215,14 @@ let roomCode = null;
 let mode = null; // 'bot' | 'human'
 let view = null;
 let rematchSent = false;
+
+// アニメーション制御用：前回描画時の状態を覚えておき、変化したときだけ再生する
+let prevHandKeys = null;   // 前回の自分の手札のキー集合（引いたカードの特定用）
+let prevYourTurn = null;   // 前回の手番（自分の番に切り替わった瞬間だけ光らせる用）
+let prevWinner = null;     // 前回の勝者（結果ポップを対局ごとに1回だけ出す用）
+let lastDiscardSig = null; // ペア捨てアニメーションの二重再生防止（再接続時の再送対策）
+
+function cardKeyClient(card) { return card.joker ? 'JOKER' : card.suit + '-' + card.rank; }
 
 function toast(msg) { $('toast').textContent = msg || ''; }
 function myName() { return me.loggedIn ? me.name : ($('guest-name').value.trim() || 'ゲスト'); }
@@ -232,6 +313,8 @@ function handle(msg) {
 function render(msg) {
   show('game');
   const v = msg.view;
+  const isGameStart = !v.lastEvent; // 対局開始の state（配り直し・再戦含む）はアニメーションしない
+  if (isGameStart) lastDiscardSig = null;
   $('opp-label').textContent = '相手（' + msg.opponentName + '）の手札: ' + v.opponentCount + '枚';
 
   const opp = $('opp-hand');
@@ -252,7 +335,14 @@ function render(msg) {
     if (b2.joker) return -1;
     return a.rank - b2.rank;
   });
-  for (const card of sorted) mine.appendChild(cardEl(card));
+  for (const card of sorted) {
+    const el = cardEl(card);
+    // 前回の手札になかったカード＝今引いたカードだけふわりと着地させる。
+    // 引いてすぐペアで消えたカードは手札に残らないので、自然に何も起きない
+    if (!isGameStart && prevHandKeys && !prevHandKeys.has(cardKeyClient(card))) el.classList.add('drawn');
+    mine.appendChild(el);
+  }
+  prevHandKeys = new Set(sorted.map(cardKeyClient));
 
   const ev = v.lastEvent;
   if (ev) {
@@ -263,8 +353,30 @@ function render(msg) {
     $('event').textContent = '対局開始！最初のペアは自動で捨ててあります。';
   }
 
-  if (v.winner !== null && v.winner !== undefined && v.youWon !== null) {
-    $('status').textContent = '';
+  // ペア捨てアニメーション: 捨てた側の手札エリアに、その2枚（公開情報）を一時表示して消す。
+  // ゲーム進行は止めない（タイマーで除去するだけ）
+  if (ev && ev.discardedPair && Array.isArray(ev.pair) && ev.pair.length === 2) {
+    const sig = (ev.byYou ? 'you' : 'opp') + ':' + ev.pair.map(cardKeyClient).join(',') + ':' + (ev.handCounts || []).join('-');
+    if (sig !== lastDiscardSig) {
+      lastDiscardSig = sig;
+      const area = ev.byYou ? mine : opp;
+      const temps = ev.pair.map((card) => {
+        const el = cardEl(card);
+        el.classList.add('discarding');
+        area.appendChild(el);
+        return el;
+      });
+      setTimeout(() => temps.forEach((el) => el.remove()), 380);
+    }
+  }
+
+  const status = $('status');
+  const gameOver = v.winner !== null && v.winner !== undefined && v.youWon !== null;
+  if (gameOver) {
+    status.hidden = true;
+    status.classList.remove('my-turn', 'opp-turn', 'turn-glow');
+    mine.classList.remove('turn-glow');
+    prevYourTurn = null;
     $('result-box').hidden = false;
     $('rematch-offer-box').hidden = true;
     if (!rematchSent) $('rematch-note').textContent = '';
@@ -272,11 +384,31 @@ function render(msg) {
     const rt = $('result-text');
     rt.textContent = v.youWon ? '🎉 あなたの勝ち！' : 'ジョーカーが残って負け…';
     rt.className = 'big ' + (v.youWon ? 'win' : 'lose');
+    if (prevWinner === null) {
+      const box = $('result-box');
+      box.classList.remove('result-pop');
+      void box.offsetWidth; // 再戦後の2局目でも確実に再生し直す
+      box.classList.add('result-pop');
+    }
   } else {
     $('result-box').hidden = true;
     rematchSent = false;
-    $('status').textContent = v.yourTurn ? 'あなたの番です。相手のカードを1枚選んでください' : '相手の番です…';
+    status.hidden = false;
+    status.textContent = v.yourTurn ? 'あなたの番です。相手のカードを1枚選んでください' : '相手の番です…';
+    status.classList.toggle('my-turn', v.yourTurn);
+    status.classList.toggle('opp-turn', !v.yourTurn);
+    // 自分の番に「切り替わった」ときだけ、ステータスと自分の手札枠をそっと光らせる
+    if (v.yourTurn && prevYourTurn === false && !isGameStart) {
+      for (const el of [status, mine]) {
+        el.classList.remove('turn-glow');
+        void el.offsetWidth;
+        el.classList.add('turn-glow');
+      }
+      setTimeout(() => { status.classList.remove('turn-glow'); mine.classList.remove('turn-glow'); }, 3300);
+    }
+    prevYourTurn = v.yourTurn;
   }
+  prevWinner = gameOver ? v.winner : null;
 }
 
 $('btn-bot').onclick = () => {
