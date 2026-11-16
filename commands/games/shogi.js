@@ -17,9 +17,11 @@ const {
   StringSelectMenuBuilder,
   ComponentType,
   MessageFlags,
+  AttachmentBuilder,
 } = require('discord.js');
 
 const core = require('../../utils/shogi-core');
+const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
 const sessions = require('../../utils/sessions');
 const { requestChallenge } = require('../../utils/challenge');
@@ -188,6 +190,12 @@ function buildHeader(game) {
   return lines;
 }
 
+// 盤面画像（Canvas）。作れない環境では null を返し、テキスト盤面で表示する
+function boardFile(pos, marks = new Map()) {
+  const buf = boardImage.renderShogi(pos, core, { marks });
+  return buf ? [new AttachmentBuilder(buf, { name: 'board.png' })] : null;
+}
+
 function buildPlayMessage(game) {
   const g = game.game;
   const turn = g.turn;
@@ -196,13 +204,27 @@ function buildPlayMessage(game) {
   lines.push(`手番: ${SIDE[turn].mark}${SIDE[turn].name} <@${game.players[turn].id}>（${g.moves.length}手）${check}`);
   lines.push(hintFor(game));
   const view = boardFor(game);
-  lines.push('```\n' + renderBoard(view.pos, view.marks) + '\n```');
-  return { content: lines.join('\n'), components: buildComponents(game) };
+  const files = boardFile(view.pos, view.marks);
+  if (files) {
+    // 画像のときは持ち駒を本文にも出す（画像は盤面のみ）
+    lines.push(`後手の持駒：${handText(view.pos, WHITE)}`);
+    lines.push(`先手の持駒：${handText(view.pos, BLACK)}`);
+  } else {
+    lines.push('```\n' + renderBoard(view.pos, view.marks) + '\n```');
+  }
+  return { content: lines.join('\n'), components: buildComponents(game), ...(files ? { files } : {}) };
 }
 
 function buildResult(game, text) {
-  const lines = [text, ...buildHeader(game).slice(0, 1), '```\n' + renderBoard(game.game.pos) + '\n```'];
-  return { content: lines.join('\n'), components: [] };
+  const files = boardFile(game.game.pos);
+  const lines = [text, ...buildHeader(game).slice(0, 1)];
+  if (files) {
+    lines.push(`後手の持駒：${handText(game.game.pos, WHITE)}`);
+    lines.push(`先手の持駒：${handText(game.game.pos, BLACK)}`);
+  } else {
+    lines.push('```\n' + renderBoard(game.game.pos) + '\n```');
+  }
+  return { content: lines.join('\n'), components: [], ...(files ? { files } : {}) };
 }
 
 function selectRow(id, placeholder, options) {
@@ -398,6 +420,7 @@ function saveSession(game, message) {
     players: game.players,
     ranked: game.ranked,
     level: game.level,
+    notifyMessageId: game.notifyMessageId ?? null,
   });
 }
 
@@ -421,11 +444,43 @@ function startSession(game, message) {
   const collector = message.createMessageComponentCollector({ idle: IDLE_TIMEOUT_MS });
   const deny = (i, text) => i.reply({ content: text, flags: MessageFlags.Ephemeral });
 
+  // 手番通知: 盤面メッセージの編集でメンションしても通知は飛ばないため、手番が移るたびに
+  // メンション専用の新しいメッセージを送る。前の通知は消して、チャンネルに溜めないようにする
+  async function notifyTurn() {
+    if (!game.ranked) return; // 人間同士の対戦だけ（Bot戦は操作中の本人が画面を見ている）
+    const turnPlayer = game.players[game.game.turn];
+    if (!turnPlayer || turnPlayer.isAi) return;
+    try {
+      await clearNotify();
+      const sent = await message.channel.send({
+        content: `🔔 <@${turnPlayer.id}> あなたの手番です（${GAMES[GAME_ID].label}）`,
+        allowedMentions: { users: [turnPlayer.id] },
+      });
+      game.notifyMessageId = sent.id;
+      saveSession(game, message);
+    } catch (err) {
+      console.error('[shogi] 手番通知エラー:', err);
+    }
+  }
+
+  async function clearNotify() {
+    if (!game.notifyMessageId) return;
+    const id = game.notifyMessageId;
+    game.notifyMessageId = null;
+    try {
+      const old = await message.channel.messages.fetch(id).catch(() => null);
+      if (old) await old.delete().catch(() => {});
+    } catch {
+      // 通知の後始末に失敗しても対局は続ける
+    }
+  }
+
   // 終局の確定はここに集約する。投了の確認中に時間切れになるなどしても、二重に結果・レートを記録しない
   function endGame(outcome) {
     if (game.ended) return null;
     game.ended = true;
     collector.stop('finished');
+    clearNotify().catch(() => {});
     return settle(game, outcome);
   }
 
@@ -459,11 +514,17 @@ function startSession(game, message) {
       return text ? respond(buildResult(game, text)) : undefined;
     }
     saveSession(game, message);
-    return respond(buildPlayMessage(game));
+    const r = await respond(buildPlayMessage(game));
+    await notifyTurn(); // 手番が相手に移ったらメンションで知らせる
+    return r;
   }
 
   // 投了は、押した本人にだけ見える確認を出してから確定する（ほかの人の画面は変えない）
   async function confirmResign(i) {
+    // 確認メッセージ「自身」に対してボタンを待つこと。
+    // i.reply() の戻り値（InteractionResponse）の awaitMessageComponent は、元のインタラクションの
+    // メッセージ（盤面メッセージ）を対象にしてしまい、確認メッセージのクリックを拾えないため、
+    // withResponse で確認メッセージの Message を取得して、そちらで待つ。
     const prompt = await i.reply({
       content: '⚠️ 本当に投了しますか？ 投了すると**負け**になります。',
       components: [
@@ -473,12 +534,13 @@ function startSession(game, message) {
         ),
       ],
       flags: MessageFlags.Ephemeral,
+      withResponse: true,
     });
-    const waiter = typeof prompt?.awaitMessageComponent === 'function' ? prompt : prompt?.resource?.message;
+    const promptMessage = prompt?.resource?.message ?? (await i.fetchReply());
 
     let answer;
     try {
-      answer = await waiter.awaitMessageComponent({
+      answer = await promptMessage.awaitMessageComponent({
         componentType: ComponentType.Button,
         filter: (c) => c.user.id === i.user.id,
         time: RESIGN_CONFIRM_MS,
@@ -613,10 +675,14 @@ function startSession(game, message) {
     }
   });
 
+  // 対局の開始・復元時にも、最初の手番の人へ通知する
+  notifyTurn().catch(() => {});
+
   collector.on('end', async (_collected, reason) => {
     // 終わった対局（終局・投了・時間切れ・メッセージ削除など）は保存データから消す
     activeIds.delete(message.id);
     sessions.remove(GAME_ID, message.id);
+    await clearNotify();
 
     if (reason !== 'idle' || game.ended) return;
     game.ended = true;
@@ -677,6 +743,7 @@ async function restoreOne(client, s) {
     note: '♻️ Botが再起動したため、対局を復元しました。続きから遊べます。',
     busy: false,
     ended: false,
+    notifyMessageId: s.notifyMessageId ?? null,
     ...newUiState(),
   };
 
