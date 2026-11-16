@@ -215,7 +215,7 @@ function buildPlayMessage(game) {
   return { content: lines.join('\n'), components: buildComponents(game), ...(files ? { files } : {}) };
 }
 
-function buildResult(game, text) {
+function buildResult(game, text, { rematch = true } = {}) {
   const files = boardFile(game.game.pos);
   const lines = [text, ...buildHeader(game).slice(0, 1)];
   if (files) {
@@ -224,7 +224,28 @@ function buildResult(game, text) {
   } else {
     lines.push('```\n' + renderBoard(game.game.pos) + '\n```');
   }
-  return { content: lines.join('\n'), components: [], ...(files ? { files } : {}) };
+  // 終局後もコレクタが生きている間だけ再戦できる（受け付けられない場合は付けない）
+  const components = rematch
+    ? [new ActionRowBuilder().addComponents(button('rematch', '🔄 再戦', ButtonStyle.Primary))]
+    : [];
+  return { content: lines.join('\n'), components, ...(files ? { files } : {}) };
+}
+
+// 再戦用の新しい対局を作る（先手・後手を入れ替える。確認ON/OFFなどの個人設定は本人のエントリごと移る）
+function createRematchGame(game) {
+  return {
+    game: new core.ShogiGame(),
+    players: { [BLACK]: game.players[WHITE], [WHITE]: game.players[BLACK] },
+    ranked: game.ranked,
+    level: game.level,
+    guildId: game.guildId,
+    events: [],
+    note: null,
+    busy: false,
+    ended: false,
+    notifyMessageId: null,
+    ...newUiState(),
+  };
 }
 
 function selectRow(id, placeholder, options) {
@@ -479,7 +500,7 @@ function startSession(game, message) {
   function endGame(outcome) {
     if (game.ended) return null;
     game.ended = true;
-    collector.stop('finished');
+    sessions.remove(GAME_ID, message.id); // 終わった対局は復元対象から外す（再戦ボタン用にコレクタは残す）
     clearNotify().catch(() => {});
     return settle(game, outcome);
   }
@@ -560,14 +581,55 @@ function startSession(game, message) {
     if (text) await message.edit(buildResult(game, text)).catch((err) => console.error('[shogi] resign edit error:', err));
   }
 
+  // 再戦ボタン。Bot戦はその場で開始、人間同士は相手の承諾を取ってから開始する
+  async function handleRematch(i) {
+    if (!game.ended) return deny(i, '対局が終わるまで再戦はできません。');
+    if (game.rematchStarted) return deny(i, 'すでに再戦の手続きが始まっています。');
+    game.rematchStarted = true;
+    await message.edit({ components: [] }).catch(() => {}); // 元の結果画面のボタンは消す（二重開始防止）
+
+    const next = createRematchGame(game);
+
+    if (!game.ranked) {
+      // Bot戦: 申し込みなしで即開始
+      if (next.players[next.game.turn].isAi) {
+        // Botが先手: エンジンの手に時間がかかるので先に応答しておく
+        await i.deferReply();
+        const outcome = await aiTurn(next);
+        if (outcome) {
+          await i.editReply(buildResult(next, settle(next, outcome), { rematch: false }));
+          return;
+        }
+        await i.editReply(buildPlayMessage(next));
+      } else {
+        await i.reply(buildPlayMessage(next));
+      }
+      const msg = await i.fetchReply();
+      startSession(next, msg);
+      return;
+    }
+    // 人間同士: 相手の承諾を取る（対戦申し込みと同じ流れ）
+    const opponentEntry = Object.values(next.players).find((pl) => pl.id !== i.user.id);
+    const res = await requestChallenge(i, {
+      opponent: { id: opponentEntry.id },
+      gameLabel: GAMES[GAME_ID].label,
+    });
+    if (res.status !== 'accepted') return;
+    await res.interaction.update(buildPlayMessage(next));
+    startSession(next, res.message);
+  }
+
   collector.on('collect', async (i) => {
     try {
       if (!humanIds.has(i.user.id)) return deny(i, 'この対局の参加者ではありません。');
+
+      if (i.customId === 'rematch') return handleRematch(i);
 
       // 投了（どちらでも可）。確認を挟む
       if (i.customId === 'resign') return confirmResign(i);
 
       if (game.busy) return deny(i, 'Botが考え中です。少しお待ちください。');
+      if (game.ended) return deny(i, 'この対局は終了しています。');
 
       const g = game.game;
       if (i.user.id !== game.players[g.turn].id) return deny(i, 'あなたの手番ではありません。');
@@ -684,13 +746,18 @@ function startSession(game, message) {
     sessions.remove(GAME_ID, message.id);
     await clearNotify();
 
-    if (reason !== 'idle' || game.ended) return;
+    if (game.ended) {
+      // 再戦できる時間（無操作タイムアウトまで）が過ぎたら、結果画面のボタンを消す
+      await message.edit({ components: [] }).catch(() => {});
+      return;
+    }
+    if (reason !== 'idle') return;
     game.ended = true;
     try {
       const text = game.ranked
         ? settle(game, { winner: 1 - game.game.turn, reason: 'timeout' }) // 手番の人が時間切れ負け
         : '⌛ 一定時間操作がなかったため、対局を終了しました。(Bot戦のため記録なし)';
-      await message.edit(buildResult(game, text));
+      await message.edit(buildResult(game, text, { rematch: false }));
     } catch (err) {
       console.error('[shogi] timeout error:', err);
     }
@@ -752,7 +819,7 @@ async function restoreOne(client, s) {
   if (!outcome && game.players[shogi.turn].isAi) outcome = await aiTurn(game);
   if (outcome) {
     sessions.remove(GAME_ID, s.messageId);
-    await message.edit(buildResult(game, settle(game, outcome)));
+    await message.edit(buildResult(game, settle(game, outcome), { rematch: false }));
     return;
   }
 
@@ -857,7 +924,7 @@ module.exports = {
       // Botが先手なら先に指す。この時点で終局（Botの投了）になることもある
       const outcome = game.players[game.game.turn].isAi ? await aiTurn(game) : null;
       if (outcome) {
-        await interaction.editReply(buildResult(game, settle(game, outcome)));
+        await interaction.editReply(buildResult(game, settle(game, outcome), { rematch: false }));
         return undefined;
       }
       await interaction.editReply(buildPlayMessage(game));

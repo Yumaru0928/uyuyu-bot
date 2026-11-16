@@ -139,12 +139,37 @@ rows.push(new ActionRowBuilder().addComponents(...buttons));
 return { content, components: rows,...(files? { files}: {})};
 }
 
-function buildResult(game, text) {
+function buildResult(game, text, { rematch = true } = {}) {
 const files = boardFile(game);
 return {
 content: `${text}\n${buildStatus(game,!files)}`,
-components: [],
+// 終局後もコレクタが生きている間だけ再戦できる（時間切れの結果など、受け付けられない場合は付けない）
+components: rematch
+? [new ActionRowBuilder().addComponents(btn('rematch', '🔄 再戦', ButtonStyle.Primary))]
+: [],
 ...(files? { files}: {}),
+};
+}
+
+// 再戦用の新しい対局を作る（先手・後手を入れ替える。確認ON/OFFなどの個人設定は本人のエントリごと移る）
+function createRematchGame(game) {
+return {
+board: core.createBoard(),
+turn: RED,
+players: { [RED]: game.players[YELLOW], [YELLOW]: game.players[RED]},
+ranked: game.ranked,
+level: game.level,
+guildId: game.guildId,
+stage: 'col',
+sel: null,
+busy: false,
+lastMove: null,
+winLine: null,
+winner: undefined,
+notifyMessageId: null,
+events: [],
+note: null,
+over: false,
 };
 }
 
@@ -311,7 +336,7 @@ doMove(game, col);
 runAi(game);
 
 if (game.over) {
-collector.stop('finished');
+sessions.remove(GAME_ID, message.id); // 終わった対局は復元対象から外す（再戦ボタン用にコレクタは残す）
 await clearNotify();
 return i.update(buildResult(game, settle(game, game.winner?? null, 'normal')));
 }
@@ -358,10 +383,38 @@ return;
 }
 const loserColor = i.user.id === game.players[RED].id? RED: YELLOW;
 game.over = true;
-collector.stop('finished');
+sessions.remove(GAME_ID, message.id);
 await clearNotify();
 await answer.update({ content: '投了しました。', components: []}).catch(() => {});
 await message.edit(buildResult(game, settle(game, 3 - loserColor, 'resign'))).catch((err) => console.error('[connect4] resign edit error:', err));
+}
+
+// 再戦ボタン。Bot戦はその場で開始、人間同士は相手の承諾を取ってから開始する
+async function handleRematch(i) {
+if (!game.over) return deny(i, '対局が終わるまで再戦はできません。');
+if (game.rematchStarted) return deny(i, 'すでに再戦の手続きが始まっています。');
+game.rematchStarted = true;
+await message.edit({ components: []}).catch(() => {}); // 元の結果画面のボタンは消す（二重開始防止）
+
+const next = createRematchGame(game);
+
+if (!game.ranked) {
+// Bot戦: 申し込みなしで即開始（Botが先手なら先に落とす）
+runAi(next);
+await i.reply(buildPlayMessage(next));
+const msg = await i.fetchReply();
+startSession(next, msg);
+return;
+}
+// 人間同士: 相手の承諾を取る（対戦申し込みと同じ流れ）
+const opponentEntry = Object.values(next.players).find((pl) => pl.id!== i.user.id);
+const res = await requestChallenge(i, {
+opponent: { id: opponentEntry.id },
+gameLabel: GAMES[GAME_ID].label,
+});
+if (res.status!== 'accepted') return;
+await res.interaction.update(buildPlayMessage(next));
+startSession(next, res.message);
 }
 
 collector.on('collect', async (i) => {
@@ -369,6 +422,8 @@ try {
 if (!humanIds.has(i.user.id)) {
 return deny(i, 'この対局の参加者ではありません。');
 }
+
+if (i.customId === 'rematch') return handleRematch(i);
 
 if (i.customId === 'resign') return confirmResign(i);
 
@@ -445,13 +500,18 @@ activeIds.delete(message.id);
 sessions.remove(GAME_ID, message.id);
 await clearNotify();
 
-if (reason!== 'idle' || game.over) return;
+if (game.over) {
+// 再戦できる時間（無操作タイムアウトまで）が過ぎたら、結果画面のボタンを消す
+await message.edit({ components: []}).catch(() => {});
+return;
+}
+if (reason!== 'idle') return;
 try {
 game.over = true;
 const text = game.ranked
 ? settle(game, 3 - game.turn, 'timeout')
 : '⌛ 一定時間操作がなかったため、対局を終了しました。(Bot戦のため記録なし)';
-await message.edit(buildResult(game, text));
+await message.edit(buildResult(game, text, { rematch: false}));
 } catch (err) {
 console.error('[connect4] timeout error:', err);
 }
