@@ -1,6 +1,6 @@
 const { Events } = require('discord.js');
-const { getChannelConfig } = require('../channel-config.js');
-const { UYUYU_EMOJIS, ROLLING_UYUYU } = require('../emojis.js');
+const { getChannelConfig } = require('../utils/channel-config.js');
+const { UYUYU_EMOJIS, ROLLING_UYUYU } = require('../utils/emojis.js');
 
 // リアクション用：Discordが確実に認識できる '名前:ID' 形式（絵文字の一覧は emojis.js にまとめてある）
 const Emojis = [...UYUYU_EMOJIS, ROLLING_UYUYU].map(emoji => `${emoji.name}:${emoji.id}`);

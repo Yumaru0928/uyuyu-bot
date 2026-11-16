@@ -37,11 +37,23 @@ Node.js 20 以上が必要です。ローカルでは `config.json`、Render な
 ## 構成
 - `index.js` … 起動、イベント・コマンドの読み込み、GitHub同期
 - `web.js` / `views/` / `public/` … Webサイトとダッシュボード
-- `utils/notify/` … YouTube / Twitch の通知（`index.js` が本体、`youtube.js` `twitch.js` が各サービスの購読・受信、`x.js` は未実装の枠）
-- `remember.js` … ログイン状態を暗号化Cookieに保存
-- `gemini.js` … Gemini呼び出しの共通処理
-- `channel-config.js` … `config-channels.json` の読み書き
-- `emojis.js` … うゆゆ絵文字のID一覧
-- `console-forward.js` … consoleの出力をDiscordチャンネルにも転送
 - `commands/` … スラッシュコマンド（フォルダ名が `/help` のカテゴリになる）
 - `events/` … メッセージ作成・削除などのイベント処理
+- `utils/` … 共通処理（単機能のモジュールはここに置く）
+  - `deploy-commands.js` … 起動時のスラッシュコマンド登録
+  - `console-forward.js` … consoleの出力をDiscordチャンネルにも転送
+  - `channel-config.js` … `config-channels.json` の読み書き
+  - `emojis.js` … うゆゆ絵文字のID一覧
+  - `gemini.js` / `ai-messages.js` … Gemini呼び出しと、AIの回答メッセージの記録
+  - `latex-render.js` … LaTeX数式の画像化
+  - `remember.js` … ダッシュボードのログイン状態を暗号化Cookieに保存
+  - `challenge.js` / `rating.js` / `sessions.js` / `games.js` … 対戦ゲームの基盤（挑戦受付・Eloレート・対局の保存と復元・ゲーム登録簿）
+  - `shogi-core.js` / `othello-core.js` / `connect4-core.js` … 各対戦ゲームのルールとAI
+  - `board-image.js` … 対戦ゲームの盤面をCanvasで画像化
+  - `usi-engine.js` … 将棋エンジン（やねうら王）とのUSI通信
+  - `json-store.js` … 設定・戦績などのJSON保存とGitHub同期の共通処理
+  - `notify/` … YouTube / Twitch の配信通知（`index.js` が本体、`youtube.js` `twitch.js` が各サービスの購読・受信、`x.js` は未実装の枠）
+- `dev/` … 開発用テスト（`npm test` で全部実行できます）
+- `engine/` … 将棋エンジン（やねうら王）のバイナリ
+- `fonts/` … 盤面画像とLaTeX画像で使うフォント
+- ルート直下の `*.json`（`config-channels.json` など）… Botが読み書きする設定・状態ファイル。コードからは移動しないこと

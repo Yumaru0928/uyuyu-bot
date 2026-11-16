@@ -4,7 +4,8 @@
   "description": "Discord Bot「うゆゆBot」と、設定用のWebダッシュボード",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node dev/test-shogi-core.js && node dev/test-usi-engine.js && node dev/test-connect4-core.js && node dev/test-session-restore.js && node dev/test-game-interactions.js"
   },
   "keywords": [],
   "author": "ゆまる",

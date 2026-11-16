@@ -1,5 +1,5 @@
 const { Events, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
-const { getChannelConfig } = require('../channel-config.js'); // ※配置場所に合わせてパスを調整
+const { getChannelConfig } = require('../utils/channel-config.js'); // ※配置場所に合わせてパスを調整
 
 const PUNISHMENT_LABELS = {
     kick: 'キック',

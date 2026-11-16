@@ -6,8 +6,8 @@ const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const { ChannelType } = require('discord.js');
-const createRemember = require('./remember.js');
-const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('./channel-config.js');
+const createRemember = require('./utils/remember.js');
+const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('./utils/channel-config.js');
 const notify = require('./utils/notify');
 
 const app = express();

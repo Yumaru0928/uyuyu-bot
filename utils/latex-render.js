@@ -33,12 +33,12 @@ const JP_FONT_FAMILY = "LatexJP";
 /** 日本語フォントの候補。環境変数 LATEX_JP_FONT で直接指定もできる */
 const JP_FONT_CANDIDATES = [
     process.env.LATEX_JP_FONT,
-    // このファイルの隣の fonts/ フォルダに置いた場合
-    path.join(__dirname, "fonts", "NotoSansJP-Regular.ttf"),
-    path.join(__dirname, "fonts", "NotoSansJP-Regular.otf"),
-    path.join(__dirname, "fonts", "NotoSansJP[wght].ttf"),
-    path.join(__dirname, "fonts", "NotoSansCJK-Regular.ttc"),
-    path.join(__dirname, "fonts", "NotoSerifJP-Regular.otf"),
+    // リポジトリ直下の fonts/ フォルダに置いた場合
+    path.join(__dirname, "..", "fonts", "NotoSansJP-Regular.ttf"),
+    path.join(__dirname, "..", "fonts", "NotoSansJP-Regular.otf"),
+    path.join(__dirname, "..", "fonts", "NotoSansJP[wght].ttf"),
+    path.join(__dirname, "..", "fonts", "NotoSansCJK-Regular.ttc"),
+    path.join(__dirname, "..", "fonts", "NotoSerifJP-Regular.otf"),
     // Linux
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",

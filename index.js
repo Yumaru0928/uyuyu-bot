@@ -5,12 +5,12 @@ const { Client, Collection, Events, GatewayIntentBits, Partials, MessageFlags, A
 
 // console.log / console.warn / console.error をDiscordのチャンネルにも転送する（詳細は console-forward.js）
 // 他のファイルを読み込む前に差し替えておくと、events や commands の console もすべて対象になる
-const consoleForward = require('./console-forward.js');
+const consoleForward = require('./utils/console-forward.js');
 consoleForward.install();
 
-const deployCommands = require('./deploy-commands.js');
-const { updateChannelConfig } = require('./channel-config.js');
-const aiMessages = require('./ai-messages.js');
+const deployCommands = require('./utils/deploy-commands.js');
+const { updateChannelConfig } = require('./utils/channel-config.js');
+const aiMessages = require('./utils/ai-messages.js');
 const ratings = require('./utils/rating.js');     // 対戦ゲームのレート
 const sessions = require('./utils/sessions.js');  // 進行中の対局（再起動しても続きから遊べるようにする）
 const notify = require('./utils/notify');

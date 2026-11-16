@@ -3,7 +3,7 @@
 // Discordの指定チャンネルにも送るためのモジュール。
 //
 // 使い方(index.js):
-//   const consoleForward = require('./console-forward.js');
+//   const consoleForward = require('./utils/console-forward.js');
 //   consoleForward.install();                 // できるだけ最初に呼ぶ。以降は全ファイルの console が対象になる
 //   consoleForward.attach(client, channelId); // client を作ったあとに呼ぶ
 //
@@ -62,7 +62,7 @@ let timer = null;
 let flushing = false;
 let channelErrorShown = false;
 let settings = {
-    rootDir: __dirname,
+    rootDir: path.join(__dirname, '..'),
     repo: process.env.GITHUB_REPO || 'Yumaru0928/uyuyu-bot',
     ref: process.env.RENDER_GIT_COMMIT || 'main' // Renderが入れるデプロイ中のコミット。あればその時点のコードの行を指せる
 };

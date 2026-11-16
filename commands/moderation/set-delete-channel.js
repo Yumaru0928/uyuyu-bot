@@ -1,6 +1,6 @@
 // commands/moderation/set-delete-channel.js
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, InteractionContextType } = require('discord.js');
-const { updateChannelConfig, ensureGuildConfig } = require('../../channel-config.js');
+const { updateChannelConfig, ensureGuildConfig } = require('../../utils/channel-config.js');
 
 module.exports = {
     data: new SlashCommandBuilder()

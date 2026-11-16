@@ -9,15 +9,15 @@ const {
     withModelFallback,
     urlToGenerativePart,
     createCooldown
-} = require('../gemini.js');
-const { buildReplyMessages } = require('../latex-render.js');
+} = require('../utils/gemini.js');
+const { buildReplyMessages } = require('../utils/latex-render.js');
 const {
     QUESTION_HEADER,
     registerAiMessage,
     isAiMessage,
     getPrevAiMessageId,
     getAiThreadStarter
-} = require('../ai-messages.js');
+} = require('../utils/ai-messages.js');
 
 // 同じ人の連続した返信は 5 秒に 1 回まで（API 枠の使い切り防止）
 const isCoolingDown = createCooldown(5000);

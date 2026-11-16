@@ -6,7 +6,7 @@
 //   ・購読・受信の細かい処理は youtube.js / twitch.js / x.js
 const crypto = require('node:crypto');
 const { PermissionFlagsBits, escapeMarkdown } = require('discord.js');
-const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('../../channel-config.js');
+const { getChannelConfig, updateChannelConfig, ensureGuildConfig } = require('../channel-config.js');
 const { NotifyError } = require('./common.js');
 
 const providers = {

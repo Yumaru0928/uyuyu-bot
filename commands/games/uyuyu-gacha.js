@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { UYUYU_EMOJIS } = require('../../emojis.js');
+const { UYUYU_EMOJIS } = require('../../utils/emojis.js');
 
 // 対象の絵文字IDリスト（絵文字の一覧は emojis.js にまとめてある）
 const Emojis = UYUYU_EMOJIS.map(emoji => emoji.id);

@@ -7,7 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const FILE_PATH = path.join(__dirname, 'config-channels.json');
+const FILE_PATH = path.join(__dirname, '..', 'config-channels.json');
 
 let cache = {};
 let cachedMtime = -1;

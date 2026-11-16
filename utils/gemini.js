@@ -47,7 +47,7 @@ const CHAT_SYSTEM_INSTRUCTION = `あなた（AI）は、Discordのbot「うゆ�
 // ---------- API キー / クライアント ----------
 function loadApiKey() {
     let key = process.env.GEMINI_API_KEY;
-    const configPath = path.join(__dirname, 'config.json');
+    const configPath = path.join(__dirname, '..', 'config.json');
     if (fs.existsSync(configPath)) {
         try {
             const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
