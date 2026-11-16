@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "players": {
+    "960004867542380555": {
+      "name": "yumaru_00",
+      "wins": 0,
+      "losses": 1,
+      "updatedAt": 1794821134733
+    }
+  },
+  "matches": [
+    {
+      "at": 1794821134733,
+      "winnerId": "bot",
+      "winnerName": "Bot",
+      "loserId": "960004867542380555",
+      "loserName": "yumaru_00",
+      "vsBot": true
+    }
+  ]
+}
