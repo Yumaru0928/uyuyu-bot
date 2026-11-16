@@ -31,7 +31,9 @@
           "3g3f",
           "8b3b",
           "2f2e",
-          "6c5d"
+          "6c5d",
+          "2e2d",
+          "2c2d"
         ],
         "players": {
           "0": {
@@ -49,7 +51,7 @@
         "ranked": false,
         "level": "easy",
         "notifyMessageId": null,
-        "updatedAt": 1794829670758
+        "updatedAt": 1794829707553
       }
     }
   }
