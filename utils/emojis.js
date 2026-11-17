@@ -23,6 +23,7 @@ const UYUYU_EMOJIS = [
     { name: 'uyuyu_gliched', id: '1557407747627294761' },
     { name: 'uyuyu_rainbow', id: '1572104398946050088' },
     { name: 'uyuyu_golden', id: '1572106477492109372' },
+    { name: 'uyuyu_peace_sign', id: '1572245778473287870' },
     { name: 'uyuyun', id: '1558816474267910154' }
 ];
 
@@ -54,6 +55,7 @@ const GACHA_POOL = [
     { ...byName('uyuyu_space'), rarity: 'SR' },
     { ...byName('uyuyu_null'), rarity: 'SR' },
     { ...byName('uyuyu_rainbow'), rarity: 'SR' },
+    { ...byName('uyuyu_peace_sign'), rarity: 'R' },
     { ...byName('uyuyu_makeup'), rarity: 'R' },
     { ...byName('uyuyu_dango'), rarity: 'R' },
     { ...byName('uyuyu_WT'), rarity: 'R' },

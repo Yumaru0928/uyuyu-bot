@@ -41,11 +41,11 @@ const refreshTimers = new Map();
 
 function withLock(key, fn) {
     const prev = locks.get(key) ?? Promise.resolve();
-    const next = prev.catch(() => {}).then(fn);
+    const next = prev.catch(() => { }).then(fn);
     locks.set(key, next);
     next.finally(() => {
         if (locks.get(key) === next) locks.delete(key);
-    }).catch(() => {});
+    }).catch(() => { });
     return next;
 }
 
@@ -360,9 +360,9 @@ async function relayFromThread(message) {
             const replyOptions =
                 refEntry && refEntry.source.channelId === target.id
                     ? {
-                          reply: { messageReference: refEntry.source.id, failIfNotExists: false },
-                          allowedMentions: { repliedUser: false }, // 返信のメンション通知なし
-                      }
+                        reply: { messageReference: refEntry.source.id, failIfNotExists: false },
+                        allowedMentions: { repliedUser: false }, // 返信のメンション通知なし
+                    }
                     : {};
 
             const payloads = texts.map((t, i) => ({
@@ -392,10 +392,10 @@ async function relayFromThread(message) {
                 rememberRelayed(sent.id);
                 sentIds.push(sent.id);
             }
-            await message.react('✅').catch(() => {});
+            await message.react('✅').catch(() => { });
         } catch (err) {
             console.error('スレッドからの中継に失敗しました:', err.message);
-            await message.react('❌').catch(() => {});
+            await message.react('❌').catch(() => { });
         }
 
         // 編集・削除を反映できるよう、送れた分を記録する
@@ -421,7 +421,7 @@ async function relayFromThread(message) {
 
 /** 転送先スレッドでの発言の編集を、中継済みのメッセージ（DM・返信）に反映する。中継済みの発言なら true */
 async function syncRelayEdit(message) {
-    await relayInflight.get(message.id)?.catch(() => {});
+    await relayInflight.get(message.id)?.catch(() => { });
 
     const entry = relays.get(message.id);
     if (!entry) return false;
@@ -436,7 +436,7 @@ async function syncRelayEdit(message) {
 
         if (!texts.length && entry.textIds[0]) {
             // 本文を空にした（添付だけ残る）場合
-            await channel.messages.edit(entry.textIds[0], { content: '' }).catch(() => {});
+            await channel.messages.edit(entry.textIds[0], { content: '' }).catch(() => { });
         }
         for (let i = 0; i < texts.length; i++) {
             if (entry.textIds[i]) {
@@ -452,7 +452,7 @@ async function syncRelayEdit(message) {
         }
         // 短くなって余った続きメッセージは削除（先頭は残す）
         for (const id of entry.textIds.splice(Math.max(texts.length, 1))) {
-            await channel.messages.delete(id).catch(() => {});
+            await channel.messages.delete(id).catch(() => { });
             entry.messageIds = entry.messageIds.filter((x) => x !== id);
         }
     } catch (err) {
@@ -463,7 +463,7 @@ async function syncRelayEdit(message) {
 
 /** 転送先スレッドでの発言の削除を、中継済みのメッセージ（DM・返信）にも反映する */
 async function syncRelayDelete(client, sourceId) {
-    await relayInflight.get(sourceId)?.catch(() => {});
+    await relayInflight.get(sourceId)?.catch(() => { });
 
     const entry = relays.get(sourceId);
     if (!entry) return;
@@ -650,7 +650,7 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
         if (isForum && !threadId) {
             const thread = await findExistingThread(hookChannel, threadKey, threadName);
             if (thread) {
-                if (thread.archived) await thread.setArchived(false).catch(() => {});
+                if (thread.archived) await thread.setArchived(false).catch(() => { });
                 threadId = thread.id;
                 threadCache.set(threadKey, threadId);
             }
@@ -708,7 +708,7 @@ async function sendAsUser(message, targetChannel, contentToSend, options = {}) {
 
     // 6. 送信成功後に元メッセージを削除
     if (deleteOriginal) {
-        await message.delete().catch(() => {});
+        await message.delete().catch(() => { });
     }
 
     return { location, webhook, threadId: result.threadId, messages: result.sent };
@@ -721,7 +721,7 @@ function mirrorMessage(message) {
 
     const p = (async () => {
         // DMのチャンネルはPartialで届くことがあるので、相手の情報を取得しておく
-        if (message.channel?.partial) await message.channel.fetch().catch(() => {});
+        if (message.channel?.partial) await message.channel.fetch().catch(() => { });
 
         const targetChannel = await message.client.channels.fetch(getTargetChannelId());
         if (!targetChannel) {
@@ -735,7 +735,7 @@ function mirrorMessage(message) {
     })();
 
     inflight.set(message.id, p);
-    p.finally(() => inflight.delete(message.id)).catch(() => {});
+    p.finally(() => inflight.delete(message.id)).catch(() => { });
     return p;
 }
 
@@ -747,7 +747,7 @@ function mirrorMessage(message) {
 async function ensureThreadOpen(client, threadId) {
     if (!threadId) return;
     const thread = await client.channels.fetch(threadId).catch(() => null);
-    if (thread?.archived) await thread.setArchived(false).catch(() => {});
+    if (thread?.archived) await thread.setArchived(false).catch(() => { });
 }
 
 /** 転送済みメッセージの本文を、元メッセージの最新状態で書き換える */
@@ -787,7 +787,7 @@ function refreshMirror(message, entry) {
         // 短くなって余った続きメッセージは削除（先頭は残す）
         const removed = entry.textIds.splice(Math.max(texts.length, 1));
         for (const id of removed) {
-            await webhook.deleteMessage(id, threadId ?? undefined).catch(() => {});
+            await webhook.deleteMessage(id, threadId ?? undefined).catch(() => { });
             entry.messageIds = entry.messageIds.filter((x) => x !== id);
         }
     });
@@ -795,7 +795,7 @@ function refreshMirror(message, entry) {
 
 /** メッセージ編集を転送先に反映（編集前の内容も小さく表示） */
 async function syncEdit(message) {
-    await inflight.get(message.id)?.catch(() => {}); // 転送中なら完了を待つ
+    await inflight.get(message.id)?.catch(() => { }); // 転送中なら完了を待つ
 
     const entry = mirrors.get(message.id);
     if (!entry) {
@@ -841,7 +841,7 @@ function strikeText(text) {
  * （添付ファイルやEmbedはそのまま残る）
  */
 async function syncDelete(sourceId) {
-    await inflight.get(sourceId)?.catch(() => {}); // 転送中なら完了を待つ
+    await inflight.get(sourceId)?.catch(() => { }); // 転送中なら完了を待つ
 
     const entry = mirrors.get(sourceId);
     if (!entry) return;
@@ -886,7 +886,7 @@ function emojiToString(e) {
  * 連続した変更はまとめて1回の編集にする。
  */
 async function onReactionPacket(t, d) {
-    await inflight.get(d.message_id)?.catch(() => {}); // 転送中なら完了を待つ
+    await inflight.get(d.message_id)?.catch(() => { }); // 転送中なら完了を待つ
 
     const entry = mirrors.get(d.message_id);
     if (!entry) return;
