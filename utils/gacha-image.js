@@ -143,6 +143,15 @@ function drawLock(ctx, cx, cy, color) {
   ctx.restore();
 }
 
+// アスペクト比を保ったまま size × size の枠に収めて中央に描く。
+// uyuyu_crashed のような横長の絵文字を正方形に引き伸ばして別物に見せないため。
+function drawEmojiFit(ctx, img, x, y, size) {
+  const scale = Math.min(size / img.width, size / img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  ctx.drawImage(img, x + (size - w) / 2, y + (size - h) / 2, w, h);
+}
+
 function drawCellBase(ctx, x, y, rarity) {
   const { cell, radius } = STYLE;
   roundRectPath(ctx, x, y, cell, cell, radius);
@@ -281,7 +290,7 @@ function drawSilhouette(ctx, img, x, y, dark) {
   const { emojiSize } = STYLE;
   const off = createCanvas(emojiSize, emojiSize);
   const o = off.getContext('2d');
-  o.drawImage(img, 0, 0, emojiSize, emojiSize);
+  drawEmojiFit(o, img, 0, 0, emojiSize);
   o.globalCompositeOperation = 'source-in';
   o.fillStyle = dark ? STYLE.silhouetteCondColor : STYLE.silhouetteColor;
   o.fillRect(0, 0, emojiSize, emojiSize);
@@ -382,7 +391,7 @@ async function renderGachaResult(results) {
     const x = pad + (i % columns) * (cell + gap);
     const y = pad + headerH + Math.floor(i / columns) * (cell + gap);
     drawCellBase(ctx, x, y, r.rarity);
-    if (images[i]) ctx.drawImage(images[i], x + offset, y + offset, STYLE.emojiSize, STYLE.emojiSize);
+    if (images[i]) drawEmojiFit(ctx, images[i], x + offset, y + offset, STYLE.emojiSize);
     drawRarityFrame(ctx, x, y, r.rarity);
     if (r.isNew) drawNewBadge(ctx, x, y, r.rarity === 'SSR');
   });
@@ -446,7 +455,7 @@ async function renderZukan(entries) {
     const isCond = Boolean(e.condition);
     drawCellBase(ctx, x, y, owned ? e.rarity : 'N');
     if (owned) {
-      if (images[i]) ctx.drawImage(images[i], x + offset, y + offset, STYLE.emojiSize, STYLE.emojiSize);
+      if (images[i]) drawEmojiFit(ctx, images[i], x + offset, y + offset, STYLE.emojiSize);
       if (e.tier === 'gold' || e.tier === 'silver') {
         drawGrowthFrame(ctx, x, y, e.tier);
         drawRarityBand(ctx, x, y, e.rarity);
