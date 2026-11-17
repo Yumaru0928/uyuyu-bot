@@ -443,8 +443,8 @@ function tileEl(raw, size, opts = {}) {
         const d = document.createElement('div');
         d.className = 'dot';
         const col = COLOR[red ? 'r' : c];
-        const size = rows === 4 ? 23 : 29;
-        d.style.cssText = `left:${24 + cx * 26}%;top:${rows === 4 ? 14 + cy * 24 : 22 + cy * 28}%;width:${size}%;height:${size * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        const size = rows === 4 ? 20 : 22;
+        d.style.cssText = `left:${27 + cx * 23}%;top:${rows === 4 ? 15 + cy * 23.3 : 24 + cy * 26}%;width:${size}%;height:${size * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
         el.appendChild(d);
       }
     }
