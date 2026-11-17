@@ -174,14 +174,19 @@
   }
   .board-stack.loading-slow .board-skeleton { display: block; animation: shimmer 1.2s linear infinite; }
   @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -80% 0; } }
-  .nav-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-  .nav-btn { min-width: 52px; transition: transform 80ms var(--ease-out), background var(--dur-2) ease; }
+  .nav-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: nowrap; }
+  .nav-btn { flex: 1 1 0; min-width: 0; max-width: 88px; height: 52px; min-height: 52px; padding: 0; margin: 0; font-size: 19px; display: inline-flex; align-items: center; justify-content: center; transition: transform 80ms var(--ease-out), background var(--dur-2) ease; }
   .nav-btn:active, .play-btn:active { transform: scale(.94); }
   .play-btn {
     width: 56px; height: 56px; min-height: 56px; border-radius: 50%;
-    font-size: 22px; padding: 0; margin: 4px 6px;
+    font-size: 22px; padding: 0; margin: 0; flex: 0 0 auto;
     display: inline-flex; align-items: center; justify-content: center;
     transition: transform 80ms var(--ease-out), background var(--dur-2) ease;
+  }
+  @media (max-width: 380px) {
+    .nav-row { gap: 6px; }
+    .nav-btn { height: 48px; min-height: 48px; font-size: 17px; }
+    .play-btn { width: 52px; height: 52px; min-height: 52px; font-size: 20px; }
   }
   .nav-sub { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
   .ply-label { font-size: 15px; font-weight: 700; min-width: 110px; text-align: center; font-variant-numeric: tabular-nums; }
