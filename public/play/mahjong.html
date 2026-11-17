@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Web版 三人麻雀 | うゆゆBot</title>
+<meta name="description" content="うゆゆBotのWeb対戦ゲーム「三人麻雀」。Bot戦と、招待リンクでの対戦が遊べます。">
+<link rel="icon" href="/uyuyu.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08130e;
+    --panel: #143129;
+    --panel2: #1a3d33;
+    --fg: #eef7f3;
+    --muted: #9db8ae;
+    --accent: #0E7A5C;
+    --accent2: #35c08f;
+    --gold: #f2c76b;
+    --danger: #e05d5d;
+    --line: rgba(238,247,243,.12);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --tap: 44px;
+    --font-ui: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif;
+    --font-tile: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+    --font-num: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--fg);
+    background: radial-gradient(120% 90% at 50% 30%, #12281d 0%, var(--bg) 70%);
+    font-family: var(--font-ui);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  }
+  header { width: 100%; max-width: 760px; padding: 14px 16px 4px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 800; }
+  header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
+  main { width: 100%; max-width: 760px; padding: 0 12px 32px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 10px 18px; font-size: 15px; font-family: var(--font-ui); font-weight: 700;
+    cursor: pointer; margin: 4px 4px 4px 0; min-height: var(--tap);
+    transition: background .15s ease, transform .1s ease, opacity .2s ease;
+  }
+  button:hover { background: var(--accent2); }
+  button:active { transform: scale(.97); }
+  button:disabled { background: #3a554c; cursor: default; opacity: .6; }
+  button.secondary { background: var(--panel2); }
+  button.small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+  button.ron { background: #d64a3a; }
+  button.riichi { background: #d9a441; color: #231a05; }
+  button.pass { background: #5b6660; }
+  .discord-login-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 48px; margin: 10px 0 4px; border-radius: 8px;
+    background: #5865F2; color: #fff; font-size: 16px; font-weight: 700; text-decoration: none;
+  }
+  input[type="text"] {
+    background: var(--panel2); color: var(--fg); border: 1px solid #2c5749;
+    border-radius: var(--radius-sm); padding: 10px; font-size: 15px; width: 170px;
+    min-height: var(--tap); font-family: var(--font-ui);
+  }
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
+    background: #402b12; color: #ffd9a0; border: 1px solid #8a6a2f;
+    padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease; z-index: 60; max-width: 92vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .seat-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .seat-row:last-child { border-bottom: none; }
+  .badge { font-size: 11px; background: var(--panel2); border-radius: 6px; padding: 2px 7px; color: var(--muted); }
+  .badge.host { background: #6a5518; color: #ffe9a8; }
+  .badge.bot { background: #274b63; color: #bfe0ff; }
+
+  /* ===== 卓 ===== */
+  .table-wrap {
+    container-type: size;
+    position: relative; width: 100%; aspect-ratio: 1 / 1;
+    background: linear-gradient(#2b2f2d, #121413);
+    border-radius: 18px; padding: 3.4cqw;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .felt {
+    position: relative; width: 100%; height: 100%; border-radius: 10px; overflow: hidden;
+    background: radial-gradient(90% 90% at 50% 45%, #1f5a3e 0%, #184a33 55%, #143d2a 100%);
+  }
+  /* 壁牌（装飾） */
+  .wall-backs { position: absolute; top: 1.6cqw; left: 50%; transform: translateX(-50%); display: grid; grid-template-rows: repeat(2, 3.4cqw); gap: 0.5cqw; }
+  .wall-backs .row { display: flex; gap: 0.45cqw; }
+  /* ドラ表示 */
+  .dora-box { position: absolute; top: 10.6cqw; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 1cqw; }
+  .dora-box .dora-label { position: absolute; right: calc(100% + 1.2cqw); top: 50%; transform: translateY(-50%); font-size: 2.2cqw; color: rgba(207,232,216,.85); white-space: nowrap; font-weight: 700; }
+  .dora-tiles { display: flex; gap: 0.6cqw; }
+  /* 他家の手牌（裏向き） */
+  .opp-hand { position: absolute; display: flex; flex-direction: column; gap: 0.4cqw; }
+  .opp-hand.left { left: 1.6cqw; top: 50%; transform: translateY(-50%); }
+  .opp-hand.right { right: 1.6cqw; top: 50%; transform: translateY(-50%); }
+  .opp-label { position: absolute; top: 50%; font-size: 2.6cqw; color: #cfe8d8; white-space: nowrap; font-weight: 700; }
+  .opp-label.left { left: 6.4cqw; transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
+  .opp-label.right { right: 6.4cqw; transform: translateY(-50%); writing-mode: vertical-rl; }
+  .opp-label .score { font-family: var(--font-num); color: var(--gold); }
+  .opp-label .off { color: var(--danger); font-size: 2cqw; }
+  /* 河 */
+  .pond { position: absolute; display: grid; grid-template-columns: repeat(6, 5.9cqw); gap: 0.7cqw; }
+  .pond.me { left: 50%; bottom: 3.2cqw; transform: translateX(-50%); }
+  .pond.right { right: 15.5cqw; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center; }
+  .pond.left { left: 15.5cqw; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: center; }
+  .pond .cell { position: relative; width: 5.9cqw; height: 8cqw; }
+  .pond .cell .tile { position: absolute; inset: 0; }
+  .pond .cell.last .tile { outline: 0.55cqw solid var(--gold); outline-offset: -0.2cqw; }
+  .pond .cell.called .tile { opacity: .45; }
+  .pond .cell.riichi-cell .tile { transform: rotate(-90deg) scale(0.98); }
+  @keyframes discard-in {
+    0% { transform: translateY(6cqw) scale(1.5); opacity: 0; }
+    60% { opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .pond .cell.new .tile { animation: discard-in .38s cubic-bezier(.2,.9,.3,1.2); }
+  .pond .cell.riichi-cell.new .tile { animation: none; }
+  /* センター表示部 */
+  .center {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 27cqw; height: 27cqw; background: #0e1210; border: 0.4cqw solid #2a2f2c; border-radius: 1.2cqw;
+    color: var(--gold); text-align: center;
+  }
+  .center .round { font-family: var(--font-num); font-weight: 700; font-size: 4.6cqw; margin-top: 1.8cqw; letter-spacing: .1em; }
+  .center .honba { font-family: var(--font-num); font-size: 2.5cqw; margin-top: 0.4cqw; }
+  .center .remain-label { color: #cfe8d8; font-size: 2.1cqw; margin-top: 1.6cqw; font-weight: 700; }
+  .center .remain { font-family: var(--font-num); font-weight: 700; font-size: 6cqw; line-height: 1.05; }
+  .center .cscore { position: absolute; font-family: var(--font-num); font-weight: 700; font-size: 3.4cqw; display: flex; align-items: center; gap: 1cqw; }
+  .center .cscore.me { bottom: 1.2cqw; left: 50%; transform: translateX(-50%); }
+  .center .cscore.right { right: 0.9cqw; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
+  .center .cscore.left { left: 0.9cqw; top: 50%; transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
+  .center .wind-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 3.6cqw; height: 3.6cqw; border-radius: 50%; background: #333a37; color: #fff;
+    font-family: var(--font-tile); font-weight: 900; font-size: 2.5cqw; writing-mode: horizontal-tb;
+  }
+  .center .wind-badge.dealer { background: #c0392b; }
+  .center::after {
+    content: ""; position: absolute; inset: 0; border-radius: 1.2cqw; pointer-events: none;
+    box-shadow: inset 0 -1.1cqw 0 0 var(--gold); opacity: 0; transition: opacity .3s ease;
+  }
+  .center.turn-me::after { opacity: 1; }
+  .center.turn-right::after { box-shadow: inset -1.1cqw 0 0 0 var(--gold); opacity: 1; }
+  .center.turn-left::after { box-shadow: inset 1.1cqw 0 0 0 var(--gold); opacity: 1; }
+  .riichi-stick {
+    position: absolute; width: 9.5cqw; height: 1.1cqw; background: #f7f3e6; border-radius: 1cqw;
+    left: 50%; transform: translateX(-50%); bottom: -2.6cqw; display: none;
+  }
+  .riichi-stick::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 1cqw; height: 1cqw; border-radius: 50%; background: #c0392b; }
+  .riichi-stick.on { display: block; }
+  .riichi-stick.side-r { left: auto; right: -8.5cqw; top: 50%; bottom: auto; transform: translateY(-50%) rotate(90deg); }
+  .riichi-stick.side-l { left: -8.5cqw; top: 50%; bottom: auto; transform: translateY(-50%) rotate(90deg); }
+  /* 自分の副露 */
+  .my-melds { position: absolute; right: 2.5cqw; bottom: 15.5cqw; display: flex; gap: 1.6cqw; align-items: flex-end; }
+  .meld { display: flex; gap: 0.35cqw; }
+  .meld .tile.side { transform: rotate(-90deg); margin: 0 1.2cqw; }
+  .meld-label { position: absolute; right: 2.5cqw; bottom: 24.5cqw; font-size: 2.1cqw; color: rgba(207,232,216,.8); font-weight: 700; }
+  /* ステータス＆ボタン＆手牌 */
+  .status-line { display: flex; justify-content: space-between; align-items: center; min-height: 52px; margin-top: 10px; gap: 8px; }
+  .status-text { font-size: 17px; font-weight: 700; }
+  .status-text.mine { color: var(--gold); }
+  .action-bar { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+  .action-bar button { font-size: 16px; padding: 10px 20px; }
+  .hand-row { display: flex; align-items: flex-end; gap: 4px; margin-top: 6px; min-height: 92px; overflow-x: auto; padding-bottom: 4px; }
+  .hand-row .tile { cursor: pointer; transition: transform .12s ease, filter .12s ease; flex: none; }
+  .hand-row .tile:hover { transform: translateY(-6px); }
+  .hand-row .tile.disabled { cursor: default; filter: brightness(.82); }
+  .hand-row .tile.disabled:hover { transform: none; }
+  .hand-row .tile.pickable { outline: 3px solid var(--gold); outline-offset: 1px; }
+  .hand-row .tile.drawn { margin-left: 16px; animation: draw-in .35s ease; }
+  @keyframes draw-in { from { transform: translateY(-26px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .hand-row .tile.dora-hint { box-shadow: 0 0 0 2px rgba(242,199,107,.55); }
+
+  /* ===== 牌 ===== */
+  .tile {
+    position: relative; border-radius: 12%;
+    background: linear-gradient(135deg, #fffdf4 0%, #f7f3e6 60%, #e9e3d0 100%);
+    box-shadow: 0 0.35em 0 #2d8a64, 0 0.5em 0 #1c5e44, inset 0 0 0 1px rgba(0,0,0,.15);
+    color: #1a1a1a; user-select: none; -webkit-user-select: none;
+  }
+  .tile.back {
+    background: linear-gradient(135deg, #2a9a70, #1a6a4c);
+    box-shadow: 0 0.35em 0 #14503a, inset 0 0 0 1px rgba(0,0,0,.2);
+  }
+  .tile.back::after {
+    content: ""; position: absolute; inset: 14% 14% 20%; border: 1.5px solid rgba(255,255,255,.28); border-radius: 8%;
+  }
+  .tile .man { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-tile); line-height: 1.02; }
+  .tile .man .num { font-weight: 700; font-size: 0.52em; }
+  .tile .man .char { font-weight: 700; font-size: 0.47em; color: #c0392b; }
+  .tile .honor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-tile); font-weight: 900; font-size: 0.8em; }
+  .tile .honor.haku { color: transparent; }
+  .tile .honor.haku::after { content: ""; width: 52%; height: 58%; border: 0.09em solid #5b8fd6; border-radius: 8%; }
+  .tile .honor.hatsu { color: #1f8a4c; }
+  .tile .honor.chun { color: #c0392b; }
+  .dot { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+  .bar { position: absolute; border-radius: 999px; transform: translateX(-50%); overflow: hidden; }
+  .bar::after { content: ""; position: absolute; left: 6%; right: 6%; top: 36%; height: 9%; background: rgba(0,0,0,.38); box-shadow: 0 0.32em 0 rgba(0,0,0,.38); }
+  /* 1索の孔雀 */
+  .bird { position: absolute; inset: 4% 6% 8%; }
+  .bird .feather { position: absolute; left: 50%; top: 44%; width: 17%; height: 46%; border-radius: 50%; background: #2a8a4a; transform-origin: 50% 12%; }
+  .bird .feather::after { content: ""; position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%); width: 55%; height: 34%; border-radius: 50%; background: radial-gradient(circle, #d9a441 0 32%, #1e5fa8 36% 100%); }
+  .bird .body { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); width: 40%; height: 52%; border-radius: 50%; background: linear-gradient(#2a9a70, #176048); }
+  .bird .body::after { content: ""; position: absolute; left: 50%; top: 16%; transform: translateX(-50%); width: 54%; height: 46%; border-radius: 50%; background: #1e5fa8; }
+  .bird .head { position: absolute; left: 50%; top: 2%; transform: translateX(-50%); width: 23%; height: 17%; border-radius: 50%; background: #1e5fa8; }
+  .bird .head::before { content: ""; position: absolute; right: -52%; top: 38%; border-left: 0.5em solid #d9a441; border-top: 0.16em solid transparent; border-bottom: 0.16em solid transparent; font-size: 0.32em; }
+  .bird .head::after { content: ""; position: absolute; left: 58%; top: 26%; width: 22%; height: 22%; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 0.06em #1a1a1a; }
+
+  /* 結果モーダル */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(4,10,8,.72); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+  .result-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; animation: pop .25s ease; }
+  @keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .result-card h2 { margin: 0 0 6px; font-size: 21px; }
+  .yaku-list { margin: 8px 0; font-size: 15px; line-height: 1.7; }
+  .yaku-list .dora { color: var(--gold); }
+  .pay-line { font-family: var(--font-num); font-size: 14px; color: var(--muted); line-height: 1.8; }
+  .result-hand { display: flex; gap: 3px; flex-wrap: wrap; margin: 10px 0; align-items: flex-end; }
+  .result-hand .meld { margin-left: 10px; }
+  .big-score { font-family: var(--font-num); font-size: 26px; font-weight: 700; color: var(--gold); }
+  @media (max-width: 560px) {
+    .hand-row { min-height: 76px; }
+    header h1 { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🀄 うゆゆ麻雀（三麻）</h1>
+  <a href="/">トップへ</a>
+</header>
+<main>
+  <!-- メニュー -->
+  <section id="menu-screen">
+    <div class="panel" id="login-box" hidden>
+      <a class="discord-login-btn" href="/auth/discord">Discord でログイン</a>
+      <p class="muted">ログインすると、人間同士の対戦（ルーム作成・参加）ができます。</p>
+    </div>
+    <div class="panel" id="user-box" hidden>
+      <p style="margin:0">ようこそ、<strong id="user-name"></strong> さん</p>
+    </div>
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:17px">すぐ対戦</h2>
+      <div>
+        <button id="btn-bot-east">Bot戦（東風）</button>
+        <button id="btn-bot-south" class="secondary">Bot戦（半荘）</button>
+      </div>
+      <p class="muted">Bot 2人と対戦します。ログイン不要です。</p>
+    </div>
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:17px">人間同士で対戦</h2>
+      <div id="human-actions">
+        <button id="btn-create-human">待機ルームを作る</button>
+      </div>
+      <p class="muted">ルームを作って招待リンクを共有すると、離れた相手とも対戦できます（3人そろえば開始、Bot で埋めることもできます）。人間同士の対戦には Discord ログインが必要です。</p>
+      <div style="margin-top:10px">
+        <input type="text" id="join-code" placeholder="ルームコード" maxlength="6" style="text-transform:uppercase">
+        <button id="btn-join" class="secondary">参加する</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ロビー -->
+  <section id="lobby-screen" hidden>
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:17px">待機ルーム <span id="lobby-code" style="font-family:var(--font-num)"></span></h2>
+      <p class="muted">招待リンク: <a id="lobby-link" href="#" style="color:var(--accent2)"></a>
+      <button id="btn-copy" class="small secondary">コピー</button></p>
+      <div id="lobby-players"></div>
+      <div id="lobby-host-controls" hidden style="margin-top:12px">
+        <div style="margin-bottom:8px">
+          <span class="muted">対局の長さ:</span>
+          <button id="btn-len-east" class="small">東風戦</button>
+          <button id="btn-len-south" class="small secondary">半荘戦</button>
+        </div>
+        <button id="btn-add-bot" class="secondary">Bot を追加</button>
+        <button id="btn-start">対局開始</button>
+      </div>
+      <p class="muted" id="lobby-hint">3人そろうとホストが対局を開始できます。</p>
+      <button id="btn-leave-lobby" class="secondary">退出する</button>
+    </div>
+  </section>
+
+  <!-- 対局 -->
+  <section id="game-screen" hidden>
+    <div class="table-wrap" id="table-wrap">
+      <div class="felt" id="felt">
+        <div class="wall-backs" id="wall-backs"></div>
+        <div class="dora-box">
+          <span class="dora-label">ドラ表示</span>
+          <div class="dora-tiles" id="dora-tiles"></div>
+        </div>
+        <div class="opp-hand left" id="opp-hand-left"></div>
+        <div class="opp-hand right" id="opp-hand-right"></div>
+        <div class="opp-label left" id="opp-label-left"></div>
+        <div class="opp-label right" id="opp-label-right"></div>
+        <div class="pond left" id="pond-left"></div>
+        <div class="pond right" id="pond-right"></div>
+        <div class="pond me" id="pond-me"></div>
+        <div class="center" id="center">
+          <div class="round" id="c-round">東1局</div>
+          <div class="honba" id="c-honba">0 本場 ・ 供託 0</div>
+          <div class="remain-label">残り</div>
+          <div class="remain" id="c-remain">42</div>
+          <div class="cscore left" id="c-score-left"></div>
+          <div class="cscore right" id="c-score-right"></div>
+          <div class="cscore me" id="c-score-me"></div>
+          <div class="riichi-stick" id="stick-me"></div>
+          <div class="riichi-stick side-r" id="stick-right"></div>
+          <div class="riichi-stick side-l" id="stick-left"></div>
+        </div>
+        <div class="meld-label" id="meld-label" hidden>副露</div>
+        <div class="my-melds" id="my-melds"></div>
+      </div>
+    </div>
+    <div class="status-line">
+      <div class="status-text" id="status-text">接続中…</div>
+      <div class="action-bar" id="action-bar"></div>
+    </div>
+    <div class="hand-row" id="hand-row"></div>
+    <div style="margin-top:10px">
+      <button id="btn-leave-game" class="secondary small">退出する（席は Bot が代行します）</button>
+    </div>
+  </section>
+
+  <!-- 終了 -->
+  <section id="end-screen" hidden>
+    <div class="panel">
+      <h2 style="margin-top:0">対局結果</h2>
+      <div id="final-results"></div>
+      <div id="rematch-area" style="margin-top:12px"></div>
+      <button id="btn-back-menu" class="secondary">メニューに戻る</button>
+    </div>
+  </section>
+</main>
+
+<!-- 局結果モーダル -->
+<div class="overlay" id="result-overlay" hidden>
+  <div class="result-card" id="result-card"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/play/mahjong/ws';
+const WIND_NAME = { 27: '東', 28: '南', 29: '西', 30: '北' };
+const KANJI_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const HONOR = { 27: ['東', ''], 28: ['南', ''], 29: ['西', ''], 30: ['北', ''], 31: ['白', 'haku'], 32: ['發', 'hatsu'], 33: ['中', 'chun'] };
+const COLOR = { b: '#1e5fa8', g: '#2a8a4a', r: '#c0392b' };
+const PIN = {
+  1: 'big',
+  2: [[1, 0, 'g'], [1, 2, 'b']],
+  3: [[0, 0, 'b'], [1, 1, 'r'], [2, 2, 'g']],
+  4: [[0, 0, 'b'], [2, 0, 'g'], [0, 2, 'g'], [2, 2, 'b']],
+  5: [[0, 0, 'b'], [2, 0, 'b'], [1, 1, 'r'], [0, 2, 'b'], [2, 2, 'b']],
+  6: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
+  7: [[0, 0, 'g'], [1, 0, 'r'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
+  8: [[0, 0, 'b'], [2, 0, 'b'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b'], [0, 3, 'b'], [2, 3, 'b']],
+  9: [[0, 0, 'b'], [1, 0, 'b'], [2, 0, 'b'], [0, 1, 'r'], [1, 1, 'r'], [2, 1, 'r'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
+};
+const SOU = {
+  2: [[1, 0, 'b'], [1, 2, 'g']],
+  3: [[1, 0, 'b'], [0, 2, 'g'], [2, 2, 'g']],
+  4: [[0, 0, 'g'], [2, 0, 'b'], [0, 2, 'b'], [2, 2, 'g']],
+  5: [[0, 0, 'g'], [2, 0, 'g'], [1, 1, 'r'], [0, 2, 'g'], [2, 2, 'g']],
+  6: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g']],
+  7: [[1, 0, 'r'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
+  8: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
+  9: [[0, 0, 'g'], [1, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [1, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
+};
+const norm = (t) => (t === 34 ? 13 : t === 35 ? 22 : t);
+const isRedTile = (t) => t === 34 || t === 35;
+
+function tileEl(raw, wpx, opts = {}) {
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.style.width = wpx + 'px';
+  el.style.height = Math.round(wpx * 1.35) + 'px';
+  el.style.fontSize = wpx + 'px';
+  if (opts.cls) el.className += ' ' + opts.cls;
+  if (opts.back) { el.classList.add('back'); return el; }
+  const t = norm(raw);
+  const red = isRedTile(raw);
+  const suit = t < 9 ? 0 : t < 18 ? 1 : t < 27 ? 2 : 3;
+  const rank = (t % 9) + 1;
+  if (suit === 0) {
+    el.innerHTML = `<div class="man"><span class="num">${KANJI_NUM[rank - 1]}</span><span class="char">萬</span></div>`;
+  } else if (suit === 3) {
+    const [ch, cls] = HONOR[t];
+    el.innerHTML = `<div class="honor ${cls}">${ch}</div>`;
+  } else if (suit === 1) {
+    if (rank === 1) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      d.style.cssText = 'left:50%;top:47%;width:66%;height:49%;background:radial-gradient(circle,#1e5fa8 0 10%,#f7f3e6 11% 20%,#2a8a4a 21% 36%,#f7f3e6 37% 50%,#c0392b 51% 100%)';
+      el.appendChild(d);
+    } else {
+      const rows = rank === 8 ? 4 : 3;
+      for (const [cx, cy, c] of PIN[rank]) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const col = COLOR[red ? 'r' : c];
+        const size = rows === 4 ? 23 : 29;
+        d.style.cssText = `left:${24 + cx * 26}%;top:${rows === 4 ? 14 + cy * 24 : 22 + cy * 28}%;width:${size}%;height:${size * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        el.appendChild(d);
+      }
+    }
+  } else {
+    if (rank === 1) {
+      const b = document.createElement('div');
+      b.className = 'bird';
+      let feathers = '';
+      for (let i = -2; i <= 2; i++) feathers += `<div class="feather" style="transform:translateX(-50%) rotate(${i * 17}deg);background:${i % 2 === 0 ? '#2a8a4a' : '#1f7a58'}"></div>`;
+      b.innerHTML = feathers + '<div class="body"></div><div class="head"></div>';
+      el.appendChild(b);
+    } else {
+      const rows = rank === 7 || rank === 8 ? 4 : 3;
+      for (const [cx, cy, c] of SOU[rank]) {
+        const d = document.createElement('div');
+        d.className = 'bar';
+        d.style.cssText = `left:${24 + cx * 26}%;top:${rows === 4 ? 7 + cy * 23.5 : 9 + cy * 28.5}%;width:17%;height:${rows === 4 ? 18.5 : 25}%;background:${COLOR[red ? 'r' : c]}`;
+        el.appendChild(d);
+      }
+    }
+  }
+  return el;
+}
+
+function meldEl(meld, wpx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'meld';
+  const tiles = meld.tiles;
+  tiles.forEach((raw, i) => {
+    const isCalled = meld.open && i === tiles.length - 1;
+    const isAnkanEnd = !meld.open && meld.type === 'kan' && (i === 0 || i === tiles.length - 1);
+    const el = tileEl(raw, wpx, { back: isAnkanEnd, cls: isCalled ? 'side' : '' });
+    wrap.appendChild(el);
+  });
+  return wrap;
+}
+
+// ===== 状態 =====
+let me = { loggedIn: false, name: '', token: null };
+let ws = null;
+let mySeat = -1;
+let playersMeta = [];
+let lastView = null;
+let roomCode = null;
+let roomMode = 'bot';
+let riichiArmed = false;
+let respondedCallKey = null;
+let prevPondCounts = [0, 0, 0];
+let lastDiscardSeat = -1;
+let reconnectTimer = null;
+let intentionalClose = false;
+
+const screens = ['menu-screen', 'lobby-screen', 'game-screen', 'end-screen'];
+function show(id) {
+  for (const s of screens) $(s).hidden = s !== id;
+  if (id !== 'game-screen') $('result-overlay').hidden = true;
+}
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function connect(onOpen) {
+  intentionalClose = false;
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => { if (onOpen) onOpen(); };
+  ws.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    handle(msg);
+  };
+  ws.onclose = () => {
+    if (intentionalClose) return;
+    if (roomCode && (lastView || !$('lobby-screen').hidden)) {
+      $('status-text') && ($('status-text').textContent = '再接続中…');
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        connect(() => {
+          send({ type: 'join', code: roomCode, token: me.token, name: me.name });
+        });
+      }, 2500);
+    }
+  };
+  ws.onerror = () => { /* onclose 側で処理 */ };
+}
+function send(obj) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+
+function handle(msg) {
+  switch (msg.type) {
+    case 'created':
+      roomCode = msg.code;
+      break;
+    case 'lobby':
+      roomCode = msg.code;
+      mySeat = msg.youSeat;
+      renderLobby(msg);
+      show('lobby-screen');
+      break;
+    case 'state':
+      mySeat = msg.seat;
+      playersMeta = msg.players;
+      renderState(msg.view);
+      if (msg.view.phase === 'gameEnd') showEnd(msg.view);
+      else show('game-screen');
+      break;
+    case 'rematch_status':
+      renderRematchStatus(msg);
+      break;
+    case 'rematch_declined':
+      toast(`${msg.byName} さんが再戦を見送りました`);
+      renderRematchStatus({ agreed: [], waiting: [] });
+      break;
+    case 'player_disconnected':
+      toast(`${msg.name} さんが切断しました（席は Bot が代行します）`);
+      break;
+    case 'player_back':
+      toast(`${msg.name} さんが戻ってきました`);
+      break;
+    case 'room_closed':
+      toast(msg.message);
+      backToMenu();
+      break;
+    case 'room_expired':
+      toast('ルームの有効期限が切れました');
+      backToMenu();
+      break;
+    case 'error':
+      toast(msg.message);
+      break;
+  }
+}
+
+function backToMenu() {
+  intentionalClose = true;
+  if (ws) { try { ws.close(); } catch { /* noop */ } }
+  roomCode = null; lastView = null; mySeat = -1;
+  prevPondCounts = [0, 0, 0];
+  show('menu-screen');
+}
+
+// ===== ロビー =====
+function renderLobby(msg) {
+  $('lobby-code').textContent = msg.code;
+  const link = location.origin + '/play/mahjong?room=' + msg.code;
+  const a = $('lobby-link');
+  a.href = link; a.textContent = link;
+  const box = $('lobby-players');
+  box.innerHTML = '';
+  for (let seat = 0; seat < 3; seat++) {
+    const p = msg.players.find((x) => x.seat === seat);
+    const row = document.createElement('div');
+    row.className = 'seat-row';
+    if (!p) {
+      row.innerHTML = `<span class="muted">席 ${seat + 1}: 空席</span>`;
+    } else {
+      row.innerHTML = `<span>席 ${seat + 1}: <strong></strong></span>`;
+      row.querySelector('strong').textContent = p.name;
+      if (p.isHost) row.innerHTML += ' <span class="badge host">ホスト</span>';
+      if (p.bot) row.innerHTML += ' <span class="badge bot">Bot</span>';
+      if (!p.bot && !p.connected) row.innerHTML += ' <span class="badge">未接続</span>';
+      if (msg.isHost && p.bot) {
+        const btn = document.createElement('button');
+        btn.className = 'small secondary';
+        btn.textContent = '外す';
+        btn.onclick = () => send({ type: 'remove_bot', seat });
+        row.appendChild(btn);
+      }
+    }
+    box.appendChild(row);
+  }
+  $('lobby-host-controls').hidden = !msg.isHost;
+  $('btn-len-east').className = 'small' + (msg.length === 'east' ? '' : ' secondary');
+  $('btn-len-south').className = 'small' + (msg.length === 'south' ? '' : ' secondary');
+  $('btn-start').disabled = !msg.canStart;
+  $('lobby-hint').textContent = msg.canStart
+    ? '3人そろいました。ホストが対局を開始できます。'
+    : '3人そろうとホストが対局を開始できます。';
+}
+
+// ===== 対局画面 =====
+function rel(seat) { return (seat - mySeat + 3) % 3; } // 0=自分 1=右 2=左
+function seatName(seat) { return playersMeta[seat] ? playersMeta[seat].name : ''; }
+
+function renderState(view) {
+  lastView = view;
+  const felt = $('felt');
+  const tableW = $('table-wrap').clientWidth || 700;
+  const pondTileW = Math.max(16, Math.round(tableW * 0.055));
+  const meldTileW = Math.max(18, Math.round(tableW * 0.06));
+
+  // 壁牌（装飾）
+  const wall = $('wall-backs');
+  if (!wall.childElementCount) {
+    for (let r = 0; r < 2; r++) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      for (let i = 0; i < 24; i++) row.appendChild(tileEl(0, Math.max(12, tableW * 0.024), { back: true }));
+      wall.appendChild(row);
+    }
+  }
+  // ドラ表示
+  const dt = $('dora-tiles');
+  dt.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const ind = view.doraIndicators[i];
+    dt.appendChild(tileEl(ind === undefined ? 0 : ind, Math.max(14, tableW * 0.028), { back: ind === undefined }));
+  }
+
+  // 河・他家の手牌・ラベル
+  const pondEls = { 0: $('pond-me'), 1: $('pond-right'), 2: $('pond-left') };
+  for (const p of view.players) {
+    const r = rel(p.seat);
+    const pond = pondEls[r];
+    const grew = p.discards.length > prevPondCounts[p.seat];
+    if (grew) lastDiscardSeat = p.seat;
+    pond.innerHTML = '';
+    p.discards.forEach((d, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell'
+        + (d.called ? ' called' : '')
+        + (d.riichi ? ' riichi-cell' : '')
+        + (p.seat === lastDiscardSeat && i === p.discards.length - 1 ? ' last' : '')
+        + (grew && i === p.discards.length - 1 ? ' new' : '');
+      cell.appendChild(tileEl(d.tile, pondTileW));
+      pond.appendChild(cell);
+    });
+    prevPondCounts[p.seat] = p.discards.length;
+    if (r !== 0) {
+      const hand = r === 1 ? $('opp-hand-right') : $('opp-hand-left');
+      hand.innerHTML = '';
+      for (let i = 0; i < p.handCount; i++) hand.appendChild(tileEl(0, Math.max(11, tableW * 0.022), { back: true }));
+      const label = r === 1 ? $('opp-label-right') : $('opp-label-left');
+      const meta = playersMeta[p.seat] || {};
+      label.innerHTML = '';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = `${WIND_NAME[p.wind]} ${meta.name || ''} `;
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'score';
+      scoreSpan.textContent = p.score;
+      label.appendChild(nameSpan);
+      label.appendChild(scoreSpan);
+      if (meta.connected === false && !meta.bot) {
+        const off = document.createElement('span');
+        off.className = 'off';
+        off.textContent = ' 代行中';
+        label.appendChild(off);
+      }
+    }
+  }
+
+  // センター
+  $('c-round').textContent = view.roundLabel.replace(/(.)(\d)(.)/, '$1 $2 $3');
+  $('c-honba').textContent = `${view.honba} 本場 ・ 供託 ${view.kyotaku}`;
+  $('c-remain').textContent = view.wallCount;
+  const scoreEls = { 0: $('c-score-me'), 1: $('c-score-right'), 2: $('c-score-left') };
+  const stickEls = { 0: $('stick-me'), 1: $('stick-right'), 2: $('stick-left') };
+  for (const p of view.players) {
+    const r = rel(p.seat);
+    const el = scoreEls[r];
+    el.innerHTML = '';
+    const badge = document.createElement('span');
+    badge.className = 'wind-badge' + (p.isDealer ? ' dealer' : '');
+    badge.textContent = WIND_NAME[p.wind];
+    const num = document.createElement('span');
+    num.textContent = p.score;
+    el.appendChild(badge);
+    el.appendChild(num);
+    stickEls[r].classList.toggle('on', p.riichi);
+  }
+  const center = $('center');
+  center.className = 'center' + (view.phase === 'play' || view.phase === 'call'
+    ? (rel(view.turn) === 0 ? ' turn-me' : rel(view.turn) === 1 ? ' turn-right' : ' turn-left')
+    : '');
+
+  // 自分の副露
+  const myP = view.players[mySeat];
+  const meldsBox = $('my-melds');
+  meldsBox.innerHTML = '';
+  $('meld-label').hidden = myP.melds.length === 0;
+  for (const m of myP.melds) meldsBox.appendChild(meldEl(m, meldTileW));
+
+  renderHand(view);
+  renderActions(view);
+  renderStatus(view);
+  renderResult(view);
+  void felt;
+}
+
+function renderHand(view) {
+  const row = $('hand-row');
+  row.innerHTML = '';
+  const myP = view.players[mySeat];
+  if (!myP || !myP.hand) return;
+  const hand = myP.hand;
+  const tileW = Math.min(62, Math.max(40, Math.floor((Math.min(window.innerWidth, 760) - 40) / 15)));
+  const actions = view.actions;
+  const myTurn = view.phase === 'play' && actions && actions.type === 'play';
+  const drawnActive = myTurn && myP.drawnTile !== null && myP.drawnTile !== undefined;
+  hand.forEach((raw, i) => {
+    const isDrawn = drawnActive && i === hand.length - 1;
+    const el = tileEl(raw, tileW, { cls: isDrawn ? 'drawn' : '' });
+    // ドラのヒント表示
+    if (view.doraKinds.includes(norm(raw)) || isRedTile(raw)) el.classList.add('dora-hint');
+    let clickable = false;
+    if (myTurn) {
+      if (riichiArmed) clickable = actions.riichi.some((t) => t === raw);
+      else clickable = actions.discards.some((t) => t === raw);
+    }
+    if (myTurn && !clickable) el.classList.add('disabled');
+    if (riichiArmed && clickable) el.classList.add('pickable');
+    if (clickable) {
+      el.onclick = () => {
+        if (riichiArmed) {
+          send({ type: 'discard', tile: raw, riichi: true });
+          riichiArmed = false;
+        } else {
+          send({ type: 'discard', tile: raw });
+        }
+      };
+    }
+    row.appendChild(el);
+  });
+}
+
+function renderActions(view) {
+  const bar = $('action-bar');
+  bar.innerHTML = '';
+  const a = view.actions;
+  if (!a || view.phase === 'roundEnd' || view.phase === 'gameEnd') return;
+  const add = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.onclick = fn;
+    bar.appendChild(b);
+  };
+  if (a.type === 'play') {
+    if (a.tsumo) add('ツモ', 'ron', () => send({ type: 'tsumo' }));
+    for (const k of a.kan || []) {
+      const name = k.kind === 'ankan' ? '暗槓' : '加槓';
+      add(`${name}（${tileName(k.tile)}）`, 'secondary', () => send({ type: 'kan', tile: k.tile, kanKind: k.kind }));
+    }
+    if (a.riichi && a.riichi.length > 0) {
+      add(riichiArmed ? 'リーチ取消' : 'リーチ', 'riichi', () => {
+        riichiArmed = !riichiArmed;
+        renderState(lastView);
+      });
+    }
+  } else if (a.type === 'call') {
+    const key = `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`;
+    if (respondedCallKey === key) return;
+    const respond = (action) => {
+      respondedCallKey = key;
+      send({ type: 'call_response', action });
+      bar.innerHTML = '';
+    };
+    if (a.ron) add('ロン', 'ron', () => respond('ron'));
+    if (a.pon) add('ポン', '', () => respond('pon'));
+    if (a.kan) add('カン', '', () => respond('kan'));
+    add('パス', 'pass', () => respond('pass'));
+  }
+}
+
+function tileName(t) {
+  const n = norm(t);
+  if (n < 9) return KANJI_NUM[n] + '萬';
+  if (n < 18) return (n - 8) + '筒';
+  if (n < 27) return (n - 17) + '索';
+  return HONOR[n][0] || '';
+}
+
+function renderStatus(view) {
+  const st = $('status-text');
+  st.className = 'status-text';
+  if (view.phase === 'roundEnd') { st.textContent = '局が終わりました'; return; }
+  if (view.phase === 'gameEnd') { st.textContent = '対局終了'; return; }
+  if (view.phase === 'call' && view.callInfo) {
+    if (view.actions && view.actions.type === 'call') {
+      st.textContent = `${seatName(view.callInfo.from)} の ${tileName(view.callInfo.tile)} — どうしますか？`;
+      st.classList.add('mine');
+    } else {
+      st.textContent = `${seatName(view.callInfo.from)} の ${tileName(view.callInfo.tile)} — 他の人の応答待ち`;
+    }
+    return;
+  }
+  if (view.turn === mySeat) {
+    st.textContent = riichiArmed ? 'リーチする牌を選んでください' : 'あなたの番です';
+    st.classList.add('mine');
+  } else {
+    const meta = playersMeta[view.turn];
+    st.textContent = `${seatName(view.turn)} の番です${meta && !meta.bot && !meta.connected ? '（Bot代行中）' : ''}`;
+  }
+}
+
+function resultHandHtml(view, winnerSeat) {
+  const p = view.players[winnerSeat];
+  const wrap = document.createElement('div');
+  wrap.className = 'result-hand';
+  const w = 34;
+  const hand = [...(p.hand || [])];
+  for (const raw of hand) wrap.appendChild(tileEl(raw, w));
+  for (const m of p.melds) wrap.appendChild(meldEl(m, w));
+  return wrap;
+}
+
+function renderResult(view) {
+  const overlay = $('result-overlay');
+  if (view.phase !== 'roundEnd' || !view.lastResult) { overlay.hidden = true; return; }
+  const r = view.lastResult;
+  const card = $('result-card');
+  card.innerHTML = '';
+  const names = (s) => seatName(s);
+  if (r.type === 'ron' || r.type === 'tsumo') {
+    const h = document.createElement('h2');
+    h.textContent = r.type === 'ron' ? `${names(r.winner)} のロン！` : `${names(r.winner)} のツモ！`;
+    card.appendChild(h);
+    card.appendChild(resultHandHtml(view, r.winner));
+    const yl = document.createElement('div');
+    yl.className = 'yaku-list';
+    if (r.yakumans && r.yakumans.length > 0) {
+      yl.innerHTML = r.yakumans.map((y) => `<div>✦ ${y.name}${y.mult > 1 ? ` ×${y.mult}` : ''}</div>`).join('') + '<div>役満！</div>';
+    } else {
+      yl.innerHTML = (r.yaku || []).map((y) => `<div>${y.name} <span class="dora">${y.han}翻</span></div>`).join('')
+        + (r.doraCount > 0 ? `<div>ドラ <span class="dora">${r.doraCount}</span></div>` : '')
+        + `<div style="margin-top:4px"><span class="big-score">${r.han}翻 ${r.fu}符</span></div>`;
+    }
+    card.appendChild(yl);
+    const pl = document.createElement('div');
+    pl.className = 'pay-line';
+    pl.innerHTML = r.payments.map((pay) => `${names(pay.from)} → ${names(pay.to)}: ${pay.amount}点`).join('<br>')
+      + (r.riichiSticks > 0 ? `<br>供託 ${r.riichiSticks} 本を獲得` : '');
+    card.appendChild(pl);
+  } else if (r.type === 'draw') {
+    const h = document.createElement('h2');
+    h.textContent = '流局';
+    card.appendChild(h);
+    const d = document.createElement('div');
+    d.className = 'yaku-list';
+    d.innerHTML = r.tenpai.map((t, s) => `<div>${names(s)}: ${t ? 'テンパイ' : 'ノーテン'}</div>`).join('');
+    card.appendChild(d);
+    const pl = document.createElement('div');
+    pl.className = 'pay-line';
+    pl.innerHTML = (r.payments || []).map((pay) => `${names(pay.seat)}: ${pay.amount > 0 ? '+' : ''}${pay.amount}`).join('<br>');
+    card.appendChild(pl);
+  }
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.textContent = 'まもなく次の局が始まります…';
+  card.appendChild(note);
+  overlay.hidden = false;
+}
+
+// ===== 終了画面 =====
+function showEnd(view) {
+  show('end-screen');
+  const box = $('final-results');
+  box.innerHTML = '';
+  const order = [0, 1, 2].sort((a, b) => view.placements[a] - view.placements[b]);
+  for (const seat of order) {
+    const p = view.players[seat];
+    const row = document.createElement('div');
+    row.className = 'seat-row';
+    row.innerHTML = `<span><strong>${view.placements[seat]}位</strong>　<span class="pname"></span></span><span style="font-family:var(--font-num)">${p.score}点</span>`;
+    row.querySelector('.pname').textContent = seatName(seat) + (seat === mySeat ? '（あなた）' : '');
+    box.appendChild(row);
+  }
+  renderRematchArea();
+}
+
+function renderRematchArea() {
+  const area = $('rematch-area');
+  area.innerHTML = '';
+  if (roomMode === 'bot') {
+    const b = document.createElement('button');
+    b.textContent = 'もう一局（再戦）';
+    b.onclick = () => send({ type: 'rematch' });
+    area.appendChild(b);
+  } else {
+    const b = document.createElement('button');
+    b.textContent = '再戦に承諾する';
+    b.id = 'btn-rematch-agree';
+    b.onclick = () => {
+      send({ type: 'rematch' });
+      b.disabled = true;
+      b.textContent = '承諾済み（他の人を待っています）';
+    };
+    const d = document.createElement('button');
+    d.className = 'secondary';
+    d.textContent = '見送る';
+    d.onclick = () => send({ type: 'rematch_decline' });
+    area.appendChild(b);
+    area.appendChild(d);
+    const s = document.createElement('p');
+    s.className = 'muted';
+    s.id = 'rematch-status';
+    area.appendChild(s);
+  }
+}
+
+function renderRematchStatus(msg) {
+  const s = $('rematch-status');
+  if (!s) return;
+  const parts = [];
+  if (msg.agreed && msg.agreed.length) parts.push(`承諾: ${msg.agreed.join('、')}`);
+  if (msg.waiting && msg.waiting.length) parts.push(`待ち: ${msg.waiting.join('、')}`);
+  s.textContent = parts.join(' ／ ');
+}
+
+// ===== 画面遷移の操作 =====
+function startBotGame(length) {
+  roomMode = 'bot';
+  connect(() => {
+    send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name });
+  });
+}
+function createHumanRoom() {
+  if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
+  roomMode = 'human';
+  connect(() => {
+    send({ type: 'create', mode: 'human', token: me.token, name: me.name });
+  });
+}
+function joinRoom(code) {
+  if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
+  roomMode = 'human';
+  connect(() => {
+    send({ type: 'join', code, token: me.token, name: me.name });
+  });
+}
+
+$('btn-bot-east').onclick = () => startBotGame('east');
+$('btn-bot-south').onclick = () => startBotGame('south');
+$('btn-create-human').onclick = createHumanRoom;
+$('btn-join').onclick = () => {
+  const code = $('join-code').value.trim().toUpperCase();
+  if (code) joinRoom(code);
+};
+$('btn-copy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('lobby-link').href); toast('リンクをコピーしました'); }
+  catch { toast('コピーできませんでした'); }
+};
+$('btn-add-bot').onclick = () => send({ type: 'add_bot' });
+$('btn-start').onclick = () => send({ type: 'start' });
+$('btn-len-east').onclick = () => send({ type: 'set_length', length: 'east' });
+$('btn-len-south').onclick = () => send({ type: 'set_length', length: 'south' });
+$('btn-leave-lobby').onclick = () => { send({ type: 'leave' }); backToMenu(); };
+$('btn-leave-game').onclick = () => { send({ type: 'leave' }); backToMenu(); };
+$('btn-back-menu').onclick = () => { send({ type: 'leave' }); backToMenu(); };
+
+(async () => {
+  // 壁牌の初期描画（接続前でも卓の見た目を出す）
+  try {
+    const res = await fetch('/api/mahjong/me');
+    const data = await res.json();
+    if (data.loggedIn) {
+      me = { loggedIn: true, name: data.name, token: data.token };
+      $('user-box').hidden = false;
+      $('user-name').textContent = data.name;
+    } else {
+      $('login-box').hidden = false;
+    }
+  } catch { /* ログイン情報が取れなくても Bot 戦は可能 */ }
+  const roomParam = new URLSearchParams(location.search).get('room');
+  if (roomParam) {
+    $('join-code').value = roomParam.toUpperCase();
+    if (me.loggedIn) joinRoom(roomParam.toUpperCase());
+    else toast('参加するには Discord ログインが必要です（ログイン後に自動で参加します）');
+  }
+})();
+</script>
+</body>
+</html>

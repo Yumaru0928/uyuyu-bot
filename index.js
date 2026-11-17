@@ -35,6 +35,10 @@ agentBridge.attach(server);
 const babanukiServer = require('./utils/babanuki-server.js');
 babanukiServer.attach(server, { verifyToken: app.get('babanukiVerifyToken') });
 
+// Web版 三人麻雀の対局WebSocket（/play/mahjong/ws）。トークン検証はババ抜きと共通
+const mahjongServer = require('./utils/mahjong-server.js');
+mahjongServer.attach(server, { verifyToken: app.get('babanukiVerifyToken') });
+
 // ===================================================
 // ★ ① 先に Discord Client を初期化する（ここが重要！）
 // ===================================================

@@ -273,6 +273,19 @@ app.get('/api/babanuki/me', remember.restoreLogin, (req, res) => {
     res.json({ loggedIn: false });
 });
 
+// 5.5b Web版 三人麻雀（/play/mahjong）: 対局は WebSocket（utils/mahjong-server.js）。
+// ログイン用トークンはババ抜きと共通のものをそのまま使う
+app.get('/play/mahjong', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'play', 'mahjong.html'));
+});
+
+app.get('/api/mahjong/me', remember.restoreLogin, (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+        return res.json({ loggedIn: true, name: req.user.username || 'プレイヤー', token: issueBabanukiToken(req.user) });
+    }
+    res.json({ loggedIn: false });
+});
+
 // 5.6 棋譜（/play/kifu）
 //    対戦ゲーム（将棋・オセロ・四目並べ）の終局時に utils/kifu-store.js へ保存された棋譜を、
 //    Web で一覧・再生できるようにする。一覧とお気に入りは Discord ログイン必須、
