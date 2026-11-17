@@ -5,13 +5,15 @@
       "items": {
         "uyuyu_gliched": 1,
         "uyuyu_fucking": 1,
-        "uyuyu": 2,
-        "uyuyu_crashed": 2,
-        "uyuyu_WT": 2,
-        "uyuyu_makeup": 2
+        "uyuyu": 3,
+        "uyuyu_crashed": 3,
+        "uyuyu_WT": 3,
+        "uyuyu_makeup": 5,
+        "uyuyu_sweating": 3,
+        "uyuyu_uhe": 1
       },
-      "total": 10,
-      "updatedAt": 1794875475602
+      "total": 20,
+      "updatedAt": 1794875617091
     }
   },
   "wins": {}
