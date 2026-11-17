@@ -261,9 +261,22 @@ async function restoreConfigFromGitHub(filePath = 'config-channels.json') {
 
         const guildIds = Object.keys(remote);
         updateChannelConfig(local => {
-            for (const guildId of guildIds) local[guildId] = remote[guildId];
+            for (const guildId of guildIds) {
+                const remoteGuild = remote[guildId];
+                if (!remoteGuild || typeof remoteGuild !== 'object') continue;
+                // サーバー単位で丸ごと置き換えると、リモート側が古いコピーのときに
+                // ローカルにしか無い新しいキー（babanukiChannel 等）が起動のたびに消えてしまう。
+                // キー単位でマージする：リモートにあるキーはリモート優先、無いキーはローカルを残す
+                local[guildId] = { ...(local[guildId] ?? {}), ...remoteGuild };
+            }
         });
         console.log(`[GitHub Sync] ${github.branch} ブランチから ${guildIds.length} サーバー分の設定を読み戻しました。`);
+        // 診断用：自動投稿先が読み戻し後に残っているか（消える不具合の切り分け）
+        const { getChannelConfig } = require('./utils/channel-config.js');
+        const withBabanuki = Object.entries(getChannelConfig())
+            .filter(([, g]) => g && g.babanukiChannel)
+            .map(([id, g]) => `${id}->${g.babanukiChannel}`);
+        console.log(`[GitHub Sync] babanukiChannel 設定済み: ${withBabanuki.length ? withBabanuki.join(', ') : 'なし'}`);
     } catch (error) {
         console.error('[GitHub Sync] 設定の読み戻しに失敗しました。ローカルの設定を使います:', error);
     }
