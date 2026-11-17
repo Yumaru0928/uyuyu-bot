@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "61c51d46-588a-4ec3-b965-a411c89b8d67",
+      "code": "94X4JD",
+      "game": "shogi",
+      "players": [
+        {
+          "id": "960004867542380555",
+          "name": "ゆまる",
+          "bot": false
+        },
+        {
+          "id": "981314695543783484",
+          "name": "TakasumiBOT",
+          "bot": true
+        }
+      ],
+      "firstId": "960004867542380555",
+      "winnerId": "981314695543783484",
+      "reason": "checkmate",
+      "moves": [
+        "3g3f",
+        "1c1d",
+        "3f3e",
+        "2b1c",
+        "1g1f",
+        "1c3e",
+        "9g9f",
+        "3e5g+",
+        "8h9g",
+        "5a5b",
+        "4i5h",
+        "5g3i",
+        "2h1h",
+        "3i2i",
+        "1h4h",
+        "2i1i",
+        "9g7e",
+        "S*6d",
+        "7e9c+",
+        "8a9c",
+        "P*3i",
+        "1i3g",
+        "5i6h",
+        "N*5f",
+        "6h5g",
+        "B*2d",
+        "5g5f",
+        "3g5e"
+      ],
+      "level": "normal",
+      "createdAt": 1794886606984
+    }
+  ],
+  "favorites": {}
+}
