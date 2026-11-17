@@ -38,15 +38,19 @@
     },
     "1287776137325445125": {
       "items": {
-        "uyuyu": 2,
-        "uyuyu_fucking": 2,
+        "uyuyu": 5,
+        "uyuyu_fucking": 3,
         "uyuyu_WT": 2,
-        "uyuyu_sweating": 2,
-        "uyuyu_rainbow": 1,
-        "uyuyu_crashed": 1
+        "uyuyu_sweating": 5,
+        "uyuyu_rainbow": 2,
+        "uyuyu_crashed": 6,
+        "uyuyu_golden": 1,
+        "uyuyu_uhe": 2,
+        "uyuyu_space": 1,
+        "uyuyu_makeup": 3
       },
-      "total": 10,
-      "updatedAt": 1794897410055
+      "total": 30,
+      "updatedAt": 1794897492809
     }
   },
   "wins": {}
