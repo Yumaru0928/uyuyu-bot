@@ -23,6 +23,7 @@ const UYUYU_EMOJIS = [
     { name: 'uyuyu_gliched', id: '1557407747627294761' },
     { name: 'uyuyu_rainbow', id: '1572104398946050088' },
     { name: 'uyuyu_golden', id: '1572106477492109372' },
+    { name: 'uyuyu_hotcake', id: '1572248200981520404' },
     { name: 'uyuyu_peace_sign', id: '1572245778473287870' },
     { name: 'uyuyun', id: '1558816474267910154' }
 ];
@@ -32,6 +33,7 @@ const ROLLING_UYUYU = { name: 'rolling_uyuyu', id: '1529182253207392267' };
 
 // ガチャの季節限定枠（リアクション・スロットには入っていない）
 const SANTA_UYUYU = { name: 'uyuyu_santa', id: '1572097202354917488' };
+const TONAKAI_UYUYU = { name: 'uyuyu_tonakai', id: '1572248310935457882' };
 const NEWYEAR_UYUYU = { name: 'uyuyu_newyear', id: '1572113293647151155' };
 
 // スロット専用の絵文字
@@ -56,6 +58,7 @@ const GACHA_POOL = [
     { ...byName('uyuyu_null'), rarity: 'SR' },
     { ...byName('uyuyu_rainbow'), rarity: 'SR' },
     { ...byName('uyuyu_peace_sign'), rarity: 'R' },
+    { ...byName('uyuyu_hotcake'), rarity: 'R' },
     { ...byName('uyuyu_makeup'), rarity: 'R' },
     { ...byName('uyuyu_dango'), rarity: 'R' },
     { ...byName('uyuyu_WT'), rarity: 'R' },
@@ -77,10 +80,11 @@ const GACHA_CONDITIONALS = [
     { ...byName('uyuyu_sleeping'), rarity: 'SP', condition: 'night', hint: '夜更かしなうゆゆ。みんなが寝静まった頃にだけ姿を見せる' },
     { ...ROLLING_UYUYU, rarity: 'SP', condition: 'reaction', hint: '転がり続けるうゆゆ。どこかで出会える…かも' },
     { ...SANTA_UYUYU, rarity: 'SP', condition: 'december', hint: 'サンタなうゆゆ。12月にだけ姿を見せる' },
+    { ...TONAKAI_UYUYU, rarity: 'SP', condition: 'december', hint: 'トナカイなうゆゆ。12月にだけ姿を見せる' },
     { ...NEWYEAR_UYUYU, rarity: 'SP', condition: 'newyear', hint: 'お正月なうゆゆ。年末年始にだけ姿を見せる' },
 ];
 
-// 図鑑に並べる全種（通常プール＋条件枠 = 17種）
+// 図鑑に並べる全種（通常プール＋条件枠 = 24種）
 const GACHA_ALL = [...GACHA_POOL, ...GACHA_CONDITIONALS];
 
-module.exports = { UYUYU_EMOJIS, ROLLING_UYUYU, SANTA_UYUYU, NEWYEAR_UYUYU, SLOT_TRANSPARENT, SLOT_EXTRA, asText, GACHA_POOL, GACHA_CONDITIONALS, GACHA_ALL };
+module.exports = { UYUYU_EMOJIS, ROLLING_UYUYU, SANTA_UYUYU, TONAKAI_UYUYU, NEWYEAR_UYUYU, SLOT_TRANSPARENT, SLOT_EXTRA, asText, GACHA_POOL, GACHA_CONDITIONALS, GACHA_ALL };

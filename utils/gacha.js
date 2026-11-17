@@ -6,7 +6,7 @@
 // ・週替わりローテーション: SR/R/N の13種から毎週3種が「お休み」（排出されない）。
 //   組み合わせは ISO 週番号から決定的に算出するので全員共通・DB不要。
 // ・条件ドロップ: 対戦で勝った日（uyuyu_take）／深夜 JST 0〜5時（uyuyu_sleeping）／
-//   12月（uyuyu_santa）／年末年始 12/29〜1/3（uyuyu_newyear）のときだけ
+//   12月（uyuyu_santa／uyuyu_tonakai）／年末年始 12/29〜1/3（uyuyu_newyear）のときだけ
 //   低確率枠としてプールに混ざる。rolling_uyuyu はガチャからは出ない（リアクション経由のみ）
 // ・10連の最後の1枠は R 以上確定
 // ・時刻判定（深夜・日次）はすべて JST 基準（サーバーが UTC でもずれないよう +9時間で計算する）
@@ -43,7 +43,7 @@ function isNightJst(date = new Date()) {
   return h >= 0 && h < 5;
 }
 
-/** 12月（JST）かどうか（uyuyu_santa の季節判定） */
+/** 12月（JST）かどうか（uyuyu_santa／uyuyu_tonakai の季節判定） */
 function isDecemberJst(date = new Date()) {
   return toJst(date).getUTCMonth() === 11;
 }

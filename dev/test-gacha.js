@@ -57,7 +57,7 @@ async function main() {
     assert.deepStrictEqual(gacha.getRestingNames(sun), restMon, '同じ週なのにお休みが変わる');
     assert.strictEqual(restMon.length, gacha.REST_COUNT);
     const eligible = new Set(GACHA_POOL.filter((e) => e.rarity !== 'SSR').map((e) => e.name));
-    assert.strictEqual(eligible.size, 14);
+    assert.strictEqual(eligible.size, 16);
     for (const name of restMon) assert(eligible.has(name), `お休み対象外が含まれている: ${name}`);
     assert(!restMon.includes('uyuyun'), 'SSR がお休みになっている');
 
@@ -81,6 +81,7 @@ async function main() {
     assert(!names.has('uyuyu_take'), '条件なしで uyuyu_take が混ざっている');
     assert(!names.has('uyuyu_sleeping'), '昼間で uyuyu_sleeping が混ざっている');
     assert(!names.has('uyuyu_santa'), '11月で uyuyu_santa が混ざっている');
+    assert(!names.has('uyuyu_tonakai'), '11月で uyuyu_tonakai が混ざっている');
     assert(!names.has('uyuyu_newyear'), '11月で uyuyu_newyear が混ざっている');
     assert(!names.has('rolling_uyuyu'), 'ガチャから rolling_uyuyu が出るようになっている');
 
@@ -90,7 +91,7 @@ async function main() {
       assert.strictEqual(results.length, 10);
       for (const r of results) {
         assert(!resting.has(r.name), `お休み中が排出された: ${r.name}`);
-        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu', 'uyuyu_santa', 'uyuyu_newyear'].includes(r.name), `条件枠が排出された: ${r.name}`);
+        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu', 'uyuyu_santa', 'uyuyu_tonakai', 'uyuyu_newyear'].includes(r.name), `条件枠が排出された: ${r.name}`);
       }
       // 最後の1枠は R 以上確定
       assert(['SSR', 'SR', 'R'].includes(results[9].rarity), `最後の枠が ${results[9].rarity} だった`);
@@ -127,6 +128,7 @@ async function main() {
     assert.strictEqual(gacha.isDecemberJst(DAY), false);
     const decPool = gacha.buildPool({ date: DEC, wonToday: false });
     assert(decPool.some((e) => e.name === 'uyuyu_santa'), '12月に uyuyu_santa がプールに無い');
+    assert(decPool.some((e) => e.name === 'uyuyu_tonakai'), '12月に uyuyu_tonakai がプールに無い');
     let santaSeen = 0;
     for (let n = 0; n < 300; n++) {
       for (const r of gacha.drawTen({ date: DEC, wonToday: false, rng })) {
@@ -216,8 +218,8 @@ async function main() {
     console.log('記録の保存と読み戻し: OK');
   }
 
-  // 図鑑の全種は21種（通常プール16＋条件枠5）
-  assert.strictEqual(GACHA_ALL.length, 21);
+  // 図鑑の全種は24種（通常プール18＋条件枠6）
+  assert.strictEqual(GACHA_ALL.length, 24);
 
   try { fs.unlinkSync(TMP_FILE); } catch { /* 後片付け */ }
   console.log('test-gacha: OK');
