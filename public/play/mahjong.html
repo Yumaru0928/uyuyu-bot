@@ -106,11 +106,11 @@
   .opp-label .score { font-family: var(--font-num); color: var(--gold); }
   .opp-label .off { color: var(--danger); font-size: 2cqw; }
   /* 河 */
-  .pond { position: absolute; display: grid; grid-template-columns: repeat(6, 5.9cqw); gap: 0.7cqw; }
-  .pond.me { left: 50%; bottom: 3.2cqw; transform: translateX(-50%); }
-  .pond.right { right: 15.5cqw; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center; }
-  .pond.left { left: 15.5cqw; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: center; }
-  .pond .cell { position: relative; width: 5.9cqw; height: 8cqw; }
+  .pond { position: absolute; display: grid; grid-template-columns: repeat(6, 4.1cqw); gap: 0.5cqw; z-index: 1; }
+  .pond.me { left: 50%; bottom: 2.6cqw; transform: translateX(-50%); }
+  .pond.right { left: 73.5%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+  .pond.left { left: 26.5%; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); }
+  .pond .cell { position: relative; width: 4.1cqw; height: 5.5cqw; }
   .pond .cell .tile { position: absolute; inset: 0; }
   .pond .cell.last .tile { outline: 0.55cqw solid var(--gold); outline-offset: -0.2cqw; }
   .pond .cell.called .tile { opacity: .45; }
@@ -126,20 +126,20 @@
   .center {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: 27cqw; height: 27cqw; background: #0e1210; border: 0.4cqw solid #2a2f2c; border-radius: 1.2cqw;
-    color: var(--gold); text-align: center;
+    color: var(--gold); text-align: center; z-index: 3;
   }
-  .center .round { font-family: var(--font-num); font-weight: 700; font-size: 4.6cqw; margin-top: 1.8cqw; letter-spacing: .1em; }
-  .center .honba { font-family: var(--font-num); font-size: 2.5cqw; margin-top: 0.4cqw; }
-  .center .remain-label { color: #cfe8d8; font-size: 2.1cqw; margin-top: 1.6cqw; font-weight: 700; }
-  .center .remain { font-family: var(--font-num); font-weight: 700; font-size: 6cqw; line-height: 1.05; }
-  .center .cscore { position: absolute; font-family: var(--font-num); font-weight: 700; font-size: 3.4cqw; display: flex; align-items: center; gap: 1cqw; }
-  .center .cscore.me { bottom: 1.2cqw; left: 50%; transform: translateX(-50%); }
+  .center .round { font-family: var(--font-num); font-weight: 700; font-size: 4.2cqw; margin-top: 1.2cqw; letter-spacing: .1em; padding: 0 4.4cqw; }
+  .center .honba { font-family: var(--font-num); font-size: 2.2cqw; margin-top: 0.3cqw; padding: 0 4.4cqw; white-space: nowrap; }
+  .center .remain-label { color: #cfe8d8; font-size: 2cqw; margin-top: 1cqw; font-weight: 700; padding: 0 4.4cqw; }
+  .center .remain { font-family: var(--font-num); font-weight: 700; font-size: 5cqw; line-height: 1.05; padding: 0 4.4cqw; }
+  .center .cscore { position: absolute; font-family: var(--font-num); font-weight: 700; font-size: 3cqw; display: flex; align-items: center; gap: 0.8cqw; }
+  .center .cscore.me { bottom: 0.7cqw; left: 50%; transform: translateX(-50%); }
   .center .cscore.right { right: 0.9cqw; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
   .center .cscore.left { left: 0.9cqw; top: 50%; transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
   .center .wind-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 3.6cqw; height: 3.6cqw; border-radius: 50%; background: #333a37; color: #fff;
-    font-family: var(--font-tile); font-weight: 900; font-size: 2.5cqw; writing-mode: horizontal-tb;
+    width: 3.2cqw; height: 3.2cqw; border-radius: 50%; background: #333a37; color: #fff;
+    font-family: var(--font-tile); font-weight: 900; font-size: 2.2cqw; writing-mode: horizontal-tb; flex: none;
   }
   .center .wind-badge.dealer { background: #c0392b; }
   .center::after {
@@ -231,6 +231,25 @@
   @media (max-width: 560px) {
     .hand-row { min-height: 76px; }
     header h1 { font-size: 17px; }
+  }
+  /* 横画面案内（縦持ちの携帯で対局中だけ出す） */
+  #rotate-hint {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: #402b12; color: #ffe1ae; border: 1px solid #8a6a2f; border-radius: 12px;
+    padding: 12px 14px; z-index: 55; width: min(92vw, 430px); text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 14px;
+  }
+  #rotate-hint[hidden] { display: none; }
+  #rotate-hint button { margin-top: 8px; }
+  /* 携帯の横画面: 卓を左に、手牌とボタンを右の列に置く */
+  @media (orientation: landscape) and (max-height: 540px) {
+    body.in-game header { display: none; }
+    body.in-game main { max-width: none; padding: 6px 8px 10px; }
+    #game-screen { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: start; }
+    #game-screen .table-wrap { width: min(94vh, 57vw); width: min(94dvh, 57vw); grid-row: 1 / span 3; }
+    #game-screen .status-line { margin-top: 0; flex-direction: column; align-items: stretch; gap: 4px; }
+    #game-screen .action-bar { justify-content: flex-start; }
+    #game-screen .hand-row { min-height: 0; margin-top: 2px; }
   }
 </style>
 </head>
@@ -330,6 +349,10 @@
     <div class="hand-row" id="hand-row"></div>
     <div style="margin-top:10px">
       <button id="btn-leave-game" class="secondary small">退出する（席は Bot が代行します）</button>
+    </div>
+    <div id="rotate-hint" hidden>
+      📱 横画面にすると卓も手牌も大きく見えて遊びやすいです
+      <br><button id="btn-rotate-dismiss" class="small secondary">このまま縦で遊ぶ</button>
     </div>
   </section>
 
@@ -470,6 +493,15 @@ const screens = ['menu-screen', 'lobby-screen', 'game-screen', 'end-screen'];
 function show(id) {
   for (const s of screens) $(s).hidden = s !== id;
   if (id !== 'game-screen') $('result-overlay').hidden = true;
+  document.body.classList.toggle('in-game', id === 'game-screen' || id === 'end-screen');
+  updateRotateHint();
+}
+let rotateDismissed = false;
+function updateRotateHint() {
+  const hint = $('rotate-hint');
+  if (!hint) return;
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  hint.hidden = !(portrait && window.innerWidth < 700 && !rotateDismissed && !$('game-screen').hidden);
 }
 let toastTimer = null;
 function toast(msg) {
@@ -607,7 +639,7 @@ function renderState(view) {
   lastView = view;
   const felt = $('felt');
   const tableW = $('table-wrap').clientWidth || 700;
-  const pondTileW = Math.max(16, Math.round(tableW * 0.055));
+  const pondTileW = Math.max(14, Math.round(tableW * 0.041));
   const meldTileW = Math.max(18, Math.round(tableW * 0.06));
 
   // 壁牌（装飾）
@@ -714,7 +746,8 @@ function renderHand(view) {
   const myP = view.players[mySeat];
   if (!myP || !myP.hand) return;
   const hand = myP.hand;
-  const tileW = Math.min(62, Math.max(40, Math.floor((Math.min(window.innerWidth, 760) - 40) / 15)));
+  const avail = row.clientWidth || Math.min(window.innerWidth, 760) - 24;
+  const tileW = Math.max(22, Math.min(62, Math.floor((avail - 13 * 4 - 20) / 14)));
   const actions = view.actions;
   const myTurn = view.phase === 'play' && actions && actions.type === 'play';
   const drawnActive = myTurn && myP.drawnTile !== null && myP.drawnTile !== undefined;
@@ -929,8 +962,20 @@ function renderRematchStatus(msg) {
 }
 
 // ===== 画面遷移の操作 =====
+// Android Chrome 等では対局開始のタップをきっかけに横画面ロックを試みる（iOS は非対応なので無視）
+function tryLockLandscape() {
+  try {
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    const el = document.documentElement;
+    if (el.requestFullscreen && screen.orientation && screen.orientation.lock) {
+      el.requestFullscreen().then(() => screen.orientation.lock('landscape')).catch(() => { /* 非対応は無視 */ });
+    }
+  } catch { /* noop */ }
+}
+
 function startBotGame(length) {
   roomMode = 'bot';
+  tryLockLandscape();
   connect(() => {
     send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name });
   });
@@ -938,6 +983,7 @@ function startBotGame(length) {
 function createHumanRoom() {
   if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
   roomMode = 'human';
+  tryLockLandscape();
   connect(() => {
     send({ type: 'create', mode: 'human', token: me.token, name: me.name });
   });
@@ -945,6 +991,7 @@ function createHumanRoom() {
 function joinRoom(code) {
   if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
   roomMode = 'human';
+  tryLockLandscape();
   connect(() => {
     send({ type: 'join', code, token: me.token, name: me.name });
   });
@@ -968,6 +1015,11 @@ $('btn-len-south').onclick = () => send({ type: 'set_length', length: 'south' })
 $('btn-leave-lobby').onclick = () => { send({ type: 'leave' }); backToMenu(); };
 $('btn-leave-game').onclick = () => { send({ type: 'leave' }); backToMenu(); };
 $('btn-back-menu').onclick = () => { send({ type: 'leave' }); backToMenu(); };
+$('btn-rotate-dismiss').onclick = () => { rotateDismissed = true; updateRotateHint(); };
+window.addEventListener('resize', () => {
+  updateRotateHint();
+  if (lastView && !$('game-screen').hidden) renderState(lastView);
+});
 
 (async () => {
   // 壁牌の初期描画（接続前でも卓の見た目を出す）
