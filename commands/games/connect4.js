@@ -21,6 +21,7 @@ const core = require('../../utils/connect4-core');
 const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
 const gachaCollection = require('../../utils/gacha-collection');
+const kifuStore = require('../../utils/kifu-store');
 const sessions = require('../../utils/sessions');
 const { requestChallenge} = require('../../utils/challenge');
 const { GAMES} = require('../../utils/games');
@@ -161,6 +162,7 @@ players: { [RED]: game.players[YELLOW], [YELLOW]: game.players[RED]},
 ranked: game.ranked,
 level: game.level,
 guildId: game.guildId,
+moves: [],
 stage: 'col',
 sel: null,
 busy: false,
@@ -181,6 +183,7 @@ function doMove(game, col) {
 const player = game.turn;
 const placed = core.drop(game.board, col, player);
 if (!placed) return false;
+(game.moves ??= []).push(col); // 棋譜用に落とした列を記録する
 game.lastMove = placed;
 game.events.push(`${PIECE[player]} ${game.players[player].displayName}: **${col + 1}列**`);
 
@@ -251,6 +254,25 @@ gachaCollection.markWin(p[winner].id);
 console.error('[connect4] ガチャ勝利記録エラー:', err);
 }
 }
+
+// 棋譜を保存する（失敗しても結果表示は出す）
+try {
+const rec = kifuStore.recordGame({
+game: GAME_ID,
+players: [RED, YELLOW].map((c) => ({ id: p[c].id, name: p[c].displayName, bot: Boolean(p[c].isAi) })),
+firstId: p[RED].id,
+winnerId: winner === null? null: p[winner].id,
+reason: reason === 'normal'? 'four': reason, // 通常終局は4つ並べての勝敗（引き分け含む）
+moves: game.moves?? [],
+level: game.ranked? null: game.level,
+});
+if (rec) {
+const base = process.env.PUBLIC_BASE_URL || 'https://uyuyu-bot.onrender.com';
+text += `\n📜 棋譜コード: **${rec.code}**（${base}/play/kifu/${rec.code}）`;
+}
+} catch (err) {
+console.error('[connect4] 棋譜の保存エラー:', err);
+}
 return text;
 }
 
@@ -270,6 +292,7 @@ players: game.players,
 ranked: game.ranked,
 level: game.level,
 events: game.events,
+moves: game.moves?? [], // 棋譜用の着手列（終局まで持っていく）
 lastMove: game.lastMove?? null,
 notifyMessageId: game.notifyMessageId?? null,
 });
@@ -575,6 +598,7 @@ winLine: null,
 winner: undefined,
 notifyMessageId: s.notifyMessageId?? null,
 events: Array.isArray(s.events)? s.events: [],
+moves: Array.isArray(s.moves)? s.moves: [], // 古い保存データには無いので空で補う
 note: '♻️ Botが再起動したため、対局を復元しました。続きから遊べます。',
 over: false,
 };
@@ -658,6 +682,7 @@ players: challengerIsRed
 ranked:!vsAi,
 level,
 guildId: interaction.guildId?? null,
+moves: [], // 棋譜用の着手列
 stage: 'col',
 sel: null,
 busy: false,

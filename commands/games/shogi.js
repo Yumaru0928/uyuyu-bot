@@ -24,6 +24,7 @@ const core = require('../../utils/shogi-core');
 const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
 const gachaCollection = require('../../utils/gacha-collection');
+const kifuStore = require('../../utils/kifu-store');
 const sessions = require('../../utils/sessions');
 const { requestChallenge } = require('../../utils/challenge');
 const { GAMES } = require('../../utils/games');
@@ -406,6 +407,25 @@ function settle(game, outcome) {
     } catch (err) {
       console.error('[shogi] ガチャ勝利記録エラー:', err);
     }
+  }
+
+  // 棋譜を保存する（指し手は USI の列をそのまま使う。失敗しても結果表示は出す）
+  try {
+    const rec = kifuStore.recordGame({
+      game: GAME_ID,
+      players: [BLACK, WHITE].map((c) => ({ id: p[c].id, name: p[c].displayName, bot: Boolean(p[c].isAi) })),
+      firstId: p[BLACK].id,
+      winnerId: w === null ? null : p[w].id,
+      reason: outcome.reason,
+      moves: [...game.game.moves],
+      level: game.ranked ? null : game.level,
+    });
+    if (rec) {
+      const base = process.env.PUBLIC_BASE_URL || 'https://uyuyu-bot.onrender.com';
+      text += `\n📜 棋譜コード: **${rec.code}**（${base}/play/kifu/${rec.code}）`;
+    }
+  } catch (err) {
+    console.error('[shogi] 棋譜の保存エラー:', err);
   }
   return text;
 }

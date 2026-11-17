@@ -273,6 +273,109 @@ app.get('/api/babanuki/me', remember.restoreLogin, (req, res) => {
     res.json({ loggedIn: false });
 });
 
+// 5.6 棋譜（/play/kifu）
+//    対戦ゲーム（将棋・オセロ・四目並べ）の終局時に utils/kifu-store.js へ保存された棋譜を、
+//    Web で一覧・再生できるようにする。一覧とお気に入りは Discord ログイン必須、
+//    棋譜コードでの閲覧はログイン不要（コードを知っている人なら誰でも見られる）。
+const kifuStore = require('./utils/kifu-store');
+const kifuReplay = require('./utils/kifu-replay');
+const { GAMES: KIFU_GAMES } = require('./utils/games');
+
+app.get('/play/kifu', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'play', 'kifu.html'));
+});
+app.get('/play/kifu/:code', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'play', 'kifu.html'));
+});
+
+// 一覧用に、見る人から見た形へ整える
+function kifuSummary(record, userId) {
+    const opponent = record.players.find(p => p.id !== userId) || record.players[1];
+    const fav = userId ? kifuStore.getFavorite(userId, record.id) : null;
+    return {
+        code: record.code,
+        game: record.game,
+        gameLabel: KIFU_GAMES[record.game]?.label ?? record.game,
+        opponentName: opponent?.name ?? '',
+        opponentBot: Boolean(opponent?.bot),
+        isFirst: record.firstId === userId, // 自分が先手かどうか
+        result: record.winnerId === null ? 'draw' : record.winnerId === userId ? 'win' : 'lose',
+        reason: record.reason,
+        level: record.level,
+        plies: record.moves.length,
+        createdAt: record.createdAt,
+        favorite: Boolean(fav),
+        name: fav?.name ?? null
+    };
+}
+
+// 自分が参加した対局の一覧（新しい順）
+app.get('/api/kifu/list', remember.restoreLogin, (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'ログインが必要です' });
+    }
+    const userId = String(req.user.id);
+    res.json({ items: kifuStore.listForUser(userId).map(r => kifuSummary(r, userId)) });
+});
+
+// 棋譜のメタ情報と着手リスト（ログイン不要。ログイン中なら自分のお気に入り状態も返す）
+app.get('/api/kifu/view/:code', remember.restoreLogin, (req, res) => {
+    const record = kifuStore.getByCode(req.params.code);
+    if (!record) return res.status(404).json({ error: '棋譜が見つかりません（削除された可能性があります）' });
+    const userId = req.isAuthenticated() && req.user ? String(req.user.id) : null;
+    const fav = userId ? kifuStore.getFavorite(userId, record.id) : null;
+    const winner = record.winnerId === null ? null : record.players.find(p => p.id === record.winnerId);
+    const first = record.players.find(p => p.id === record.firstId);
+    res.json({
+        code: record.code,
+        game: record.game,
+        gameLabel: KIFU_GAMES[record.game]?.label ?? record.game,
+        players: record.players.map(p => ({ name: p.name, bot: p.bot })),
+        firstName: first?.name ?? '',
+        winnerName: winner?.name ?? null,
+        draw: record.winnerId === null,
+        reason: record.reason,
+        level: record.level,
+        plies: record.moves.length,
+        createdAt: record.createdAt,
+        moves: kifuReplay.moveLabels(record),
+        loggedIn: Boolean(userId),
+        favorite: Boolean(fav),
+        name: fav?.name ?? null
+    });
+});
+
+// n手目の盤面画像（PNG）。再生はサーバー側で行い、既存の盤面描画をそのまま使う
+app.get('/api/kifu/view/:code/position', (req, res) => {
+    const record = kifuStore.getByCode(req.params.code);
+    if (!record) return res.status(404).json({ error: '棋譜が見つかりません（削除された可能性があります）' });
+    let buf;
+    try {
+        buf = kifuReplay.renderPositionPng(record, req.query.ply);
+    } catch (error) {
+        console.error('[Web] 棋譜の再生に失敗しました:', error);
+        return res.status(500).json({ error: '盤面を再生できませんでした' });
+    }
+    if (!buf) return res.status(503).json({ error: '盤面画像を生成できない環境です' });
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=300' });
+    res.send(buf);
+});
+
+// お気に入りと名前の更新（自分の分だけ）
+app.post('/api/kifu/favorite', express.json({ limit: '16kb' }), remember.restoreLogin, (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'ログインが必要です' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const record = kifuStore.getByCode(typeof body.code === 'string' ? body.code : '');
+    if (!record) return res.status(404).json({ error: '棋譜が見つかりません（削除された可能性があります）' });
+    const userId = String(req.user.id);
+    const name = typeof body.name === 'string' ? body.name : undefined;
+    kifuStore.setFavorite(userId, record.id, Boolean(body.favorite), name);
+    const fav = kifuStore.getFavorite(userId, record.id);
+    res.json({ ok: true, favorite: Boolean(fav), name: fav?.name ?? null });
+});
+
 // 6. ダッシュボード（管理できるサーバー一覧画面）
 app.get('/dashboard', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated() || !req.user) {

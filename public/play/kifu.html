@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>棋譜 | うゆゆBot</title>
+<meta name="description" content="うゆゆBotの対戦ゲーム（将棋・オセロ・四目並べ）の棋譜を一覧・再生できます。棋譜コードで友達にも共有できます。">
+<link rel="icon" href="/uyuyu.png">
+<style>
+  :root {
+    --bg: #0d1f1a;
+    --panel: #143129;
+    --panel2: #1a3d33;
+    --fg: #eef7f3;
+    --muted: #9db8ae;
+    --accent: #0E7A5C;
+    --accent2: #35c08f;
+    --danger: #e05d5d;
+    --text-dim: #b9cfc6;
+    --text-faint: #7d9a8e;
+    --line: rgba(238,247,243,.12);
+    --panel-deep: #0f2921;
+    --gold: #e8c15a;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --tap: 44px;
+    /* モーションのデザイントークン（尺とイージングはここに集約する） */
+    --dur-1: 100ms;  /* 押下 */
+    --dur-2: 160ms;  /* ホバーなど */
+    --dur-3: 240ms;  /* 登場・画面遷移 */
+    --dur-4: 360ms;  /* ★ポップ（最長） */
+    --dur-board: 140ms; /* 盤面のクロスフェード */
+    --ease-out: cubic-bezier(.2,.8,.2,1);
+    --ease-inout: cubic-bezier(.4,0,.2,1);
+    --ease-pop: cubic-bezier(.34,1.56,.64,1); /* ★だけに使う */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: "Noto Sans JP", system-ui, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  }
+  header { width: 100%; max-width: 760px; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; margin: 0; }
+  header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
+  main { width: 100%; max-width: 760px; padding: 0 16px 32px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 16px; margin: 0 0 10px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 10px 18px; font-size: 15px; cursor: pointer; margin: 4px 4px 4px 0;
+    min-height: var(--tap);
+    transition: background var(--dur-2) ease, transform var(--dur-1) ease;
+  }
+  button:hover { background: var(--accent2); }
+  button:active { transform: scale(.97); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+  button:disabled { background: #3a554c; cursor: default; opacity: .4; }
+  button.secondary { background: var(--panel2); }
+  button.small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+  .discord-login-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 48px; margin: 10px 0 4px; border-radius: 8px;
+    background: #5865F2; color: #fff; font-size: 16px; font-weight: 700;
+    text-decoration: none; transition: filter .12s ease, transform .12s ease;
+  }
+  .discord-login-btn:hover { filter: brightness(1.12); }
+  .discord-login-btn:active { transform: scale(.98); }
+  input[type="text"] {
+    background: var(--panel2); color: var(--fg); border: 1px solid #2c5749;
+    border-radius: var(--radius-sm); padding: 10px; font-size: 15px; width: 180px; margin-right: 4px;
+    min-height: var(--tap);
+  }
+  /* 画面（ホーム／再生）の切り替え用。一覧 DOM は破棄せず hidden で保持する */
+  .screen[hidden] { display: none; }
+  /* View Transitions が無い環境でのフォールバック */
+  .view-enter-f { animation: view-in-f 200ms var(--ease-out); }
+  .view-enter-b { animation: view-in-b 200ms var(--ease-out); }
+  @keyframes view-in-f { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+  @keyframes view-in-b { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+  ::view-transition-old(root), ::view-transition-new(root) {
+    animation-duration: var(--dur-3);
+    animation-timing-function: var(--ease-inout);
+  }
+  html[data-nav="forward"]::view-transition-new(root) { animation-name: vt-in-f; }
+  html[data-nav="forward"]::view-transition-old(root) { animation-name: vt-out-f; }
+  html[data-nav="back"]::view-transition-new(root) { animation-name: vt-in-b; }
+  html[data-nav="back"]::view-transition-old(root) { animation-name: vt-out-b; }
+  @keyframes vt-in-f { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+  @keyframes vt-out-f { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-8px); } }
+  @keyframes vt-in-b { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes vt-out-b { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(8px); } }
+
+  /* 対局一覧の行。勝敗は左端3pxの色で示す（勝ち=緑） */
+  .kifu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--line);
+    border-radius: var(--radius-sm);
+    cursor: pointer; text-align: left; width: 100%; color: var(--fg);
+    transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  }
+  .kifu-item.res-win { border-left-color: var(--accent2); }
+  .kifu-item.res-lose { border-left-color: #54655e; }
+  @media (hover: hover) {
+    .kifu-item:hover { transform: translateY(-2px); border-color: var(--gold); }
+  }
+  .kifu-item:active { transform: scale(.985); }
+  /* 登場ステガー（初回のみ・先頭8件）。fill-mode は backwards（both だとホバーの transform が効かなくなる） */
+  .kifu-item.anim-in { animation: item-in var(--dur-3) var(--ease-out) backwards; }
+  @keyframes item-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* 名前保存時のフラッシュ */
+  .saved-flash { animation: saved-flash 600ms var(--ease-out); }
+  @keyframes saved-flash { from { background-color: #2f6b4f; } to { background-color: var(--panel2); } }
+  .kifu-main { flex: 1; min-width: 0; }
+  .kifu-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kifu-meta { color: var(--text-dim); font-size: 12.5px; margin-top: 2px; }
+  .result-badge { font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .result-win { background: #6d5410; color: #ffe082; }
+  .result-lose { background: #37474f; color: #b0bec5; }
+  .result-draw { background: #2c5749; color: var(--text-dim); }
+  /* お気に入りボタン。付けた瞬間だけポップ＋リング（外す時は静かに色が消えるだけ） */
+  .fav-btn {
+    position: relative;
+    background: transparent; border: 1px solid var(--line); color: var(--text-faint);
+    font-size: 18px; min-height: 40px; min-width: 44px; padding: 4px 8px; margin: 0;
+    transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  }
+  .fav-btn:hover { background: var(--panel-deep); }
+  .fav-btn.active { color: var(--gold); border-color: var(--gold); }
+  .fav-btn.pop { animation: star-pop var(--dur-4) var(--ease-pop); }
+  .fav-btn.pop::after {
+    content: ''; position: absolute; inset: -2px;
+    border: 2px solid var(--gold); border-radius: inherit;
+    animation: ring-spread var(--dur-4) var(--ease-out) forwards;
+    pointer-events: none;
+  }
+  @keyframes star-pop {
+    0% { transform: scale(.6) rotate(-18deg); }
+    55% { transform: scale(1.25) rotate(8deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  @keyframes ring-spread { from { opacity: .9; transform: scale(.8); } to { opacity: 0; transform: scale(1.5); } }
+  .name-btn { background: transparent; border: 1px solid var(--line); color: var(--text-dim); min-height: 40px; padding: 4px 10px; margin: 0; font-size: 13px; }
+  .code-chip {
+    font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--text-dim);
+    background: var(--panel-deep); border-radius: 6px; padding: 2px 7px; white-space: nowrap;
+  }
+  /* 再生ビュー */
+  .replay-head { display: flex; align-items: flex-start; gap: 10px; }
+  .replay-head .kifu-main { flex: 1; }
+  /* 盤面は2枚重ね：新しい画像だけを上にフェードインさせる（旧画像は不透明のまま残るので暗転しない） */
+  .board-stack {
+    position: relative; width: 100%; max-width: 572px; margin: 0 auto;
+    aspect-ratio: var(--ar, 1);
+    border-radius: var(--radius-sm); overflow: hidden; background: var(--panel-deep);
+  }
+  .board-img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+    opacity: 0;
+  }
+  .board-img.is-front { opacity: 1; z-index: 1; }
+  .board-img.is-incoming { z-index: 2; opacity: 0; transform: scale(1.008); }
+  .board-img.is-incoming.is-shown {
+    opacity: 1; transform: scale(1);
+    transition: opacity var(--dur-board) var(--ease-out), transform var(--dur-board) var(--ease-out);
+  }
+  /* 読み込みが遅い時だけ出すスケルトン */
+  .board-skeleton {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    background: linear-gradient(100deg, var(--panel-deep) 40%, var(--panel2) 50%, var(--panel-deep) 60%);
+    background-size: 200% 100%;
+  }
+  .board-stack.loading-slow .board-skeleton { display: block; animation: shimmer 1.2s linear infinite; }
+  @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -80% 0; } }
+  .nav-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .nav-btn { min-width: 52px; transition: transform 80ms var(--ease-out), background var(--dur-2) ease; }
+  .nav-btn:active, .play-btn:active { transform: scale(.94); }
+  .play-btn {
+    width: 56px; height: 56px; min-height: 56px; border-radius: 50%;
+    font-size: 22px; padding: 0; margin: 4px 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: transform 80ms var(--ease-out), background var(--dur-2) ease;
+  }
+  .nav-sub { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
+  .ply-label { font-size: 15px; font-weight: 700; min-width: 110px; text-align: center; font-variant-numeric: tabular-nums; }
+  .speed-chips { display: inline-flex; gap: 4px; }
+  .speed-chip {
+    background: var(--panel2); color: var(--text-dim); min-height: 32px;
+    padding: 4px 10px; font-size: 12.5px; margin: 0; border: 1px solid var(--line);
+  }
+  .speed-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .progress { height: 3px; background: var(--panel-deep); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; background: var(--gold); transform-origin: left; transform: scaleX(0);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+  .moves-list {
+    display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 0; padding: 0; list-style: none;
+    max-height: 180px; overflow-y: auto;
+  }
+  .move-item {
+    font-size: 12.5px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+    background: var(--panel-deep); color: var(--text-dim); border: 1px solid transparent;
+    border-left: 3px solid transparent;
+  }
+  .move-item:hover { border-color: var(--accent2); }
+  .move-item.current { background: var(--accent); color: #fff; font-weight: 700; border-left-color: var(--gold); }
+  .error-box { color: #ffb4b4; }
+
+  /* 動きを減らす設定では全アニメーション・遷移を無効化する（情報は色とテキストで代替される） */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>📜 棋譜</h1>
+  <a href="/">うゆゆBot トップ</a>
+</header>
+<main>
+  <!-- ホーム画面（一覧＋コード入力）。再生へ行っても DOM は保持する -->
+  <section id="view-home" class="screen">
+    <div class="panel">
+      <h2>棋譜コードで見る</h2>
+      <p class="muted">対局の参加者でなくても、6文字の棋譜コードがあれば棋譜を見られます。</p>
+      <form id="code-form">
+        <input type="text" id="code-input" placeholder="例: ABC123" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+        <button type="submit">棋譜を見る</button>
+      </form>
+    </div>
+
+    <div class="panel" id="login-panel" hidden>
+      <h2>自分の対局一覧</h2>
+      <p class="muted">ログインすると、自分が参加した対局の棋譜一覧とお気に入りが使えます。</p>
+      <a class="discord-login-btn" href="/auth/discord">Discord でログイン</a>
+    </div>
+
+    <div class="panel" id="list-panel" hidden>
+      <h2>自分の対局一覧</h2>
+      <p class="muted">棋譜は30日間保管されます。★のお気に入りは自動で消えません。名前も付けられます。</p>
+      <div id="list"></div>
+      <p class="muted" id="list-empty" hidden>まだ棋譜がありません。対戦ゲーム（将棋・オセロ・四目並べ）で対局すると、ここに残ります。</p>
+    </div>
+  </section>
+
+  <!-- 再生画面 -->
+  <section id="view-replay" class="screen" hidden>
+    <p><a href="/play/kifu" id="back-link" style="color:var(--accent2); text-decoration:none">← 棋譜トップへ</a></p>
+    <div class="panel">
+      <div class="replay-head">
+        <div class="kifu-main">
+          <div class="kifu-title" id="replay-title">読み込み中…</div>
+          <div class="kifu-meta" id="replay-meta"></div>
+        </div>
+        <span id="replay-fav-area" hidden>
+          <button type="button" class="fav-btn" id="replay-fav-btn" title="お気に入り">☆</button>
+          <button type="button" class="name-btn" id="replay-name-btn">名前を付ける</button>
+        </span>
+      </div>
+      <p class="error-box" id="replay-error" hidden></p>
+      <div id="board-area" hidden>
+        <div class="board-stack" id="board-stack">
+          <img class="board-img is-front" id="board-img-a" alt="盤面">
+          <img class="board-img" id="board-img-b" alt="" aria-hidden="true">
+          <div class="board-skeleton"></div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="nav-btn" id="nav-first" title="最初 (Home)">⏮</button>
+          <button type="button" class="nav-btn" id="nav-prev" title="前へ (←)">◀</button>
+          <button type="button" class="play-btn" id="play-btn" title="自動再生 (Space)">▶</button>
+          <button type="button" class="nav-btn" id="nav-next" title="次へ (→)">▶</button>
+          <button type="button" class="nav-btn" id="nav-last" title="最後 (End)">⏭</button>
+        </div>
+        <div class="nav-sub">
+          <span class="ply-label" id="ply-label"></span>
+          <span class="speed-chips" id="speed-chips">
+            <button type="button" class="speed-chip" data-speed="slow">遅 2.0s</button>
+            <button type="button" class="speed-chip active" data-speed="normal">標準 1.2s</button>
+            <button type="button" class="speed-chip" data-speed="fast">速 0.7s</button>
+          </span>
+        </div>
+        <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
+        <ol class="moves-list" id="moves-list"></ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const REASON_LABEL = {
+  checkmate: '詰み', nomove: '指せる手なし', resign: '投了', timeout: '時間切れ',
+  perpetual: '連続王手の千日手', repetition: '千日手', maxply: '持将棋',
+  score: '石数', four: '4つ並び'
+};
+const LEVEL_LABEL = { easy: '弱い', normal: '普通', hard: '強い' };
+const RESULT_LABEL = { win: '🏆 勝ち', lose: '負け', draw: '🤝 引き分け' };
+const SPEEDS = { slow: 2000, normal: 1200, fast: 700 };
+// ゲームごとの盤面画像の概算の縦横比（初回画像の natural サイズで上書きする）
+const GAME_AR = { shogi: '572 / 550', othello: '1 / 1', connect4: '508 / 434' };
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = (ts) => new Date(ts).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const RM = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let myList = []; // 自分の一覧（ログイン時のみ）
+let listAnimated = false; // 登場ステガーは初回だけ
+let homeScrollY = 0; // 一覧のスクロール位置（再生から戻ったときに復元する）
+
+// ---------- 画面遷移（View Transitions + フォールバック、履歴は pushState で管理） ----------
+const homeView = document.getElementById('view-home');
+const replayView = document.getElementById('view-replay');
+
+function transitionTo(showFn, direction, targetView) {
+  if (document.startViewTransition && !RM()) {
+    document.documentElement.dataset.nav = direction;
+    const t = document.startViewTransition(showFn);
+    t.finished.finally(() => { delete document.documentElement.dataset.nav; }).catch(() => {});
+    return;
+  }
+  showFn();
+  if (!RM() && targetView) {
+    targetView.classList.remove('view-enter-f', 'view-enter-b');
+    void targetView.offsetWidth;
+    targetView.classList.add(direction === 'forward' ? 'view-enter-f' : 'view-enter-b');
+  }
+}
+
+function showHome(push) {
+  transitionTo(() => {
+    replayView.hidden = true;
+    homeView.hidden = false;
+    stopPlay();
+    window.scrollTo(0, homeScrollY);
+  }, 'back', homeView);
+  if (push) history.pushState({ view: 'home' }, '', '/play/kifu');
+}
+
+function showReplay(code, push, direction = 'forward') {
+  homeScrollY = window.scrollY;
+  transitionTo(() => {
+    homeView.hidden = true;
+    replayView.hidden = false;
+    window.scrollTo(0, 0);
+  }, direction, replayView);
+  if (push) history.pushState({ view: 'replay', code }, '', `/play/kifu/${code}`);
+  loadReplay(code);
+}
+
+window.addEventListener('popstate', (ev) => {
+  const st = ev.state;
+  if (st && st.view === 'replay' && st.code) {
+    showReplay(st.code, false, 'forward');
+  } else {
+    showHome(false);
+  }
+});
+
+document.getElementById('back-link').addEventListener('click', (ev) => {
+  ev.preventDefault();
+  showHome(true);
+});
+
+// ---------- ホーム（一覧） ----------
+async function loadList() {
+  const loginPanel = document.getElementById('login-panel');
+  const listPanel = document.getElementById('list-panel');
+  let res;
+  try {
+    res = await fetch('/api/kifu/list');
+  } catch {
+    return;
+  }
+  if (res.status === 401) {
+    loginPanel.hidden = false;
+    return;
+  }
+  if (!res.ok) return;
+  const data = await res.json();
+  myList = data.items || [];
+  listPanel.hidden = false;
+  renderList();
+}
+
+function itemTitle(it) {
+  const opp = it.opponentBot ? `${it.opponentName}（Bot・${LEVEL_LABEL[it.level] || it.level || ''}）` : it.opponentName;
+  return it.name ? it.name : `${it.gameLabel} vs ${opp}`;
+}
+
+function renderList() {
+  const wrap = document.getElementById('list');
+  document.getElementById('list-empty').hidden = myList.length > 0;
+  const animate = !listAnimated && !RM();
+  wrap.innerHTML = myList.map((it, idx) => {
+    const side = it.game === 'othello' ? (it.isFirst ? '⚫先手' : '⚪後手')
+      : it.game === 'connect4' ? (it.isFirst ? '🔴先手' : '🟡後手')
+      : (it.isFirst ? '▲先手' : '△後手');
+    const opp = it.opponentBot ? `${esc(it.opponentName)}（Bot・${LEVEL_LABEL[it.level] || it.level || ''}）` : esc(it.opponentName);
+    // 登場ステガー: 初回のみ・先頭8件・40ms間隔
+    const anim = animate && idx < 8 ? ` anim-in" style="animation-delay:${idx * 40}ms` : '';
+    return `<div class="kifu-item res-${it.result}${anim}" data-code="${esc(it.code)}" role="button" tabindex="0">
+      <div class="kifu-main">
+        <div class="kifu-title">${esc(itemTitle(it))}</div>
+        <div class="kifu-meta">${esc(it.gameLabel)} vs ${opp}（${side}） ・ ${it.plies}手 ・ ${esc(REASON_LABEL[it.reason] || it.reason)} ・ ${fmtDate(it.createdAt)}</div>
+      </div>
+      <span class="result-badge result-${it.result}">${RESULT_LABEL[it.result]}</span>
+      <span class="code-chip">${esc(it.code)}</span>
+      <button type="button" class="name-btn" data-act="name" data-code="${esc(it.code)}" title="名前を付ける">✎</button>
+      <button type="button" class="fav-btn${it.favorite ? ' active' : ''}" data-act="fav" data-code="${esc(it.code)}" title="お気に入り">${it.favorite ? '★' : '☆'}</button>
+    </div>`;
+  }).join('');
+  listAnimated = true;
+}
+
+async function postFavorite(code, favorite, name) {
+  const body = { code, favorite };
+  if (name !== undefined) body.name = name;
+  const res = await fetch('/api/kifu/favorite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('保存に失敗しました');
+  return res.json();
+}
+
+// ★の見た目を即座に切り替える（楽観的更新）。付けた瞬間だけポップさせる
+function paintFavBtn(btn, favorite, pop) {
+  btn.textContent = favorite ? '★' : '☆';
+  btn.classList.toggle('active', favorite);
+  if (pop && favorite && !RM()) {
+    btn.classList.remove('pop');
+    void btn.offsetWidth;
+    btn.classList.add('pop');
+    btn.addEventListener('animationend', () => btn.classList.remove('pop'), { once: true });
+  }
+}
+
+function flashSaved(el) {
+  if (!el || RM()) return;
+  el.classList.remove('saved-flash');
+  void el.offsetWidth;
+  el.classList.add('saved-flash');
+  el.addEventListener('animationend', () => el.classList.remove('saved-flash'), { once: true });
+}
+
+document.getElementById('list').addEventListener('click', async (ev) => {
+  const row = ev.target.closest('.kifu-item');
+  if (!row) return;
+  const code = row.dataset.code;
+  const actBtn = ev.target.closest('[data-act]');
+  if (actBtn) {
+    ev.stopPropagation();
+    const item = myList.find((it) => it.code === code);
+    if (!item) return;
+    if (actBtn.dataset.act === 'fav') {
+      const next = !item.favorite;
+      item.favorite = next; // 楽観的更新
+      paintFavBtn(actBtn, next, true);
+      try {
+        const r = await postFavorite(code, next);
+        item.favorite = r.favorite;
+        paintFavBtn(actBtn, r.favorite, false);
+      } catch {
+        item.favorite = !next; // 失敗したら戻す
+        paintFavBtn(actBtn, item.favorite, false);
+        alert('保存に失敗しました。しばらくしてからもう一度お試しください。');
+      }
+    } else {
+      const name = prompt('この棋譜の名前（空にすると名前を消します）', item.name || '');
+      if (name === null) return;
+      try {
+        const r = await postFavorite(code, true, name);
+        item.favorite = r.favorite;
+        item.name = r.name;
+        const favBtn = row.querySelector('[data-act="fav"]');
+        if (favBtn) paintFavBtn(favBtn, r.favorite, false);
+        row.querySelector('.kifu-title').textContent = itemTitle(item);
+        flashSaved(row);
+      } catch {
+        alert('保存に失敗しました。しばらくしてからもう一度お試しください。');
+      }
+    }
+    return;
+  }
+  showReplay(code, true, 'forward');
+});
+
+document.getElementById('code-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (code) showReplay(code, true, 'forward');
+});
+
+// ---------- 再生 ----------
+const replay = { code: null, plies: 0, ply: 0, loggedIn: false, favorite: false, name: null, speed: 'normal' };
+const stack = document.getElementById('board-stack');
+let frontImg = document.getElementById('board-img-a');
+let backImg = document.getElementById('board-img-b');
+let swapSeq = 0; // 連打時は最新のリクエストだけを描画する
+const prefetchCache = new Set();
+
+const positionUrl = (code, ply) => `/api/kifu/view/${encodeURIComponent(code)}/position?ply=${ply}`;
+
+function prefetch(ply) {
+  if (!replay.code || ply < 0 || ply > replay.plies) return;
+  const url = positionUrl(replay.code, ply);
+  if (prefetchCache.has(url)) return;
+  prefetchCache.add(url);
+  const im = new Image();
+  im.src = url;
+}
+
+function prefetchAround(ply, forward = 1) {
+  prefetch(ply - 1);
+  prefetch(ply + 1);
+  if (forward > 1) prefetch(ply + 2);
+}
+
+function decodeImage(url) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.src = url;
+    if (im.decode) {
+      im.decode().then(() => resolve(im)).catch(() => resolve(null));
+    } else {
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+    }
+  });
+}
+
+function updatePlyUI() {
+  document.getElementById('ply-label').textContent =
+    replay.ply === 0 ? `開始局面（全${replay.plies}手）` : `${replay.ply}手目 / 全${replay.plies}手`;
+  document.getElementById('nav-first').disabled = replay.ply === 0;
+  document.getElementById('nav-prev').disabled = replay.ply === 0;
+  document.getElementById('nav-next').disabled = replay.ply === replay.plies;
+  document.getElementById('nav-last').disabled = replay.ply === replay.plies;
+  document.getElementById('progress-fill').style.transform =
+    `scaleX(${replay.plies > 0 ? replay.ply / replay.plies : 0})`;
+  const list = document.getElementById('moves-list');
+  let current = null;
+  list.querySelectorAll('.move-item').forEach((el) => {
+    const on = Number(el.dataset.ply) === replay.ply;
+    el.classList.toggle('current', on);
+    if (on) current = el;
+  });
+  // 現在手へはリストの中だけをスクロールして追従させる（ページ全体は動かさない）
+  if (current && list.scrollHeight > list.clientHeight) {
+    const lr = list.getBoundingClientRect();
+    const er = current.getBoundingClientRect();
+    const target = list.scrollTop + (er.top - lr.top) - list.clientHeight / 2 + er.height / 2;
+    list.scrollTo({ top: target, behavior: RM() ? 'auto' : 'smooth' });
+  }
+}
+
+// 盤面を n 手目に切り替える。instant=true（ジャンプ）ではアニメなしで即切替。
+// 戻り値の Promise は切替が終わったら解決する（自動再生の間隔調整に使う）
+async function showPly(n, { instant = false } = {}) {
+  const target = Math.max(0, Math.min(replay.plies, n));
+  replay.ply = target;
+  updatePlyUI();
+  const seq = ++swapSeq;
+  const url = positionUrl(replay.code, target);
+
+  if (instant || RM()) {
+    frontImg.src = url;
+    prefetchAround(target);
+    return;
+  }
+  // 遅い時だけスケルトンを出す
+  const slowTimer = setTimeout(() => {
+    if (seq === swapSeq) stack.classList.add('loading-slow');
+  }, 200);
+  const im = await decodeImage(url);
+  clearTimeout(slowTimer);
+  stack.classList.remove('loading-slow');
+  if (seq !== swapSeq || !im) return; // 後の操作が勝つ
+  if (im.naturalWidth > 0) {
+    stack.style.setProperty('--ar', `${im.naturalWidth} / ${im.naturalHeight}`);
+  }
+  backImg.src = url;
+  backImg.classList.add('is-incoming');
+  void backImg.offsetWidth; // 遷移を効かせるためにリフローを挟む
+  backImg.classList.add('is-shown');
+  await new Promise((r) => setTimeout(r, 160));
+  if (seq !== swapSeq) {
+    backImg.classList.remove('is-incoming', 'is-shown');
+    return;
+  }
+  // 役割を交代する（旧画像は不透明のまま下に残っていたので暗転しない）
+  backImg.classList.remove('is-incoming', 'is-shown');
+  backImg.classList.add('is-front');
+  frontImg.classList.remove('is-front');
+  [frontImg, backImg] = [backImg, frontImg];
+  prefetchAround(target, playing ? 2 : 1);
+}
+
+// 手動操作用の入口（自動再生は止める）
+function goToPly(n, opts) {
+  stopPlay();
+  return showPly(n, opts);
+}
+
+// ---------- 自動再生（setTimeout 連鎖で、描画完了を待ってから次へ進む） ----------
+let playing = false;
+let playTimer = null;
+const playBtn = document.getElementById('play-btn');
+
+function paintPlayBtn() {
+  playBtn.textContent = playing ? '⏸' : '▶';
+  playBtn.title = playing ? '一時停止 (Space)' : '自動再生 (Space)';
+}
+
+function stopPlay() {
+  if (playTimer) clearTimeout(playTimer);
+  playTimer = null;
+  if (playing) {
+    playing = false;
+    paintPlayBtn();
+  }
+}
+
+async function playStep() {
+  if (!playing) return;
+  if (replay.ply >= replay.plies) {
+    stopPlay();
+    return;
+  }
+  await showPly(replay.ply + 1);
+  if (!playing) return;
+  if (replay.ply >= replay.plies) {
+    stopPlay();
+    return;
+  }
+  playTimer = setTimeout(playStep, SPEEDS[replay.speed]);
+}
+
+async function togglePlay() {
+  if (playing) {
+    stopPlay();
+    return;
+  }
+  if (replay.ply >= replay.plies) {
+    await showPly(0, { instant: true }); // 最後まで行っていたら最初から
+  }
+  playing = true;
+  paintPlayBtn();
+  playTimer = setTimeout(playStep, SPEEDS[replay.speed]);
+}
+
+playBtn.addEventListener('click', togglePlay);
+document.querySelectorAll('.speed-chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    replay.speed = chip.dataset.speed;
+    document.querySelectorAll('.speed-chip').forEach((c) => c.classList.toggle('active', c === chip));
+  });
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPlay(); // タブが隠れたら止める
+});
+
+async function loadReplay(code) {
+  stopPlay();
+  const view = replayView;
+  view.querySelector('#replay-title').textContent = '読み込み中…';
+  view.querySelector('#replay-meta').textContent = '';
+  const errBox = document.getElementById('replay-error');
+  errBox.hidden = true;
+  document.getElementById('board-area').hidden = true;
+  let data;
+  try {
+    const res = await fetch(`/api/kifu/view/${encodeURIComponent(code)}`);
+    if (res.status === 404) {
+      document.getElementById('replay-title').textContent = '棋譜が見つかりません';
+      errBox.textContent = '削除されたか、コードが違う可能性があります。棋譜の保管期間は30日間です（お気に入りは除く）。';
+      errBox.hidden = false;
+      return;
+    }
+    if (!res.ok) throw new Error();
+    data = await res.json();
+  } catch {
+    document.getElementById('replay-title').textContent = '読み込みに失敗しました';
+    errBox.textContent = 'しばらくしてからもう一度お試しください。';
+    errBox.hidden = false;
+    return;
+  }
+
+  replay.code = data.code;
+  replay.plies = data.plies;
+  replay.loggedIn = data.loggedIn;
+  replay.favorite = data.favorite;
+  replay.name = data.name;
+  prefetchCache.clear();
+  stack.style.setProperty('--ar', GAME_AR[data.game] || '1 / 1');
+
+  const [a, b] = data.players;
+  const vs = `${a.name}（先手） vs ${b.name}（後手）`;
+  const result = data.draw ? '🤝 引き分け' : `🏆 ${data.winnerName} の勝ち`;
+  document.getElementById('replay-title').textContent = data.name || `${data.gameLabel} の棋譜`;
+  document.getElementById('replay-meta').textContent =
+    `${vs} ・ ${result}（${REASON_LABEL[data.reason] || data.reason}） ・ 全${data.plies}手 ・ ${fmtDate(data.createdAt)} ・ コード: ${data.code}`;
+
+  const favArea = document.getElementById('replay-fav-area');
+  favArea.hidden = !data.loggedIn;
+  updateReplayFav();
+
+  const list = document.getElementById('moves-list');
+  list.innerHTML = data.moves.map((m, i) =>
+    `<li class="move-item" data-ply="${i + 1}">${i + 1}. ${esc(m)}</li>`).join('');
+  list.querySelectorAll('.move-item').forEach((el) => {
+    el.addEventListener('click', () => goToPly(Number(el.dataset.ply), { instant: true }));
+  });
+
+  document.getElementById('board-area').hidden = false;
+  paintPlayBtn();
+  await showPly(data.plies, { instant: true }); // まずは最終局面を見せる
+}
+
+function updateReplayFav() {
+  const btn = document.getElementById('replay-fav-btn');
+  paintFavBtn(btn, replay.favorite, false);
+  document.getElementById('replay-name-btn').textContent = replay.name ? '名前を変更' : '名前を付ける';
+}
+
+document.getElementById('replay-fav-btn').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  const next = !replay.favorite;
+  replay.favorite = next; // 楽観的更新
+  paintFavBtn(btn, next, true);
+  try {
+    const r = await postFavorite(replay.code, next);
+    replay.favorite = r.favorite;
+    replay.name = r.name;
+    paintFavBtn(btn, r.favorite, false);
+  } catch {
+    replay.favorite = !next;
+    paintFavBtn(btn, replay.favorite, false);
+    alert('保存に失敗しました。');
+  }
+});
+document.getElementById('replay-name-btn').addEventListener('click', async () => {
+  const name = prompt('この棋譜の名前（空にすると名前を消します）', replay.name || '');
+  if (name === null) return;
+  try {
+    const r = await postFavorite(replay.code, true, name);
+    replay.favorite = r.favorite;
+    replay.name = r.name;
+    updateReplayFav();
+    flashSaved(document.querySelector('.replay-head'));
+  } catch {
+    alert('保存に失敗しました。');
+  }
+});
+
+document.getElementById('nav-first').addEventListener('click', () => goToPly(0, { instant: true }));
+document.getElementById('nav-prev').addEventListener('click', () => goToPly(replay.ply - 1));
+document.getElementById('nav-next').addEventListener('click', () => goToPly(replay.ply + 1));
+document.getElementById('nav-last').addEventListener('click', () => goToPly(replay.plies, { instant: true }));
+document.addEventListener('keydown', (ev) => {
+  if (replayView.hidden) return;
+  if (ev.target && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;
+  if (ev.key === ' ') {
+    if (ev.target && ev.target.tagName === 'BUTTON') return; // ボタンにフォーカスがある時はボタンの既定動作（クリック）に任せる
+    ev.preventDefault();
+    togglePlay();
+  } else if (ev.key === 'ArrowLeft') {
+    goToPly(replay.ply - 1);
+  } else if (ev.key === 'ArrowRight') {
+    goToPly(replay.ply + 1);
+  } else if (ev.key === 'Home') {
+    goToPly(0, { instant: true });
+  } else if (ev.key === 'End') {
+    goToPly(replay.plies, { instant: true });
+  }
+});
+
+// ---------- 起動 ----------
+(function init() {
+  const m = location.pathname.match(/^\/play\/kifu\/([A-Za-z0-9]{4,8})\/?$/);
+  const q = new URLSearchParams(location.search).get('code');
+  const code = (m ? m[1] : q || '').toUpperCase();
+  if (code) {
+    history.replaceState({ view: 'replay', code }, '', location.pathname);
+    homeView.hidden = true;
+    replayView.hidden = false;
+    loadReplay(code);
+  } else {
+    history.replaceState({ view: 'home' }, '', location.pathname);
+    loadList();
+  }
+})();
+</script>
+</body>
+</html>
