@@ -21,6 +21,7 @@ const core = require('../../utils/othello-core');
 const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
 const gachaCollection = require('../../utils/gacha-collection');
+const kifuStore = require('../../utils/kifu-store');
 const sessions = require('../../utils/sessions');
 const { requestChallenge } = require('../../utils/challenge');
 const { GAMES } = require('../../utils/games');
@@ -188,6 +189,7 @@ function createRematchGame(game) {
     ranked: game.ranked,
     level: game.level,
     guildId: game.guildId,
+    moves: [],
     selectedCol: null,
     stage: 'col',
     sel: null,
@@ -205,6 +207,7 @@ function createRematchGame(game) {
 function doMove(game, x, y) {
   const player = game.turn;
   const flips = core.place(game.board, x, y, player);
+  (game.moves ??= []).push({ x, y }); // 棋譜用に着手を記録する（パスは記録しない。再生時に再現できる）
   game.lastMove = { x, y };
   game.events.push(
     `${STONE[player]} ${game.players[player].displayName}: **${COLS[x]}${y + 1}** (${flips.length}個)`,
@@ -284,6 +287,25 @@ function settle(game, winner, reason) {
       console.error('[othello] ガチャ勝利記録エラー:', err);
     }
   }
+
+  // 棋譜を保存する（失敗しても結果表示は出す）
+  try {
+    const rec = kifuStore.recordGame({
+      game: GAME_ID,
+      players: [BLACK, WHITE].map((c) => ({ id: p[c].id, name: p[c].displayName, bot: Boolean(p[c].isAi) })),
+      firstId: p[BLACK].id,
+      winnerId: winner === null ? null : p[winner].id,
+      reason: reason === 'normal' ? 'score' : reason, // 通常終局は石数による勝敗
+      moves: game.moves ?? [],
+      level: game.ranked ? null : game.level,
+    });
+    if (rec) {
+      const base = process.env.PUBLIC_BASE_URL || 'https://uyuyu-bot.onrender.com';
+      text += `\n📜 棋譜コード: **${rec.code}**（${base}/play/kifu/${rec.code}）`;
+    }
+  } catch (err) {
+    console.error('[othello] 棋譜の保存エラー:', err);
+  }
   return text;
 }
 
@@ -307,6 +329,7 @@ function saveSession(game, message) {
     ranked: game.ranked,
     level: game.level,
     events: game.events,
+    moves: game.moves ?? [], // 棋譜用の着手列（終局まで持っていく）
     notifyMessageId: game.notifyMessageId ?? null,
   });
 }
@@ -638,6 +661,7 @@ async function restoreOne(client, s) {
     busy: false,
     notifyMessageId: s.notifyMessageId ?? null,
     events: Array.isArray(s.events) ? s.events : [],
+    moves: Array.isArray(s.moves) ? s.moves : [], // 古い保存データには無いので空で補う
     note: '♻️ Botが再起動したため、対局を復元しました。続きから遊べます。',
     over: false,
   };
@@ -722,6 +746,7 @@ module.exports = {
       ranked: !vsAi,
       level,
       guildId: interaction.guildId ?? null,
+      moves: [], // 棋譜用の着手列
       selectedCol: null,
       stage: 'col',
       sel: null,
