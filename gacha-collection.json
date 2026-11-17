@@ -3,17 +3,17 @@
   "users": {
     "960004867542380555": {
       "items": {
-        "uyuyu_gliched": 1,
+        "uyuyu_gliched": 2,
         "uyuyu_fucking": 1,
-        "uyuyu": 3,
-        "uyuyu_crashed": 3,
-        "uyuyu_WT": 3,
-        "uyuyu_makeup": 5,
-        "uyuyu_sweating": 3,
-        "uyuyu_uhe": 1
+        "uyuyu": 5,
+        "uyuyu_crashed": 5,
+        "uyuyu_WT": 8,
+        "uyuyu_makeup": 11,
+        "uyuyu_sweating": 4,
+        "uyuyu_uhe": 4
       },
-      "total": 20,
-      "updatedAt": 1794875617091
+      "total": 40,
+      "updatedAt": 1794875640295
     }
   },
   "wins": {}
