@@ -80,6 +80,7 @@ async function main() {
     for (const name of resting) assert(!names.has(name), `お休み中がプールにいる: ${name}`);
     assert(!names.has('uyuyu_take'), '条件なしで uyuyu_take が混ざっている');
     assert(!names.has('uyuyu_sleeping'), '昼間で uyuyu_sleeping が混ざっている');
+    assert(!names.has('uyuyu_santa'), '11月で uyuyu_santa が混ざっている');
     assert(!names.has('rolling_uyuyu'), 'ガチャから rolling_uyuyu が出るようになっている');
 
     const rng = lcg(42);
@@ -88,7 +89,7 @@ async function main() {
       assert.strictEqual(results.length, 10);
       for (const r of results) {
         assert(!resting.has(r.name), `お休み中が排出された: ${r.name}`);
-        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu'].includes(r.name), `条件枠が排出された: ${r.name}`);
+        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu', 'uyuyu_santa'].includes(r.name), `条件枠が排出された: ${r.name}`);
       }
       // 最後の1枠は R 以上確定
       assert(['SSR', 'SR', 'R'].includes(results[9].rarity), `最後の枠が ${results[9].rarity} だった`);
@@ -119,7 +120,20 @@ async function main() {
       }
     }
     assert(sleepSeen > 0, '深夜プールから uyuyu_sleeping が1回も出なかった');
-    console.log('条件ドロップ（勝利日=take / 深夜=sleeping が混ざって排出される）: OK');
+
+    const DEC = jst(2026, 12, 24, 12);
+    assert.strictEqual(gacha.isDecemberJst(DEC), true);
+    assert.strictEqual(gacha.isDecemberJst(DAY), false);
+    const decPool = gacha.buildPool({ date: DEC, wonToday: false });
+    assert(decPool.some((e) => e.name === 'uyuyu_santa'), '12月に uyuyu_santa がプールに無い');
+    let santaSeen = 0;
+    for (let n = 0; n < 300; n++) {
+      for (const r of gacha.drawTen({ date: DEC, wonToday: false, rng })) {
+        if (r.name === 'uyuyu_santa') santaSeen++;
+      }
+    }
+    assert(santaSeen > 0, '12月プールから uyuyu_santa が1回も出なかった');
+    console.log('条件ドロップ（勝利日=take / 深夜=sleeping / 12月=santa が混ざって排出される）: OK');
   }
 
   // ---- 育成枠 ----
@@ -183,8 +197,8 @@ async function main() {
     console.log('記録の保存と読み戻し: OK');
   }
 
-  // 図鑑の全種は17種（通常プール14＋条件枠3）
-  assert.strictEqual(GACHA_ALL.length, 17);
+  // 図鑑の全種は18種（通常プール14＋条件枠4）
+  assert.strictEqual(GACHA_ALL.length, 18);
 
   try { fs.unlinkSync(TMP_FILE); } catch { /* 後片付け */ }
   console.log('test-gacha: OK');
