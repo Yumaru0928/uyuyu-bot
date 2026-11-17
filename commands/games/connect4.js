@@ -20,6 +20,7 @@ AttachmentBuilder,
 const core = require('../../utils/connect4-core');
 const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
+const gachaCollection = require('../../utils/gacha-collection');
 const sessions = require('../../utils/sessions');
 const { requestChallenge} = require('../../utils/challenge');
 const { GAMES} = require('../../utils/games');
@@ -240,6 +241,15 @@ text += '\n⚠️ 戦績の保存に失敗しました。';
 }
 } else {
 text += '\n(Bot戦のためレートは変動しません)';
+}
+
+// ガチャ図鑑の条件ドロップ（uyuyu_take）用：人間の勝者を「本日の勝利者」として記録する
+if (winner !== null && p[winner] && !p[winner].isAi) {
+try {
+gachaCollection.markWin(p[winner].id);
+} catch (err) {
+console.error('[connect4] ガチャ勝利記録エラー:', err);
+}
 }
 return text;
 }
