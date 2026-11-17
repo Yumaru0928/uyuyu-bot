@@ -56,6 +56,7 @@ const crypto = require('node:crypto');
 const { WebSocketServer } = require('ws');
 const core = require('./babanuki-core.js');
 const records = require('./babanuki-records.js');
+const gachaCollection = require('./gacha-collection.js');
 const { baseUrl } = require('./notify/common.js');
 
 const WS_PATH = '/play/babanuki/ws';
@@ -271,6 +272,15 @@ function attach(server, { verifyToken = null } = {}) {
       };
     });
     records.recordResult({ results, vsBot: results.some((r) => r.bot) });
+    // ガチャ図鑑の条件ドロップ（uyuyu_take）用：1位が人間のログイン済みユーザーなら「本日の勝利者」として記録する
+    const first = results.find((r) => r.place === 1);
+    if (first && !first.bot && !first.guest) {
+      try {
+        gachaCollection.markWin(first.id);
+      } catch (err) {
+        console.error('[babanuki] ガチャ勝利記録エラー:', err);
+      }
+    }
   }
 
   function finishGame(room) {
