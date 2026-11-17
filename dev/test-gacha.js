@@ -126,12 +126,12 @@ async function main() {
   {
     assert.strictEqual(gacha.frameTier(0), 'none');
     assert.strictEqual(gacha.frameTier(1), 'normal');
-    assert.strictEqual(gacha.frameTier(4), 'normal');
-    assert.strictEqual(gacha.frameTier(5), 'silver');
-    assert.strictEqual(gacha.frameTier(14), 'silver');
-    assert.strictEqual(gacha.frameTier(15), 'gold');
+    assert.strictEqual(gacha.frameTier(29), 'normal');
+    assert.strictEqual(gacha.frameTier(30), 'silver');
+    assert.strictEqual(gacha.frameTier(99), 'silver');
     assert.strictEqual(gacha.frameTier(100), 'gold');
-    console.log('育成枠の段階判定（1=登録 / 5=銀 / 15=金）: OK');
+    assert.strictEqual(gacha.frameTier(500), 'gold');
+    console.log('育成枠の段階判定（1=登録 / 30=銀 / 100=金）: OK');
   }
 
   // ---- 記録（所持・勝利） ----

@@ -2,7 +2,7 @@
 
 // うゆゆガチャの抽選ロジック（コマンドから分離してテスト可能にしてある）
 //
-// ・レアリティ確率: SSR 0.5% / SR 合計12% / R 合計32% / N 残り（プール内での重みで表す）
+// ・レアリティ確率: SSR 3% / SR 合計10% / R 合計17% / N 残り（プール内での重みで表す）
 // ・週替わりローテーション: SR/R/N の13種から毎週3種が「お休み」（排出されない）。
 //   組み合わせは ISO 週番号から決定的に算出するので全員共通・DB不要。
 // ・条件ドロップ: 対戦で勝った日（uyuyu_take）／深夜 JST 0〜5時（uyuyu_sleeping）のときだけ
@@ -13,13 +13,13 @@
 const { GACHA_POOL, GACHA_CONDITIONALS } = require('./emojis.js');
 
 // ---- 調整用定数（確率・閾値はここを変える） ----
-const RARITY_RATE = { SSR: 0.005, SR: 0.12, R: 0.32 }; // N は残り全部
+const RARITY_RATE = { SSR: 0.03, SR: 0.10, R: 0.17 }; // N は残り全部
 const CONDITIONAL_RATE = 0.03; // 条件枠1種あたりの排出率（条件を満たしたとき）
-const ROLLING_RATE = 0.10; // 自動リアクションが rolling_uyuyu に変化する確率（events/send-uyuyu.js が使う）
+const ROLLING_RATE = 0.03; // 自動リアクションが rolling_uyuyu に変化する確率（events/send-uyuyu.js が使う）
 const REST_COUNT = 3; // 毎週お休みになる種類数
 const PULL_COUNT = 10; // 1回のガチャで引く数
-const FRAME_SILVER = 5; // 銀枠になる所持数
-const FRAME_GOLD = 15; // 金枠になる所持数
+const FRAME_SILVER = 30; // 銀枠になる所持数
+const FRAME_GOLD = 100; // 金枠になる所持数
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
