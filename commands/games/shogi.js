@@ -23,6 +23,7 @@ const {
 const core = require('../../utils/shogi-core');
 const boardImage = require('../../utils/board-image');
 const rating = require('../../utils/rating');
+const gachaCollection = require('../../utils/gacha-collection');
 const sessions = require('../../utils/sessions');
 const { requestChallenge } = require('../../utils/challenge');
 const { GAMES } = require('../../utils/games');
@@ -396,6 +397,15 @@ function settle(game, outcome) {
     }
   } else {
     text += '\n(Bot戦のためレートは変動しません)';
+  }
+
+  // ガチャ図鑑の条件ドロップ（uyuyu_take）用：人間の勝者を「本日の勝利者」として記録する
+  if (w !== null && p[w] && !p[w].isAi) {
+    try {
+      gachaCollection.markWin(p[w].id);
+    } catch (err) {
+      console.error('[shogi] ガチャ勝利記録エラー:', err);
+    }
   }
   return text;
 }

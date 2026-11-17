@@ -14,6 +14,7 @@ const aiMessages = require('./utils/ai-messages.js');
 const ratings = require('./utils/rating.js');     // 対戦ゲームのレート
 const sessions = require('./utils/sessions.js');  // 進行中の対局（再起動しても続きから遊べるようにする）
 const babanukiRecords = require('./utils/babanuki-records.js'); // Web版ババ抜きの勝敗記録（レートなし）
+const gachaCollection = require('./utils/gacha-collection.js'); // うゆゆガチャの図鑑（所持記録＋本日の対戦勝利者）
 const notify = require('./utils/notify');
 
 // 分離したWebサーバー（web.js）を読み込む
@@ -74,6 +75,7 @@ process.once('SIGTERM', async () => {
             ratings.flush().catch(error => console.error('[Shutdown] レートの保存に失敗しました:', error)),
             sessions.flush().catch(error => console.error('[Shutdown] 対局の保存に失敗しました:', error)),
             babanukiRecords.flush().catch(error => console.error('[Shutdown] ババ抜きの勝敗記録の保存に失敗しました:', error)),
+            gachaCollection.flush().catch(error => console.error('[Shutdown] ガチャ図鑑の保存に失敗しました:', error)),
         ]),
         new Promise(resolve => setTimeout(resolve, 10000)),
     ]);
@@ -304,11 +306,12 @@ if (githubSettings()) {
 //   ・レート        … ratings.json  （utils/rating.js）
 //   ・進行中の対局  … sessions.json （utils/sessions.js。再起動後に続きから遊べるようにする）
 //   ・ババ抜き勝敗  … babanuki-results.json （utils/babanuki-records.js。レートは付けず勝敗だけ）
+//   ・ガチャ図鑑    … gacha-collection.json （utils/gacha-collection.js。所持記録と本日の対戦勝利者）
 // 変更があってから 10 秒ほどまとめて 1 回コミットする（詳しくは utils/json-store.js）。
 // ・読み戻しに失敗したまま保存すると、data ブランチにある既存のデータを空の内容で上書きしてしまう。
 //   そのため「読み戻しに成功した」または「初回でファイルがまだ無い」場合だけ、保存を有効にする。
 // ・GITHUB_TOKEN / GITHUB_REPO が無い（ローカル実行）ときは何もしない。data/ 配下のファイルに保存される
-const gameStores = [ratings.store, sessions.store, babanukiRecords.store];
+const gameStores = [ratings.store, sessions.store, babanukiRecords.store, gachaCollection.store];
 
 async function restoreJsonStoreFromGitHub(store) {
     const github = githubSettings();

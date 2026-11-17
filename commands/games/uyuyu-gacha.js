@@ -1,95 +1,70 @@
 const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } = require('discord.js');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { UYUYU_EMOJIS } = require('../../utils/emojis.js');
+const { GACHA_ALL } = require('../../utils/emojis.js');
+const gacha = require('../../utils/gacha.js');
+const collection = require('../../utils/gacha-collection.js');
+const gachaImage = require('../../utils/gacha-image.js');
 
-// 対象の絵文字IDリスト（絵文字の一覧は emojis.js にまとめてある）
-const Emojis = UYUYU_EMOJIS.map(emoji => emoji.id);
-
-// 絵文字画像は一度読み込んだらメモリに残す（毎回CDNから10枚ダウンロードしない）
-const imageCache = new Map();
-
-async function loadEmojiImage(emojiId) {
-    if (!imageCache.has(emojiId)) {
-        // 同時に呼ばれても1回しか取りに行かないよう、読み込み中の Promise をそのまま保存する
-        const promise = loadImage(`https://cdn.discordapp.com/emojis/${emojiId}.png`).catch(error => {
-            imageCache.delete(emojiId); // 失敗したものは次回また試す
-            throw error;
-        });
-        imageCache.set(emojiId, promise);
-    }
-    return imageCache.get(emojiId);
-}
-
-/**
- * 10個の絵文字を選出して5×2のグリッド画像を生成する関数
- */
-async function generateEmojiGridImage() {
-    const selectedIds = [];
-    for (let i = 0; i < 10; i++) {
-        const rand = Math.floor(Math.random() * Emojis.length);
-        selectedIds.push(Emojis[rand]);
-    }
-
-    const emojiSize = 128;
-    const padding = 16;
-    const columns = 5;
-    const rows = 2;
-
-    const width = columns * emojiSize + (columns + 1) * padding;
-    const height = rows * emojiSize + (rows + 1) * padding;
-
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-
-    // 背景色（ダークモード風）
-    ctx.fillStyle = '#2f3136';
-    ctx.fillRect(0, 0, width, height);
-
-    // 画像は並行して読み込む（キャッシュ済みならすぐ終わる）
-    const images = await Promise.all(selectedIds.map(async emojiId => {
-        try {
-            return await loadEmojiImage(emojiId);
-        } catch (error) {
-            console.error(`絵文字画像 (${emojiId}) の読み込みに失敗しました:`, error);
-            return null;
-        }
-    }));
-
-    images.forEach((img, i) => {
-        if (!img) return;
-        const col = i % columns;
-        const row = Math.floor(i / columns);
-
-        const x = padding + col * (emojiSize + padding);
-        const y = padding + row * (emojiSize + padding);
-
-        ctx.drawImage(img, x, y, emojiSize, emojiSize);
-    });
-
-    return await canvas.encode('png');
-}
+const NAME_OF = new Map(GACHA_ALL.map(e => [e.name, e]));
 
 module.exports = {
     // 必須 1: スラッシュコマンドの定義情報
     data: new SlashCommandBuilder()
         .setName('uyuyu-gacha')
-        .setDescription('うゆゆ絵文字ガチャを10連引いて画像で表示します'),
+        .setDescription('うゆゆ絵文字ガチャを10連引きます（図鑑に記録されます）'),
 
     // 必須 2: コマンド実行時の処理
     async execute(interaction) {
         await interaction.deferReply();
 
-        const imageBuffer = await generateEmojiGridImage();
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'gacha-result.png' });
+        const now = new Date();
+        const userId = interaction.user.id;
+        const won = collection.wonToday(userId, now);
+        const night = gacha.isNightJst(now);
 
+        // 抽選（レアリティ＋週替わりお休み＋条件枠）→ 図鑑へ記録
+        const drawn = gacha.drawTen({ date: now, wonToday: won });
+        const { newNames } = collection.addItems(userId, drawn.map(d => d.name));
+        const newSet = new Set(newNames);
+        const results = drawn.map(d => ({ ...d, isNew: newSet.has(d.name) }));
+
+        const imageBuffer = await gachaImage.renderGachaResult(results);
+        const files = imageBuffer ? [new AttachmentBuilder(imageBuffer, { name: 'gacha-result.png' })] : [];
+
+        const hasSSR = drawn.some(d => d.rarity === 'SSR');
         const embed = new EmbedBuilder()
             .setTitle('うゆゆガチャ結果')
-            .setColor('#0099ff')
-            .setImage('attachment://gacha-result.png');
+            .setColor(hasSSR ? '#ffd700' : '#0099ff');
+        if (imageBuffer) embed.setImage('attachment://gacha-result.png');
 
-        await interaction.editReply({
-            embeds: [embed],
-            files: [attachment]
+        // 引いた内容（画像が見られない環境向けにもテキストで残す）
+        embed.setDescription(drawn.map(d => {
+            const e = NAME_OF.get(d.name);
+            return `<:${e.name}:${e.id}>`;
+        }).join(' '));
+
+        if (newNames.length) {
+            embed.addFields({
+                name: '✨ NEW!',
+                value: newNames.map(n => `<:${NAME_OF.get(n).name}:${NAME_OF.get(n).id}> ${n}`).join('\n'),
+            });
+        }
+        const special = drawn.filter(d => d.rarity === 'SP');
+        if (special.length) {
+            embed.addFields({
+                name: '🌟 条件ドロップ!',
+                value: special.map(d => `${d.name} が混ざっていた！`).join('\n'),
+            });
+        }
+        const resting = gacha.getRestingNames(now);
+        embed.addFields({
+            name: '💤 今週のお休み',
+            value: resting.join(' / '),
         });
+        const notes = [];
+        if (night) notes.push('🌙 深夜帯：uyuyu_sleeping がプールに混ざっています');
+        if (won) notes.push('🏆 本日対戦で勝利：uyuyu_take がプールに混ざっています');
+        if (notes.length) embed.setFooter({ text: notes.join('\n') });
+
+        await interaction.editReply({ embeds: [embed], files });
     }
 };
