@@ -128,14 +128,14 @@
     width: 27cqw; height: 27cqw; background: #0e1210; border: 0.4cqw solid #2a2f2c; border-radius: 1.2cqw;
     color: var(--gold); text-align: center; z-index: 3;
   }
-  .center .round { font-family: var(--font-num); font-weight: 700; font-size: 4.2cqw; margin-top: 1.2cqw; letter-spacing: .1em; padding: 0 4.4cqw; }
-  .center .honba { font-family: var(--font-num); font-size: 2.2cqw; margin-top: 0.3cqw; padding: 0 4.4cqw; white-space: nowrap; }
-  .center .remain-label { color: #cfe8d8; font-size: 2cqw; margin-top: 1cqw; font-weight: 700; padding: 0 4.4cqw; }
-  .center .remain { font-family: var(--font-num); font-weight: 700; font-size: 5cqw; line-height: 1.05; padding: 0 4.4cqw; }
-  .center .cscore { position: absolute; font-family: var(--font-num); font-weight: 700; font-size: 3cqw; display: flex; align-items: center; gap: 0.8cqw; }
+  .center .round { font-family: var(--font-num); font-weight: 700; font-size: 4cqw; margin-top: 1.2cqw; letter-spacing: .02em; padding: 0 2.5cqw; white-space: nowrap; }
+  .center .honba { font-family: var(--font-num); font-size: 2.2cqw; margin-top: 0.3cqw; padding: 0 2.5cqw; white-space: nowrap; }
+  .center .remain-label { color: #cfe8d8; font-size: 2cqw; margin-top: 0.9cqw; font-weight: 700; padding: 0 2.5cqw; }
+  .center .remain { font-family: var(--font-num); font-weight: 700; font-size: 4.6cqw; line-height: 1.05; padding: 0 2.5cqw; }
+  .center .cscore { position: absolute; font-family: var(--font-num); font-weight: 700; font-size: 2.9cqw; display: flex; align-items: center; gap: 0.8cqw; }
   .center .cscore.me { bottom: 0.7cqw; left: 50%; transform: translateX(-50%); }
-  .center .cscore.right { right: 0.9cqw; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
-  .center .cscore.left { left: 0.9cqw; top: 50%; transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
+  .center .cscore.right { right: 0.5cqw; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
+  .center .cscore.left { left: 0.5cqw; top: 50%; transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
   .center .wind-badge {
     display: inline-flex; align-items: center; justify-content: center;
     width: 3.2cqw; height: 3.2cqw; border-radius: 50%; background: #333a37; color: #fff;
@@ -197,7 +197,7 @@
   .tile .man .char { font-weight: 700; font-size: 0.47em; color: #c0392b; }
   .tile .honor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-tile); font-weight: 900; font-size: 0.8em; }
   .tile .honor.haku { color: transparent; }
-  .tile .honor.haku::after { content: ""; width: 52%; height: 58%; border: 0.09em solid #5b8fd6; border-radius: 8%; }
+  .tile .honor.haku::after { content: ""; flex: none; width: 52%; height: 58%; border: 0.09em solid #5b8fd6; border-radius: 8%; }
   .tile .honor.hatsu { color: #1f8a4c; }
   .tile .honor.chun { color: #c0392b; }
   .dot { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
@@ -406,12 +406,19 @@ const SOU = {
 const norm = (t) => (t === 34 ? 13 : t === 35 ? 22 : t);
 const isRedTile = (t) => t === 34 || t === 35;
 
-function tileEl(raw, wpx, opts = {}) {
+function tileEl(raw, size, opts = {}) {
   const el = document.createElement('div');
   el.className = 'tile';
-  el.style.width = wpx + 'px';
-  el.style.height = Math.round(wpx * 1.35) + 'px';
-  el.style.fontSize = wpx + 'px';
+  if (size && typeof size === 'object' && size.cqw) {
+    el.style.width = size.cqw + 'cqw';
+    el.style.height = (size.cqw * 1.35) + 'cqw';
+    el.style.fontSize = size.cqw + 'cqw';
+  } else {
+    const wpx = typeof size === 'number' ? size : 40;
+    el.style.width = wpx + 'px';
+    el.style.height = Math.round(wpx * 1.35) + 'px';
+    el.style.fontSize = wpx + 'px';
+  }
   if (opts.cls) el.className += ' ' + opts.cls;
   if (opts.back) { el.classList.add('back'); return el; }
   const t = norm(raw);
@@ -422,7 +429,8 @@ function tileEl(raw, wpx, opts = {}) {
     el.innerHTML = `<div class="man"><span class="num">${KANJI_NUM[rank - 1]}</span><span class="char">萬</span></div>`;
   } else if (suit === 3) {
     const [ch, cls] = HONOR[t];
-    el.innerHTML = `<div class="honor ${cls}">${ch}</div>`;
+    // 白は文字を入れない（透明文字が flex に残ると青枠が端に押し潰されるため）
+    el.innerHTML = `<div class="honor ${cls}">${cls === 'haku' ? '' : ch}</div>`;
   } else if (suit === 1) {
     if (rank === 1) {
       const d = document.createElement('div');
@@ -461,14 +469,14 @@ function tileEl(raw, wpx, opts = {}) {
   return el;
 }
 
-function meldEl(meld, wpx) {
+function meldEl(meld, size) {
   const wrap = document.createElement('div');
   wrap.className = 'meld';
   const tiles = meld.tiles;
   tiles.forEach((raw, i) => {
     const isCalled = meld.open && i === tiles.length - 1;
     const isAnkanEnd = !meld.open && meld.type === 'kan' && (i === 0 || i === tiles.length - 1);
-    const el = tileEl(raw, wpx, { back: isAnkanEnd, cls: isCalled ? 'side' : '' });
+    const el = tileEl(raw, size, { back: isAnkanEnd, cls: isCalled ? 'side' : '' });
     wrap.appendChild(el);
   });
   return wrap;
@@ -637,18 +645,13 @@ function seatName(seat) { return playersMeta[seat] ? playersMeta[seat].name : ''
 
 function renderState(view) {
   lastView = view;
-  const felt = $('felt');
-  const tableW = $('table-wrap').clientWidth || 700;
-  const pondTileW = Math.max(14, Math.round(tableW * 0.041));
-  const meldTileW = Math.max(18, Math.round(tableW * 0.06));
-
   // 壁牌（装飾）
   const wall = $('wall-backs');
   if (!wall.childElementCount) {
     for (let r = 0; r < 2; r++) {
       const row = document.createElement('div');
       row.className = 'row';
-      for (let i = 0; i < 24; i++) row.appendChild(tileEl(0, Math.max(12, tableW * 0.024), { back: true }));
+      for (let i = 0; i < 24; i++) row.appendChild(tileEl(0, { cqw: 2.4 }, { back: true }));
       wall.appendChild(row);
     }
   }
@@ -657,7 +660,7 @@ function renderState(view) {
   dt.innerHTML = '';
   for (let i = 0; i < 5; i++) {
     const ind = view.doraIndicators[i];
-    dt.appendChild(tileEl(ind === undefined ? 0 : ind, Math.max(14, tableW * 0.028), { back: ind === undefined }));
+    dt.appendChild(tileEl(ind === undefined ? 0 : ind, { cqw: 2.8 }, { back: ind === undefined }));
   }
 
   // 河・他家の手牌・ラベル
@@ -675,14 +678,14 @@ function renderState(view) {
         + (d.riichi ? ' riichi-cell' : '')
         + (p.seat === lastDiscardSeat && i === p.discards.length - 1 ? ' last' : '')
         + (grew && i === p.discards.length - 1 ? ' new' : '');
-      cell.appendChild(tileEl(d.tile, pondTileW));
+      cell.appendChild(tileEl(d.tile, { cqw: 4.1 }));
       pond.appendChild(cell);
     });
     prevPondCounts[p.seat] = p.discards.length;
     if (r !== 0) {
       const hand = r === 1 ? $('opp-hand-right') : $('opp-hand-left');
       hand.innerHTML = '';
-      for (let i = 0; i < p.handCount; i++) hand.appendChild(tileEl(0, Math.max(11, tableW * 0.022), { back: true }));
+      for (let i = 0; i < p.handCount; i++) hand.appendChild(tileEl(0, { cqw: 2.2 }, { back: true }));
       const label = r === 1 ? $('opp-label-right') : $('opp-label-left');
       const meta = playersMeta[p.seat] || {};
       label.innerHTML = '';
@@ -704,7 +707,7 @@ function renderState(view) {
 
   // センター
   $('c-round').textContent = view.roundLabel.replace(/(.)(\d)(.)/, '$1 $2 $3');
-  $('c-honba').textContent = `${view.honba} 本場 ・ 供託 ${view.kyotaku}`;
+  $('c-honba').textContent = `${view.honba}本場・供託${view.kyotaku}`;
   $('c-remain').textContent = view.wallCount;
   const scoreEls = { 0: $('c-score-me'), 1: $('c-score-right'), 2: $('c-score-left') };
   const stickEls = { 0: $('stick-me'), 1: $('stick-right'), 2: $('stick-left') };
@@ -731,13 +734,12 @@ function renderState(view) {
   const meldsBox = $('my-melds');
   meldsBox.innerHTML = '';
   $('meld-label').hidden = myP.melds.length === 0;
-  for (const m of myP.melds) meldsBox.appendChild(meldEl(m, meldTileW));
+  for (const m of myP.melds) meldsBox.appendChild(meldEl(m, { cqw: 5.6 }));
 
   renderHand(view);
   renderActions(view);
   renderStatus(view);
   renderResult(view);
-  void felt;
 }
 
 function renderHand(view) {
