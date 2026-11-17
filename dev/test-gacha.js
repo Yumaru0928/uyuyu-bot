@@ -197,8 +197,8 @@ async function main() {
     console.log('記録の保存と読み戻し: OK');
   }
 
-  // 図鑑の全種は19種（通常プール15＋条件枠4）
-  assert.strictEqual(GACHA_ALL.length, 19);
+  // 図鑑の全種は20種（通常プール16＋条件枠4）
+  assert.strictEqual(GACHA_ALL.length, 20);
 
   try { fs.unlinkSync(TMP_FILE); } catch { /* 後片付け */ }
   console.log('test-gacha: OK');
