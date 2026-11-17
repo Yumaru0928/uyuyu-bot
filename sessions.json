@@ -1,4 +1,30 @@
 {
   "version": 1,
-  "games": {}
+  "games": {
+    "shogi": {
+      "1572091370485588008": {
+        "channelId": "1376780865308200973",
+        "guildId": "1376780865308200970",
+        "moves": [
+          "3g3f"
+        ],
+        "players": {
+          "0": {
+            "id": "960004867542380555",
+            "displayName": "ゆまる",
+            "isAi": false
+          },
+          "1": {
+            "id": "981314695543783484",
+            "displayName": "TakasumiBOT",
+            "isAi": true
+          }
+        },
+        "ranked": false,
+        "level": "normal",
+        "notifyMessageId": null,
+        "updatedAt": 1794886204507
+      }
+    }
+  }
 }
