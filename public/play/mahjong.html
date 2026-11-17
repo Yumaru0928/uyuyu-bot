@@ -437,6 +437,19 @@ function tileEl(raw, size, opts = {}) {
       d.className = 'dot';
       d.style.cssText = 'left:50%;top:47%;width:66%;height:49%;background:radial-gradient(circle,#1e5fa8 0 10%,#f7f3e6 11% 20%,#2a8a4a 21% 36%,#f7f3e6 37% 50%,#c0392b 51% 100%)';
       el.appendChild(d);
+    } else if (rank === 7) {
+      // 7筒は上段3つを斜め（階段状）に並べる実物の描き方にする（横一列だと9筒の欠けに見えるため）
+      const dots = [
+        [20, 17, 'g'], [50, 29, 'r'], [80, 41, 'g'],
+        [28, 63, 'b'], [72, 63, 'b'], [28, 85, 'b'], [72, 85, 'b'],
+      ];
+      for (const [x, y, c] of dots) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const col = COLOR[c];
+        d.style.cssText = `left:${x}%;top:${y}%;width:22%;height:${22 * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        el.appendChild(d);
+      }
     } else {
       const rows = rank === 8 ? 4 : 3;
       for (const [cx, cy, c] of PIN[rank]) {
