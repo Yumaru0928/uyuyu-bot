@@ -4,19 +4,20 @@
     "960004867542380555": {
       "items": {
         "uyuyu_gliched": 3,
-        "uyuyu_fucking": 14,
-        "uyuyu": 13,
-        "uyuyu_crashed": 18,
+        "uyuyu_fucking": 16,
+        "uyuyu": 21,
+        "uyuyu_crashed": 21,
         "uyuyu_WT": 19,
         "uyuyu_makeup": 19,
-        "uyuyu_sweating": 9,
-        "uyuyu_uhe": 17,
+        "uyuyu_sweating": 11,
+        "uyuyu_uhe": 20,
         "uyuyu_space": 2,
-        "uyuyu_null": 2,
-        "uyuyun": 4
+        "uyuyu_null": 3,
+        "uyuyun": 4,
+        "uyuyu_golden": 1
       },
-      "total": 120,
-      "updatedAt": 1794892886667
+      "total": 140,
+      "updatedAt": 1794892897641
     }
   },
   "wins": {}
