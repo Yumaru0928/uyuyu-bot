@@ -22,6 +22,7 @@ const UYUYU_EMOJIS = [
     { name: 'uyuyu_take', id: '1557407787221516289' },
     { name: 'uyuyu_gliched', id: '1557407747627294761' },
     { name: 'uyuyu_rainbow', id: '1572104398946050088' },
+    { name: 'uyuyu_golden', id: '1572106477492109372' },
     { name: 'uyuyun', id: '1558816474267910154' }
 ];
 
@@ -47,6 +48,7 @@ const byName = name => UYUYU_EMOJIS.find(e => e.name === name);
 // 通常プール（レアリティ付き）。SSR の uyuyun は常設、SR/R/N は週替わりで一部が「お休み」になる
 const GACHA_POOL = [
     { ...byName('uyuyun'), rarity: 'SSR' },
+    { ...byName('uyuyu_golden'), rarity: 'SSR' },
     { ...byName('uyuyu_gliched'), rarity: 'SR' },
     { ...byName('uyuyu_space'), rarity: 'SR' },
     { ...byName('uyuyu_null'), rarity: 'SR' },
