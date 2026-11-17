@@ -31,6 +31,7 @@ const ROLLING_UYUYU = { name: 'rolling_uyuyu', id: '1529182253207392267' };
 
 // ガチャの季節限定枠（リアクション・スロットには入っていない）
 const SANTA_UYUYU = { name: 'uyuyu_santa', id: '1572097202354917488' };
+const NEWYEAR_UYUYU = { name: 'uyuyu_newyear', id: '1572113293647151155' };
 
 // スロット専用の絵文字
 const SLOT_TRANSPARENT = '<a:transparent:1558522934438658119>'; // 透明（アニメーション）
@@ -74,9 +75,10 @@ const GACHA_CONDITIONALS = [
     { ...byName('uyuyu_sleeping'), rarity: 'SP', condition: 'night', hint: '夜更かしなうゆゆ。みんなが寝静まった頃にだけ姿を見せる' },
     { ...ROLLING_UYUYU, rarity: 'SP', condition: 'reaction', hint: '転がり続けるうゆゆ。どこかで出会える…かも' },
     { ...SANTA_UYUYU, rarity: 'SP', condition: 'december', hint: 'サンタなうゆゆ。12月にだけ姿を見せる' },
+    { ...NEWYEAR_UYUYU, rarity: 'SP', condition: 'newyear', hint: 'お正月なうゆゆ。年末年始にだけ姿を見せる' },
 ];
 
 // 図鑑に並べる全種（通常プール＋条件枠 = 17種）
 const GACHA_ALL = [...GACHA_POOL, ...GACHA_CONDITIONALS];
 
-module.exports = { UYUYU_EMOJIS, ROLLING_UYUYU, SANTA_UYUYU, SLOT_TRANSPARENT, SLOT_EXTRA, asText, GACHA_POOL, GACHA_CONDITIONALS, GACHA_ALL };
+module.exports = { UYUYU_EMOJIS, ROLLING_UYUYU, SANTA_UYUYU, NEWYEAR_UYUYU, SLOT_TRANSPARENT, SLOT_EXTRA, asText, GACHA_POOL, GACHA_CONDITIONALS, GACHA_ALL };

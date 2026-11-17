@@ -81,6 +81,7 @@ async function main() {
     assert(!names.has('uyuyu_take'), '条件なしで uyuyu_take が混ざっている');
     assert(!names.has('uyuyu_sleeping'), '昼間で uyuyu_sleeping が混ざっている');
     assert(!names.has('uyuyu_santa'), '11月で uyuyu_santa が混ざっている');
+    assert(!names.has('uyuyu_newyear'), '11月で uyuyu_newyear が混ざっている');
     assert(!names.has('rolling_uyuyu'), 'ガチャから rolling_uyuyu が出るようになっている');
 
     const rng = lcg(42);
@@ -89,7 +90,7 @@ async function main() {
       assert.strictEqual(results.length, 10);
       for (const r of results) {
         assert(!resting.has(r.name), `お休み中が排出された: ${r.name}`);
-        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu', 'uyuyu_santa'].includes(r.name), `条件枠が排出された: ${r.name}`);
+        assert(!['uyuyu_take', 'uyuyu_sleeping', 'rolling_uyuyu', 'uyuyu_santa', 'uyuyu_newyear'].includes(r.name), `条件枠が排出された: ${r.name}`);
       }
       // 最後の1枠は R 以上確定
       assert(['SSR', 'SR', 'R'].includes(results[9].rarity), `最後の枠が ${results[9].rarity} だった`);
@@ -133,7 +134,25 @@ async function main() {
       }
     }
     assert(santaSeen > 0, '12月プールから uyuyu_santa が1回も出なかった');
-    console.log('条件ドロップ（勝利日=take / 深夜=sleeping / 12月=santa が混ざって排出される）: OK');
+
+    // 年末年始（12/29〜1/3）だけ uyuyu_newyear が混ざる。期間中は santa も同時に出うる
+    assert.strictEqual(gacha.isNewYearJst(jst(2026, 12, 28, 12)), false);
+    assert.strictEqual(gacha.isNewYearJst(jst(2026, 12, 29, 12)), true);
+    assert.strictEqual(gacha.isNewYearJst(jst(2027, 1, 3, 12)), true);
+    assert.strictEqual(gacha.isNewYearJst(jst(2027, 1, 4, 12)), false);
+    const nyPool = gacha.buildPool({ date: jst(2026, 12, 31, 12), wonToday: false });
+    assert(nyPool.some((e) => e.name === 'uyuyu_newyear'), '年末に uyuyu_newyear がプールに無い');
+    const janPool = gacha.buildPool({ date: jst(2027, 1, 2, 12), wonToday: false });
+    assert(janPool.some((e) => e.name === 'uyuyu_newyear'), '年始に uyuyu_newyear がプールに無い');
+    assert(!janPool.some((e) => e.name === 'uyuyu_santa'), '1月に uyuyu_santa が混ざっている');
+    let nySeen = 0;
+    for (let n = 0; n < 300; n++) {
+      for (const r of gacha.drawTen({ date: jst(2026, 12, 31, 12), wonToday: false, rng })) {
+        if (r.name === 'uyuyu_newyear') nySeen++;
+      }
+    }
+    assert(nySeen > 0, '年末年始プールから uyuyu_newyear が1回も出なかった');
+    console.log('条件ドロップ（勝利日=take / 深夜=sleeping / 12月=santa / 年末年始=newyear が混ざって排出される）: OK');
   }
 
   // ---- 育成枠 ----
@@ -197,8 +216,8 @@ async function main() {
     console.log('記録の保存と読み戻し: OK');
   }
 
-  // 図鑑の全種は20種（通常プール16＋条件枠4）
-  assert.strictEqual(GACHA_ALL.length, 20);
+  // 図鑑の全種は21種（通常プール16＋条件枠5）
+  assert.strictEqual(GACHA_ALL.length, 21);
 
   try { fs.unlinkSync(TMP_FILE); } catch { /* 後片付け */ }
   console.log('test-gacha: OK');

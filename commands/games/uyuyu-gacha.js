@@ -21,6 +21,7 @@ module.exports = {
         const won = collection.wonToday(userId, now);
         const night = gacha.isNightJst(now);
         const december = gacha.isDecemberJst(now);
+        const newyear = gacha.isNewYearJst(now);
 
         // 抽選（レアリティ＋週替わりお休み＋条件枠）→ 図鑑へ記録
         const drawn = gacha.drawTen({ date: now, wonToday: won });
@@ -64,6 +65,7 @@ module.exports = {
         const notes = [];
         if (night) notes.push('🌙 深夜帯：uyuyu_sleeping がプールに混ざっています');
         if (december) notes.push('🎅 12月限定：uyuyu_santa がプールに混ざっています');
+        if (newyear) notes.push('🎍 年末年始限定：uyuyu_newyear がプールに混ざっています');
         if (won) notes.push('🏆 本日対戦で勝利：uyuyu_take がプールに混ざっています');
         if (notes.length) embed.setFooter({ text: notes.join('\n') });
 

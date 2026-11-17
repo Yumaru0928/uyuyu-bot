@@ -6,8 +6,8 @@
 // ・週替わりローテーション: SR/R/N の13種から毎週3種が「お休み」（排出されない）。
 //   組み合わせは ISO 週番号から決定的に算出するので全員共通・DB不要。
 // ・条件ドロップ: 対戦で勝った日（uyuyu_take）／深夜 JST 0〜5時（uyuyu_sleeping）／
-//   12月（uyuyu_santa）のときだけ低確率枠としてプールに混ざる。
-//   rolling_uyuyu はガチャからは出ない（リアクション経由のみ）
+//   12月（uyuyu_santa）／年末年始 12/29〜1/3（uyuyu_newyear）のときだけ
+//   低確率枠としてプールに混ざる。rolling_uyuyu はガチャからは出ない（リアクション経由のみ）
 // ・10連の最後の1枠は R 以上確定
 // ・時刻判定（深夜・日次）はすべて JST 基準（サーバーが UTC でもずれないよう +9時間で計算する）
 
@@ -46,6 +46,14 @@ function isNightJst(date = new Date()) {
 /** 12月（JST）かどうか（uyuyu_santa の季節判定） */
 function isDecemberJst(date = new Date()) {
   return toJst(date).getUTCMonth() === 11;
+}
+
+/** 年末年始（JST 12/29〜1/3）かどうか（uyuyu_newyear の季節判定） */
+function isNewYearJst(date = new Date()) {
+  const j = toJst(date);
+  const month = j.getUTCMonth();
+  const day = j.getUTCDate();
+  return (month === 11 && day >= 29) || (month === 0 && day <= 3);
 }
 
 /** ISO 週番号キー 'YYYY-Www'（週の区切りは JST の月曜） */
@@ -129,6 +137,7 @@ function buildPool({ date = new Date(), wonToday = false } = {}) {
     if (c.condition === 'win' && wonToday) pool.push({ ...c, weight: condWeight });
     if (c.condition === 'night' && isNightJst(date)) pool.push({ ...c, weight: condWeight });
     if (c.condition === 'december' && isDecemberJst(date)) pool.push({ ...c, weight: condWeight });
+    if (c.condition === 'newyear' && isNewYearJst(date)) pool.push({ ...c, weight: condWeight });
   }
   return pool;
 }
@@ -178,6 +187,7 @@ module.exports = {
   jstDateKey,
   isNightJst,
   isDecemberJst,
+  isNewYearJst,
   isoWeekKey,
   getRestingNames,
   buildPool,
