@@ -14,7 +14,7 @@
 const { GACHA_POOL, GACHA_CONDITIONALS } = require('./emojis.js');
 
 // ---- 調整用定数（確率・閾値はここを変える） ----
-const RARITY_RATE = { SSR: 0.03, SR: 0.06, R: 0.11 }; // N は残り全部
+const RARITY_RATE = { SSR: 0.02, SR: 0.05, R: 0.10 }; // N は残り全部
 const CONDITIONAL_RATE = 0.03; // 条件枠1種あたりの排出率（条件を満たしたとき）
 const ROLLING_RATE = 0.03; // 自動リアクションが rolling_uyuyu に変化する確率（events/send-uyuyu.js が使う）
 const REST_COUNT = 3; // 毎週お休みになる種類数
