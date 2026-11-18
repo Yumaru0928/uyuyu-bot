@@ -524,7 +524,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   padding: 0.55cqw 0.7cqw;
   border: 0.28cqw solid rgba(223, 231, 242, 0.85);
   border-radius: 0.6cqw;
-  background: rgba(5, 10, 24, 0.45);
+  background: rgba(5, 10, 24, 0.78);
 }
 .dora-tiles { display: flex; gap: 0.45cqw; }
 .counters {
@@ -532,8 +532,11 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   font-size: 1.9cqw;
   font-weight: 700;
   color: #eaf2ff;
-  display: flex;
+  display: inline-flex;
   gap: 1.6cqw;
+  background: rgba(5, 10, 24, 0.55);
+  padding: 0.15cqw 0.8cqw;
+  border-radius: 999px;
 }
 .match-title {
   position: absolute;
@@ -559,6 +562,9 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   font-weight: 700;
   color: #eaf2ff;
   z-index: 2;
+  background: rgba(8, 15, 34, 0.72);
+  border-radius: 1.2cqw;
+  padding: 0.3cqw 0.9cqw;
 }
 .plate .pemoji { font-size: 2.6cqw; }
 .plate .picon {
@@ -581,7 +587,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .plate .psub { display: block; font-size: 1.35cqw; color: var(--muted); font-weight: 500; }
 .plate .off { color: var(--danger); }
 .plate.turn {
-  background: rgba(242, 199, 107, 0.16);
+  background: rgba(52, 42, 16, 0.85);
   box-shadow: 0 0 0 0.22cqw var(--gold);
   border-radius: 1.2cqw;
   padding: 0.3cqw 0.9cqw;
@@ -1323,6 +1329,13 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   opacity: 0;
   animation: call-ring .6s ease-out .08s forwards;
 }
+.call-fx--riichi .call-fx__text {
+  font-size: 9.5cqw;
+  background: linear-gradient(#ffe9ec 20%, #ff8fa3 70%, #d6455b);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 .3cqw 0 #5f1220) drop-shadow(0 0 1.6cqw rgba(255, 120, 140, .65));
+}
+.call-fx--riichi .call-fx__ring { border-color: rgba(255, 143, 163, .9); }
 @keyframes call-pop {
   0%   { transform: scale(2.6); opacity: 0; }
   14%  { transform: scale(.94); opacity: 1; }
@@ -1516,7 +1529,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
         </div>
         <div class="dora-zone">
           <div class="dora-box2"><div class="dora-tiles" id="dora-tiles"></div></div>
-          <div class="counters"><span id="counter-kita">北 ×0</span><span id="counter-aka">赤 ×0</span></div>
+          <div class="counters"><span id="counter-wall">山 0</span><span id="counter-kita">北 ×0</span><span id="counter-aka">赤 ×0</span></div>
           </div>
         <div class="match-title" id="match-title">三人CPU戦</div>
         <div class="plate left" id="plate-left"></div>
@@ -2007,17 +2020,16 @@ function renderState(view) {
       const tx = document.createElement('span');
       const nm = document.createElement('span');
       nm.textContent = meta.name || '';
-      const sub = document.createElement('span');
-      sub.className = 'psub';
-      sub.textContent = `${p.handCount}枚`;
+      tx.appendChild(nm);
       if (meta.connected === false && !meta.bot) {
+        const sub = document.createElement('span');
+        sub.className = 'psub';
         const off = document.createElement('span');
         off.className = 'off';
-        off.textContent = ' 代行中';
+        off.textContent = '代行中';
         sub.appendChild(off);
+        tx.appendChild(sub);
       }
-      tx.appendChild(nm);
-      tx.appendChild(sub);
       plate.appendChild(em);
       plate.appendChild(tx);
       plate.classList.toggle('riichi-on', p.riichi);
@@ -2099,6 +2111,7 @@ function renderState(view) {
   for (const m of myP.melds) for (const raw of m.tiles) if (isRedTile(raw)) aka++;
   $('counter-aka').textContent = `赤 ×${aka}`;
   $('counter-kita').textContent = '北 ×0';
+  $('counter-wall').textContent = `山 ${view.wallCount}`;
 
   renderHand(view);
   // 鳴きなしONでロンだけ手動判断のときは、ポン・カンをパネルに出さない
@@ -2169,10 +2182,10 @@ function maybeAutoAct(view) {
 // ===== 鳴き・和了演出（状態の変化から検出して出す） =====
 let fxPrevView = null;
 function showCallFx(slot, kind) {
-  const labels = { pon: 'ポン', kan: 'カン' };
+  const labels = { pon: 'ポン', kan: 'カン', riichi: 'リーチ' };
   if (!labels[kind]) return;
   const el = document.createElement('div');
-  el.className = 'call-fx';
+  el.className = 'call-fx' + (kind === 'riichi' ? ' call-fx--riichi' : '');
   el.dataset.slot = slot;
   const ring = document.createElement('div');
   ring.className = 'call-fx__ring';
@@ -2231,6 +2244,10 @@ function detectFx(view) {
     if (p.melds.length > before.melds.length) {
       const m = p.melds[p.melds.length - 1];
       if (m && (m.type === 'pon' || m.type === 'kan')) showCallFx(slotOf(p.seat, view), m.type);
+    }
+    // リーチ宣言（同じ局の中で false→true になった時だけ）
+    if (p.riichi && !before.riichi && prev.roundLabel === view.roundLabel) {
+      showCallFx(slotOf(p.seat, view), 'riichi');
     }
   }
 }
