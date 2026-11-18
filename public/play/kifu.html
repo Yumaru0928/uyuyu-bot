@@ -143,6 +143,8 @@
   }
   @keyframes ring-spread { from { opacity: .9; transform: scale(.8); } to { opacity: 0; transform: scale(1.5); } }
   .name-btn { background: transparent; border: 1px solid var(--line); color: var(--text-dim); min-height: 40px; padding: 4px 10px; margin: 0; font-size: 13px; }
+  .paste-btn { background: transparent; border: 1px solid var(--line); color: var(--text-dim); min-height: 40px; padding: 4px 10px; font-size: 13px; white-space: nowrap; }
+  .copy-btn { min-width: 40px; }
   .code-chip {
     font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--text-dim);
     background: var(--panel-deep); border-radius: 6px; padding: 2px 7px; white-space: nowrap;
@@ -236,7 +238,8 @@
       <h2>コードで見る</h2>
       <p class="muted">対局の参加者でなくても、6文字のコードがあれば対戦履歴を見られます。</p>
       <form id="code-form">
-        <input type="text" id="code-input" placeholder="例: ABC123" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+        <input type="text" id="code-input" placeholder="例: ABC123" maxlength="32" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+        <button type="button" class="paste-btn" data-paste-for="code-input">📋 ペースト</button>
         <button type="submit">見る</button>
       </form>
     </div>
@@ -257,7 +260,8 @@
       <h2>麻雀の対戦履歴</h2>
       <p class="muted">三人麻雀の対局は、卓の上で手順まで再生できます。コードがあれば参加者でなくても見られます。</p>
       <form id="mj-code-form">
-        <input type="text" id="mj-code-input" placeholder="例: ABC123" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+        <input type="text" id="mj-code-input" placeholder="例: ABC123" maxlength="32" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+        <button type="button" class="paste-btn" data-paste-for="mj-code-input">📋 ペースト</button>
         <button type="submit">リプレイを見る</button>
       </form>
       <div id="mj-list"></div>
@@ -427,12 +431,25 @@ function renderList() {
         <div class="kifu-meta">${esc(it.gameLabel)} vs ${opp}（${side}） ・ ${it.plies}手 ・ ${esc(REASON_LABEL[it.reason] || it.reason)} ・ ${fmtDate(it.createdAt)}</div>
       </div>
       <span class="result-badge result-${it.result}">${RESULT_LABEL[it.result]}</span>
-      <span class="code-chip">${esc(it.code)}</span>
+      <span class="code-chip">${esc(fmtCode(it.code))}</span>
+      <button type="button" class="name-btn copy-btn" data-act="copy" data-code="${esc(it.code)}" title="コードをコピー">📋</button>
       <button type="button" class="name-btn" data-act="name" data-code="${esc(it.code)}" title="名前を付ける">✎</button>
       <button type="button" class="fav-btn${it.favorite ? ' active' : ''}" data-act="fav" data-code="${esc(it.code)}" title="お気に入り">${it.favorite ? '★' : '☆'}</button>
     </div>`;
   }).join('');
   listAnimated = true;
+}
+
+// コード表示（6文字は 3-3 区切り）・正規化・コピーの共通処理
+function fmtCode(code) { return code && code.length === 6 ? `${code.slice(0, 3)}-${code.slice(3)}` : code; }
+function normalizeCode(v) { return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  if (btn) { const old = btn.textContent; btn.textContent = '✓'; setTimeout(() => { btn.textContent = old; }, 1200); }
 }
 
 async function postFavorite(code, favorite, name) {
@@ -476,7 +493,9 @@ document.getElementById('list').addEventListener('click', async (ev) => {
     ev.stopPropagation();
     const item = myList.find((it) => it.code === code);
     if (!item) return;
-    if (actBtn.dataset.act === 'fav') {
+    if (actBtn.dataset.act === 'copy') {
+      copyText(code, actBtn);
+    } else if (actBtn.dataset.act === 'fav') {
       const next = !item.favorite;
       item.favorite = next; // 楽観的更新
       paintFavBtn(actBtn, next, true);
@@ -511,9 +530,24 @@ document.getElementById('list').addEventListener('click', async (ev) => {
 
 document.getElementById('code-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  const code = normalizeCode(document.getElementById('code-input').value);
   if (code) showReplay(code, true, 'forward');
 });
+
+// ペーストボタン（両フォーム共通）: クリップボードから読み取って即送信する
+for (const btn of document.querySelectorAll('[data-paste-for]')) {
+  btn.addEventListener('click', async () => {
+    const input = document.getElementById(btn.dataset.pasteFor);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && normalizeCode(text)) { input.value = text; input.form.requestSubmit(); return; }
+    } catch { /* 許可がない環境では手動貼り付けにフォールバック */ }
+    input.focus();
+    const old = btn.textContent;
+    btn.textContent = '長押しで貼ってね';
+    setTimeout(() => { btn.textContent = old; }, 1600);
+  });
+}
 
 // ---------- 再生 ----------
 const replay = { code: null, plies: 0, ply: 0, loggedIn: false, favorite: false, name: null, speed: 'normal' };
@@ -723,7 +757,7 @@ async function loadReplay(code) {
   const result = data.draw ? '🤝 引き分け' : `🏆 ${data.winnerName} の勝ち`;
   document.getElementById('replay-title').textContent = data.name || `${data.gameLabel} の対戦履歴`;
   document.getElementById('replay-meta').textContent =
-    `${vs} ・ ${result}（${REASON_LABEL[data.reason] || data.reason}） ・ 全${data.plies}手 ・ ${fmtDate(data.createdAt)} ・ コード: ${data.code}`;
+    `${vs} ・ ${result}（${REASON_LABEL[data.reason] || data.reason}） ・ 全${data.plies}手 ・ ${fmtDate(data.createdAt)} ・ コード: ${fmtCode(data.code)}`;
 
   const favArea = document.getElementById('replay-fav-area');
   favArea.hidden = !data.loggedIn;
@@ -819,9 +853,19 @@ document.addEventListener('keydown', (ev) => {
 <script>
 (function () {
   const $id = (id) => document.getElementById(id);
+  function fmtCode(code) { return code && code.length === 6 ? `${code.slice(0, 3)}-${code.slice(3)}` : code; }
+  function normalizeCode(v) { return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  async function copyText(text, btn) {
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    if (btn) { const old = btn.textContent; btn.textContent = '✓'; setTimeout(() => { btn.textContent = old; }, 1200); }
+  }
   $id('mj-code-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
-    const code = $id('mj-code-input').value.trim().toUpperCase();
+    const code = normalizeCode($id('mj-code-input').value);
     if (code) location.href = '/play/mahjong/replay/' + encodeURIComponent(code);
   });
   function fmtDate(ts) {
@@ -862,7 +906,7 @@ document.addEventListener('keydown', (ev) => {
       const names = item.players.map((p) => p.name).join(' / ');
       const place = item.myPlacement ? `${item.myPlacement}位` : '';
       const score = item.scores ? `${Math.max(...item.scores)}点トップ` : '';
-      meta.textContent = `${fmtDate(item.createdAt)} ・ ${names} ・ ${place} ${score} ・ ${item.rounds}局 ・ コード: ${item.code.slice(0, 3)}-${item.code.slice(3)}`;
+      meta.textContent = `${fmtDate(item.createdAt)} ・ ${names} ・ ${place} ${score} ・ ${item.rounds}局 ・ コード: ${fmtCode(item.code)}`;
       main.appendChild(meta);
       row.appendChild(main);
       const fav = document.createElement('button');
@@ -878,6 +922,13 @@ document.addEventListener('keydown', (ev) => {
       nameBtn.dataset.act = 'name';
       nameBtn.textContent = '名前を付ける';
       row.appendChild(nameBtn);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'name-btn copy-btn';
+      copyBtn.dataset.act = 'copy';
+      copyBtn.title = 'コードをコピー';
+      copyBtn.textContent = '📋';
+      row.appendChild(copyBtn);
       box.appendChild(row);
     }
   }
@@ -889,7 +940,9 @@ document.addEventListener('keydown', (ev) => {
     const actBtn = ev.target.closest('[data-act]');
     if (actBtn && item) {
       ev.stopPropagation();
-      if (actBtn.dataset.act === 'fav') {
+      if (actBtn.dataset.act === 'copy') {
+        copyText(code, actBtn);
+      } else if (actBtn.dataset.act === 'fav') {
         try {
           const r = await postMjFavorite(code, !item.favorite);
           item.favorite = r.favorite;
