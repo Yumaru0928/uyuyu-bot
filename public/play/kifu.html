@@ -116,6 +116,11 @@
   .kifu-main { flex: 1; min-width: 0; }
   .kifu-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .kifu-meta { color: var(--text-dim); font-size: 12.5px; margin-top: 2px; }
+  /* 狭い画面では本文を1行目いっぱいに広げ、バッジとボタンを2行目へ回す（文字が縦に潰れないように） */
+  @media (max-width: 560px) {
+    .kifu-item { flex-wrap: wrap; }
+    .kifu-item .kifu-main { flex: 1 1 100%; }
+  }
   .result-badge { font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
   .result-win { background: #6d5410; color: #ffe082; }
   .result-lose { background: #37474f; color: #b0bec5; }

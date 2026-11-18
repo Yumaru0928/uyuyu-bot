@@ -1959,6 +1959,8 @@ function lastDiscardAt(i) {
 
 function renderSideHands(step) {
   const els = { right: $('wall-right'), left: $('wall-left'), far: $('far-hand') };
+  // 空席スロットに前の視点の牌が残らないよう、先に全スロットを空にする
+  for (const el of Object.values(els)) { el.innerHTML = ''; el.classList.remove('open'); }
   for (const p of step.players) {
     const slot = slotOf(p.seat);
     if (slot === 'me') continue;
@@ -2178,6 +2180,11 @@ function render(withFx = false) {
   const plateEls = { me: $('plate-me'), right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
   const meldEls = { right: $('melds-right'), left: $('melds-left') };
   const empty = emptySlotOf(step);
+  // 空席スロットの河・名札・副露も残像を消す（視点移動で空席が移るため）
+  for (const el of Object.values(pondEls)) el.innerHTML = '';
+  for (const el of Object.values(plateEls)) { el.innerHTML = ''; el.classList.remove('riichi-on', 'turn'); }
+  for (const el of Object.values(meldEls)) el.innerHTML = '';
+  $('melds-far').innerHTML = '';
   const lastSeat = lastDiscardAt(idx);
   for (const p of step.players) {
     const slot = slotOf(p.seat);

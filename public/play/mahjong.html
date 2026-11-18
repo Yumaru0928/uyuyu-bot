@@ -2279,6 +2279,11 @@ function buildSideHands(view) {
   // 他家の手牌：伏せ手牌の枚数ぶん、裏向きの牌（solid）を立てて並べる（対面も含む）
   if (!view) return;
   const els = { right: $('wall-right'), left: $('wall-left'), far: $('far-hand') };
+  // 空席スロットに前の対局の牌が残らないよう、使われていないスロットは空にする
+  const usedSlots = new Set(view.players.map((p) => slotOf(p.seat, view)));
+  for (const [slot, el] of Object.entries(els)) {
+    if (!usedSlots.has(slot)) { el.innerHTML = ''; el.classList.remove('open'); delete el.dataset.count; }
+  }
   for (const p of view.players) {
     const slot = slotOf(p.seat, view);
     if (slot === 'me') continue;
@@ -2376,6 +2381,11 @@ function renderState(view) {
   const plateEls = { right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
   const meldEls = { right: $('melds-right'), left: $('melds-left') };
   const empty = emptySlot(view);
+  // 空席スロットの河・名札・副露の残像を消す（席が替わった対局間で残らないように）
+  for (const el of Object.values(pondEls)) if (el) el.innerHTML = '';
+  for (const el of Object.values(plateEls)) { el.innerHTML = ''; el.classList.remove('riichi-on', 'turn'); }
+  for (const el of Object.values(meldEls)) el.innerHTML = '';
+  $('melds-far').innerHTML = '';
   // 最後に捨てた席を先に確定させる（ループ途中の値で枠を付けると複数付いてしまうため）
   const grewBySeat = {};
   for (const p of view.players) {
