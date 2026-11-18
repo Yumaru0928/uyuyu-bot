@@ -34,6 +34,7 @@ const { WebSocketServer } = require('ws');
 const game = require('./mahjong-game.js');
 const { baseUrl } = require('./notify/common.js');
 const { UYUYU_EMOJIS } = require('./emojis.js');
+const gachaCollection = require('./gacha-collection.js');
 
 const WS_PATH = '/play/mahjong/ws';
 const RECONNECT_GRACE_MS = 60_000;
@@ -135,6 +136,7 @@ function makeRoom({ mode, createdVia, hooks = null }) {
     botTimer: null, callTimer: null, roundTimer: null,
     waitingTimer: null, finishedTimer: null,
     startedOnce: false,
+    recorded: false, // ガチャ勝利記録を終局時に1回だけ行うためのガード
     callObj: null, // 応答ウィンドウの同一性チェック用（call オブジェクト参照）
   };
 }
@@ -329,6 +331,19 @@ function attach(server, { verifyToken = null } = {}) {
   function finishMatch(room) {
     room.phase = 'finished';
     room.rematchOffers.clear();
+    // ガチャ図鑑の条件ドロップ（uyuyu_take）用：1位が人間のログイン済みユーザーなら「本日の勝利者」として記録する
+    if (!room.recorded && room.match && room.match.placements) {
+      room.recorded = true;
+      const winSeat = room.match.placements.findIndex((pl) => pl === 1);
+      const slot = winSeat >= 0 ? room.slots[room.playerSeats[winSeat]] : null;
+      if (slot && !slot.bot && slot.user && !slot.user.guest && slot.user.id) {
+        try {
+          gachaCollection.markWin(slot.user.id);
+        } catch (err) {
+          console.error('[mahjong] ガチャ勝利記録エラー:', err);
+        }
+      }
+    }
     broadcastState(room);
     if (room.finishedTimer) clearTimeout(room.finishedTimer);
     room.finishedTimer = setTimeout(() => {
@@ -348,6 +363,7 @@ function attach(server, { verifyToken = null } = {}) {
     room.match.dealer = room.match.firstDealer;
     room.phase = 'playing';
     room.rematchOffers.clear();
+    room.recorded = false;
     room.callObj = null;
     game.startRound(room.match);
     broadcastState(room);
