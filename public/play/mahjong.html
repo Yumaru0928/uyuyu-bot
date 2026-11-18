@@ -1220,7 +1220,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 /* 携帯の縦持ちでも結果カードは横画面のまま出す（ステージの回転と合わせる） */
 @media (orientation: portrait) {
   .result-card {
-    rotate: -90deg;
+    rotate: 90deg;
     flex: none;
     width: min(560px, 88vh);
     max-height: 92vw;
@@ -1781,7 +1781,7 @@ function fitStage() {
   const vw = window.innerWidth, vh = window.innerHeight;
   const portrait = vh > vw;
   const s = portrait ? Math.min(vw / 800, vh / 1280) : Math.min(vw / 1280, vh / 800);
-  stage.style.transform = (portrait ? 'rotate(-90deg) ' : '') + `scale(${s})`;
+  stage.style.transform = (portrait ? 'rotate(90deg) ' : '') + `scale(${s})`;
 }
 let toastTimer = null;
 function toast(msg) {
