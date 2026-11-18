@@ -37,6 +37,7 @@ const game = require('./mahjong-game.js');
 const { baseUrl } = require('./notify/common.js');
 const { UYUYU_EMOJIS } = require('./emojis.js');
 const gachaCollection = require('./gacha-collection.js');
+const mahjongHistory = require('./mahjong-history-store.js');
 
 const WS_PATH = '/play/mahjong/ws';
 const RECONNECT_GRACE_MS = 60_000;
@@ -460,6 +461,32 @@ function attach(server, { verifyToken = null } = {}) {
   function finishMatch(room) {
     room.phase = 'finished';
     room.rematchOffers.clear();
+    // 対戦履歴に保存する（終局した対局だけ。再戦で新しい対局が始まるたびに1件）
+    if (!room.historySaved && room.match && room.match.record && room.match.placements) {
+      room.historySaved = true;
+      try {
+        const players = [0, 1, 2].map((seat) => {
+          const slot = room.slots[room.playerSeats[seat]];
+          return {
+            id: slot && slot.user ? String(slot.user.id) : 'BOT',
+            name: slot && slot.user ? slot.user.name : 'Bot',
+            bot: Boolean(slot && slot.bot),
+          };
+        });
+        mahjongHistory.recordMatch({
+          length: room.match.length,
+          players,
+          firstDealer: room.match.firstDealer,
+          placements: room.match.placements,
+          finalScores: room.match.finalScores,
+          scores: room.match.players.map((p) => p.score),
+          rules: room.match.rules,
+          rounds: room.match.record.rounds,
+        });
+      } catch (err) {
+        console.error('[mahjong] 対戦履歴の保存エラー:', err);
+      }
+    }
     // ガチャ図鑑の条件ドロップ（uyuyu_take）用：1位が人間のログイン済みユーザーなら「本日の勝利者」として記録する
     if (!room.recorded && room.match && room.match.placements) {
       room.recorded = true;
@@ -492,6 +519,8 @@ function attach(server, { verifyToken = null } = {}) {
       [room.playerSeats[i], room.playerSeats[j]] = [room.playerSeats[j], room.playerSeats[i]];
     }
     room.match = game.createMatch({ length: room.length, rules: room.rules });
+    game.enableRecord(room.match); // 対戦履歴（リプレイ）用に牌山と全アクションを記録する
+    room.historySaved = false;
     // 起家は「対面が空席になる席（席0）の視点から見て左の席」＝席2に固定
     room.match.firstDealer = 2;
     room.match.dealer = 2;

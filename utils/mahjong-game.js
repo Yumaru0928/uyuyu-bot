@@ -233,7 +233,23 @@ function createMatch({ length = 'east', rules = null } = {}) {
     lastResult: null,
     placements: null,
     kanCount: 0,
+    record: null, // 対戦履歴の記録（enableRecord で有効化したときだけ貯まる）
+    _wallOverride: null, // リプレイ再生用: 次の startRound で使う牌山
   };
+}
+
+// ---- 対戦履歴の記録（リプレイ用） ----
+// エンジンの乱数は牌山生成（buildWall）だけなので、「各局の牌山＋全アクション」を
+// 記録すれば、同じ入口関数に流し込んで対局を完全再現できる。
+function enableRecord(match) {
+  match.record = { rounds: [] };
+  return match.record;
+}
+
+function recEv(match, ev) {
+  if (!match.record) return;
+  const round = match.record.rounds[match.record.rounds.length - 1];
+  if (round) round.events.push(ev);
 }
 
 function totalRounds(match) {
@@ -262,7 +278,19 @@ function roundLabel(match) {
 }
 
 function startRound(match) {
-  const wall = core.buildWall(Math.random, { red: match.rules.redDora });
+  const wall = match._wallOverride
+    ? match._wallOverride.slice()
+    : core.buildWall(Math.random, { red: match.rules.redDora });
+  match._wallOverride = null;
+  if (match.record) {
+    match.record.rounds.push({
+      wall: [...wall],
+      dealer: match.dealer, honba: match.honba, kyotaku: match.kyotaku,
+      scores: match.players.map((p) => p.score),
+      label: roundLabel(match),
+      events: [],
+    });
+  }
   match.deadWall = wall.splice(wall.length - 14, 14);
   match.wall = wall;
   match.doraIndicators = [match.deadWall[4]];
@@ -531,6 +559,7 @@ function applyDiscard(match, seat, raw, { riichi = false, openRiichi = false } =
       options, responses: {},
     };
   }
+  recEv(match, { t: 'd', s: seat, tile: raw, riichi: !!riichi, openRiichi: !!openRiichi });
   return { ok: true };
 }
 
@@ -561,6 +590,7 @@ function applyCallResponse(match, seat, action) {
   if (!opts) return { ok: false, reason: 'あなたに取れるアクションはありません' };
   if (action !== 'pass' && !opts[action]) return { ok: false, reason: 'そのアクションは取れません' };
   match.call.responses[seat] = action;
+  recEv(match, { t: 'c', s: seat, a: action });
   return { ok: true };
 }
 
@@ -670,6 +700,7 @@ function applyKyuushu(match, seat) {
   if (match.phase !== 'play' || match.turn !== seat) return { ok: false, reason: 'あなたの番ではありません' };
   if (!canKyuushu(match, seat)) return { ok: false, reason: '九種九牌できません' };
   applyAbortiveDraw(match, 'kyuushu');
+  recEv(match, { t: 'q', s: seat });
   return { ok: true };
 }
 
@@ -761,6 +792,7 @@ function applyKan(match, seat, kanTile, kanKind) {
     flipKanDora(match);
     match.phase = 'play';
     doDraw(match, true);
+    recEv(match, { t: 'k', s: seat, tile: kanTile, kind: kanKind });
     return { ok: true };
   }
   // 小明槓: 加槓牌を他家がロンできる（搶槓）
@@ -782,6 +814,7 @@ function applyKan(match, seat, kanTile, kanKind) {
     match.phase = 'call';
     match.call = { discarder: seat, tile: added, kind: 'chankan', options, responses: {}, kanMeld: meld };
   }
+  recEv(match, { t: 'k', s: seat, tile: kanTile, kind: kanKind });
   return { ok: true };
 }
 
@@ -805,6 +838,7 @@ function applyNuki(match, seat) {
   p.kita += 1;
   p.acted = true;
   doDraw(match, true); // 嶺上から補充
+  recEv(match, { t: 'n', s: seat });
   return { ok: true };
 }
 
@@ -814,6 +848,7 @@ function applyTsumo(match, seat) {
   const result = evalWin(match, seat, match.lastDrawn, 'tsumo', tsumoExtra(match, seat));
   if (!result) return { ok: false, reason: '和了できません' };
   settleWin(match, seat, null, match.lastDrawn, 'tsumo', result);
+  recEv(match, { t: 't', s: seat });
   return { ok: true };
 }
 
@@ -1257,6 +1292,7 @@ module.exports = {
   legalPlay, applyDiscard, applyTsumo, applyKan, applyNuki, applyKyuushu,
   applyCallResponse, callSettled, resolveCall,
   publicView, botChoosePlay, botChooseCall,
+  enableRecord,
   evalWin, waitsOf, isFuriten, countDora, nextDoraKind,
   roundLabel, liveWallCount,
 };

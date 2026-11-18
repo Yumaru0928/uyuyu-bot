@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>棋譜 | うゆゆBot</title>
-<meta name="description" content="うゆゆBotの対戦ゲーム（将棋・オセロ・四目並べ）の棋譜を一覧・再生できます。棋譜コードで友達にも共有できます。">
+<title>対戦履歴 | うゆゆBot</title>
+<meta name="description" content="うゆゆBotの対戦ゲーム（将棋・オセロ・四目並べ）と三人麻雀の対戦履歴を一覧・再生できます。コードで友達にも共有できます。">
 <link rel="icon" href="/uyuyu.png">
 <style>
   :root {
@@ -226,38 +226,49 @@
 </head>
 <body>
 <header>
-  <h1>📜 棋譜</h1>
+  <h1>📜 対戦履歴</h1>
   <a href="/">うゆゆBot トップ</a>
 </header>
 <main>
   <!-- ホーム画面（一覧＋コード入力）。再生へ行っても DOM は保持する -->
   <section id="view-home" class="screen">
     <div class="panel">
-      <h2>棋譜コードで見る</h2>
-      <p class="muted">対局の参加者でなくても、6文字の棋譜コードがあれば棋譜を見られます。</p>
+      <h2>コードで見る</h2>
+      <p class="muted">対局の参加者でなくても、6文字のコードがあれば対戦履歴を見られます。</p>
       <form id="code-form">
         <input type="text" id="code-input" placeholder="例: ABC123" maxlength="6" autocomplete="off" style="text-transform:uppercase">
-        <button type="submit">棋譜を見る</button>
+        <button type="submit">見る</button>
       </form>
     </div>
 
     <div class="panel" id="login-panel" hidden>
       <h2>自分の対局一覧</h2>
-      <p class="muted">ログインすると、自分が参加した対局の棋譜一覧とお気に入りが使えます。</p>
+      <p class="muted">ログインすると、自分が参加した対局の対戦履歴一覧とお気に入りが使えます。</p>
       <a class="discord-login-btn" href="/auth/discord">Discord でログイン</a>
     </div>
 
     <div class="panel" id="list-panel" hidden>
       <h2>自分の対局一覧</h2>
-      <p class="muted">棋譜は30日間保管されます。★のお気に入りは自動で消えません。名前も付けられます。</p>
+      <p class="muted">対戦履歴は30日間保管されます。★のお気に入りは自動で消えません。名前も付けられます。</p>
       <div id="list"></div>
-      <p class="muted" id="list-empty" hidden>まだ棋譜がありません。対戦ゲーム（将棋・オセロ・四目並べ）で対局すると、ここに残ります。</p>
+      <p class="muted" id="list-empty" hidden>まだ対戦履歴がありません。対戦ゲーム（将棋・オセロ・四目並べ）で対局すると、ここに残ります。</p>
     </div>
+    <div class="panel" id="mj-panel">
+      <h2>麻雀の対戦履歴</h2>
+      <p class="muted">三人麻雀の対局は、卓の上で手順まで再生できます。コードがあれば参加者でなくても見られます。</p>
+      <form id="mj-code-form">
+        <input type="text" id="mj-code-input" placeholder="例: ABC123" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+        <button type="submit">リプレイを見る</button>
+      </form>
+      <div id="mj-list"></div>
+      <p class="muted" id="mj-empty" hidden>まだ麻雀の対戦履歴がありません。Web版麻雀で対局すると、ここに残ります。</p>
+    </div>
+
   </section>
 
   <!-- 再生画面 -->
   <section id="view-replay" class="screen" hidden>
-    <p><a href="/play/kifu" id="back-link" style="color:var(--accent2); text-decoration:none">← 棋譜トップへ</a></p>
+    <p><a href="/play/kifu" id="back-link" style="color:var(--accent2); text-decoration:none">← 対戦履歴トップへ</a></p>
     <div class="panel">
       <div class="replay-head">
         <div class="kifu-main">
@@ -479,7 +490,7 @@ document.getElementById('list').addEventListener('click', async (ev) => {
         alert('保存に失敗しました。しばらくしてからもう一度お試しください。');
       }
     } else {
-      const name = prompt('この棋譜の名前（空にすると名前を消します）', item.name || '');
+      const name = prompt('この対戦履歴の名前（空にすると名前を消します）', item.name || '');
       if (name === null) return;
       try {
         const r = await postFavorite(code, true, name);
@@ -685,8 +696,8 @@ async function loadReplay(code) {
   try {
     const res = await fetch(`/api/kifu/view/${encodeURIComponent(code)}`);
     if (res.status === 404) {
-      document.getElementById('replay-title').textContent = '棋譜が見つかりません';
-      errBox.textContent = '削除されたか、コードが違う可能性があります。棋譜の保管期間は30日間です（お気に入りは除く）。';
+      document.getElementById('replay-title').textContent = '対戦履歴が見つかりません';
+      errBox.textContent = '削除されたか、コードが違う可能性があります。対戦履歴の保管期間は30日間です（お気に入りは除く）。';
       errBox.hidden = false;
       return;
     }
@@ -710,7 +721,7 @@ async function loadReplay(code) {
   const [a, b] = data.players;
   const vs = `${a.name}（先手） vs ${b.name}（後手）`;
   const result = data.draw ? '🤝 引き分け' : `🏆 ${data.winnerName} の勝ち`;
-  document.getElementById('replay-title').textContent = data.name || `${data.gameLabel} の棋譜`;
+  document.getElementById('replay-title').textContent = data.name || `${data.gameLabel} の対戦履歴`;
   document.getElementById('replay-meta').textContent =
     `${vs} ・ ${result}（${REASON_LABEL[data.reason] || data.reason}） ・ 全${data.plies}手 ・ ${fmtDate(data.createdAt)} ・ コード: ${data.code}`;
 
@@ -753,7 +764,7 @@ document.getElementById('replay-fav-btn').addEventListener('click', async (ev) =
   }
 });
 document.getElementById('replay-name-btn').addEventListener('click', async () => {
-  const name = prompt('この棋譜の名前（空にすると名前を消します）', replay.name || '');
+  const name = prompt('この対戦履歴の名前（空にすると名前を消します）', replay.name || '');
   if (name === null) return;
   try {
     const r = await postFavorite(replay.code, true, name);
@@ -802,6 +813,108 @@ document.addEventListener('keydown', (ev) => {
     history.replaceState({ view: 'home' }, '', location.pathname);
     loadList();
   }
+})();
+</script>
+
+<script>
+(function () {
+  const $id = (id) => document.getElementById(id);
+  $id('mj-code-form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const code = $id('mj-code-input').value.trim().toUpperCase();
+    if (code) location.href = '/play/mahjong/replay/' + encodeURIComponent(code);
+  });
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  async function postMjFavorite(code, favorite, name) {
+    const body = { code, favorite };
+    if (name !== undefined) body.name = name;
+    const res = await fetch('/api/mahjong-history/favorite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('保存に失敗しました');
+    return res.json();
+  }
+  let mjList = [];
+  function mjTitle(item) {
+    if (item.name) return item.name;
+    const others = item.players.filter((p) => !p.bot).map((p) => p.name).join('・');
+    return `三人麻雀（${item.length === 'south' ? '半荘' : '東風'}）`;
+  }
+  function renderMj() {
+    const box = $id('mj-list');
+    box.innerHTML = '';
+    $id('mj-empty').hidden = mjList.length > 0;
+    for (const item of mjList) {
+      const row = document.createElement('div');
+      row.className = 'kifu-item';
+      row.dataset.code = item.code;
+      const main = document.createElement('div');
+      main.className = 'kifu-main';
+      const title = document.createElement('div');
+      title.className = 'kifu-title';
+      title.textContent = mjTitle(item);
+      main.appendChild(title);
+      const meta = document.createElement('div');
+      meta.className = 'kifu-meta';
+      const names = item.players.map((p) => p.name).join(' / ');
+      const place = item.myPlacement ? `${item.myPlacement}位` : '';
+      const score = item.scores ? `${Math.max(...item.scores)}点トップ` : '';
+      meta.textContent = `${fmtDate(item.createdAt)} ・ ${names} ・ ${place} ${score} ・ ${item.rounds}局 ・ コード: ${item.code.slice(0, 3)}-${item.code.slice(3)}`;
+      main.appendChild(meta);
+      row.appendChild(main);
+      const fav = document.createElement('button');
+      fav.type = 'button';
+      fav.className = 'fav-btn' + (item.favorite ? ' active' : '');
+      fav.dataset.act = 'fav';
+      fav.title = 'お気に入り';
+      fav.textContent = item.favorite ? '★' : '☆';
+      row.appendChild(fav);
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'name-btn';
+      nameBtn.dataset.act = 'name';
+      nameBtn.textContent = '名前を付ける';
+      row.appendChild(nameBtn);
+      box.appendChild(row);
+    }
+  }
+  $id('mj-list').addEventListener('click', async (ev) => {
+    const row = ev.target.closest('.kifu-item');
+    if (!row) return;
+    const code = row.dataset.code;
+    const item = mjList.find((it) => it.code === code);
+    const actBtn = ev.target.closest('[data-act]');
+    if (actBtn && item) {
+      ev.stopPropagation();
+      if (actBtn.dataset.act === 'fav') {
+        try {
+          const r = await postMjFavorite(code, !item.favorite);
+          item.favorite = r.favorite;
+          renderMj();
+        } catch { alert('保存に失敗しました。しばらくしてからもう一度お試しください。'); }
+      } else {
+        const name = prompt('この対戦履歴の名前（空にすると名前を消します）', item.name || '');
+        if (name === null) return;
+        try {
+          const r = await postMjFavorite(code, true, name);
+          item.favorite = r.favorite;
+          item.name = r.name;
+          renderMj();
+        } catch { alert('保存に失敗しました。しばらくしてからもう一度お試しください。'); }
+      }
+      return;
+    }
+    location.href = '/play/mahjong/replay/' + encodeURIComponent(code);
+  });
+  fetch('/api/mahjong-history/list').then(async (res) => {
+    if (!res.ok) return;
+    const j = await res.json();
+    mjList = j.items || [];
+    renderMj();
+  }).catch(() => {});
 })();
 </script>
 </body>

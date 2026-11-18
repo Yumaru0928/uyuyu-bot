@@ -1,0 +1,2542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>対戦履歴（リプレイ） | うゆゆBot</title>
+<style>
+:root {
+  --bg: #050a18;
+  --panel: #101a30;
+  --panel2: #1a2947;
+  --fg: #eef3fb;
+  --muted: #93a5c4;
+  --accent: #2a7ab8;
+  --accent2: #4aa3e0;
+  --gold: #f2c76b;
+  --danger: #e05d5d;
+  --line: rgba(238, 243, 251, 0.12);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --tap: 44px;
+  --font-ui: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif;
+  --font-tile: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--fg);
+  background: radial-gradient(120% 90% at 50% 30%, #0d1a33 0%, var(--bg) 70%);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  touch-action: manipulation;
+}
+button { touch-action: manipulation; }
+
+/* ===== メニュー・ロビー共通UI ===== */
+header {
+  width: 100%;
+  max-width: 760px;
+  padding: 14px 16px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header h1 { font-size: 20px; margin: 0; font-weight: 800; }
+header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
+
+main { width: 100%; max-width: 760px; padding: 0 12px 32px; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.muted { color: var(--muted); font-size: 14px; }
+.settings-title { font-size: 14px; margin: 0 0 4px; }
+/* 対局設定パネル（Claude/Gemini のデザイン案を統合：グループ見出し＋ステッパー＋セグメント＋トグルタイル） */
+.rs-wrap { display: grid; gap: 10px; margin-top: 8px; }
+.rs-group { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.rs-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--gold); letter-spacing: .05em; }
+.rs-title::before { content: ""; width: 4px; height: 15px; border-radius: 2px; background: var(--gold); flex: none; }
+.rs-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+.rs-lock-badge { font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; letter-spacing: 0; }
+.rs-label { display: block; font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+.rs-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.rs-num { background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(0, 0, 0, .18)); border: 1px solid var(--line); border-radius: 12px; padding: 9px 8px 8px; text-align: center; }
+.rs-num .rs-label { margin: 0 0 2px; }
+.rs-num-val { display: flex; align-items: baseline; justify-content: center; gap: 2px; }
+.rs-num input { width: 100%; min-width: 0; background: none; border: 0; border-bottom: 1px dashed transparent; color: var(--gold); font-family: var(--font-num); font-size: 24px; font-weight: 800; line-height: 1.15; text-align: center; font-variant-numeric: tabular-nums; padding: 2px 0; }
+.rs-num input:focus { outline: 0; border-bottom-color: var(--gold); }
+.rs-num input::-webkit-outer-spin-button, .rs-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rs-num input { -moz-appearance: textfield; appearance: textfield; }
+.rs-num-unit { font-size: 12px; color: var(--muted); font-weight: 700; flex: none; }
+.rs-num-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.rs-num-btns button { height: 32px; border-radius: 8px; border: 1px solid var(--line); background: rgba(74, 163, 224, .14); color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; padding: 0; }
+.rs-num-btns button:active { background: var(--accent); }
+@media (max-width: 520px) { .rs-nums { grid-template-columns: 1fr; } .rs-num { display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; gap: 0 10px; } .rs-num .rs-label { grid-column: 1 / -1; } .rs-num-btns { margin: 0; width: 116px; } }
+.rs-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-seg label { flex: 1 1 auto; position: relative; }
+.rs-seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-seg span { display: block; text-align: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.rs-seg input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rs-seg-block { margin-bottom: 12px; }
+.rs-seg-block:last-child { margin-bottom: 0; }
+.rs-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 560px) { .rs-tiles { grid-template-columns: repeat(3, 1fr); } }
+.rs-tile { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; }
+.rs-tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-sw { flex: none; width: 36px; height: 20px; border-radius: 99px; background: #2a3558; position: relative; transition: background .15s; }
+.rs-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #aab4d4; transition: transform .15s, background .15s; }
+.rs-tile:has(input:checked) { border-color: rgba(242, 199, 107, .55); background: rgba(242, 199, 107, .08); }
+.rs-tile input:checked ~ .rs-sw { background: var(--accent); }
+.rs-tile input:checked ~ .rs-sw::after { transform: translateX(16px); background: #fff; }
+.rs-wrap.locked .rs-num input { color: #cdb877; }
+.rs-wrap.locked .rs-num-btns, .rs-wrap.locked .rs-seg span { opacity: .55; }
+.rs-wrap.locked .rs-seg input:checked + span { background: #2b3a66; border-color: #3b4d80; opacity: 1; }
+.rs-wrap.locked .rs-tile { background: transparent; }
+.rs-wrap.locked .rs-tile:has(input:checked) { border-color: var(--line); background: rgba(255, 255, 255, .03); }
+.rs-wrap.locked .rs-tile input:checked ~ .rs-sw { background: #3b4d80; }
+.rs-wrap.locked .rs-tile, .rs-wrap.locked .rs-seg input, .rs-wrap.locked .rs-num input { cursor: not-allowed; }
+.final-pt { display: block; font-size: 13px; color: var(--gold); font-family: var(--font-num); }
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 15px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  cursor: pointer;
+  margin: 4px 4px 4px 0;
+  min-height: var(--tap);
+  transition: background 0.15s ease, transform 0.1s ease, opacity 0.2s ease;
+}
+button:hover { background: var(--accent2); }
+button:active { transform: scale(0.97); }
+button:disabled { background: #33415e; cursor: default; opacity: 0.6; }
+button.secondary { background: var(--panel2); }
+button.small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+button.ron { background: #d64a3a; }
+button.riichi { background: #d9a441; color: #231a05; }
+button.pass { background: #5b6660; }
+button:focus-visible, .hand-row .tile:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.discord-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin: 10px 0 4px;
+  border-radius: 8px;
+  background: #5865F2;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+input[type="text"] {
+  background: var(--panel2);
+  color: var(--fg);
+  border: 1px solid #2c4066;
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  font-size: 15px;
+  width: 170px;
+  min-height: var(--tap);
+  font-family: var(--font-ui);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%) translateY(-20px);
+  background: #402b12;
+  color: #ffd9a0;
+  border: 1px solid #8a6a2f;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 60;
+  max-width: 92vw;
+  text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.seat-row:last-child { border-bottom: none; }
+.badge { font-size: 11px; background: var(--panel2); border-radius: 6px; padding: 2px 7px; color: var(--muted); }
+.badge.host { background: #6a5518; color: #ffe9a8; }
+.badge.bot { background: #274b63; color: #bfe0ff; }
+
+/* ===== 対局ステージ ===== */
+body.in-game header { display: none; }
+body.in-game main { max-width: none; padding: 0; width: 100%; }
+
+.stage-wrap {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.stage {
+  container-type: size;
+  position: relative;
+  width: 1280px;
+  height: 800px;
+  flex: none;
+  transform-origin: center center;
+}
+
+/* ===== 3D卓ボード（パース・違和感軽減調整済み） ===== */
+.board {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20%;
+  bottom: -2%;
+  z-index: 0;
+  pointer-events: none;
+  /* 角度を34degに抑え、2D回転要素（左右の河・点数）の浮き感を軽減 */
+  transform: perspective(1900px) rotateX(34deg) scale(1.22);
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+}
+
+.board .table-frame {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 4%;
+  bottom: 6%;
+  border-radius: 3cqw;
+  background: linear-gradient(160deg, #8196bb 0%, #43557e 55%, #27355a 100%);
+  box-shadow:
+    inset 0 0.2cqw 0.4cqw rgba(255, 255, 255, 0.25),
+    0 2.6cqw 0 #141d36,
+    0 3.8cqw 3.8cqw rgba(0, 0, 0, 0.75);
+}
+
+.board .table-bg {
+  position: absolute;
+  left: calc(4% + 1.4cqw);
+  right: calc(4% + 1.4cqw);
+  top: calc(4% + 1.4cqw);
+  bottom: calc(6% + 1.4cqw);
+  border-radius: 2cqw;
+  transform: translateZ(2px);
+  /* マット中央を明るく、外周を暗くして卓上のオブジェクトに自然な陰影を与える */
+  background: radial-gradient(75% 75% at 50% 46%, #2358ab 0%, #133370 58%, #09183d 100%);
+  box-shadow:
+    inset 0 0 3.5cqw rgba(0, 0, 0, 0.65),
+    inset 0 0.3cqw 0.8cqw rgba(0, 0, 0, 0.4);
+}
+
+/* ===== 他家の手牌（裏向きの牌を立てて並べる） ===== */
+.side-hand {
+  position: absolute;
+  width: 44cqw;
+  height: 3.65cqw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15cqw;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  z-index: 1;
+}
+.side-hand.left {
+  left: calc(13.8% - 22cqw);
+  top: calc(53.5% - 1.83cqw);
+  transform: rotate(90deg) translateZ(6px);
+}
+.side-hand.right {
+  right: calc(13.8% - 22cqw);
+  top: calc(53.5% - 1.83cqw);
+  transform: rotate(-90deg) translateZ(6px);
+}
+.tile.solid .s-end {
+  position: absolute;
+  inset: 0;
+  border-radius: 12%;
+  background:
+    radial-gradient(120% 90% at 25% 15%, rgba(255, 226, 170, .5), transparent 55%),
+    linear-gradient(158deg, #fec96b 0%, #f8ab3d 42%, #f09a3e 68%, #e8892b 88%, #d97c1e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.55),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.30),
+    inset 0 -0.45em 0.65em rgba(120, 55, 8, 0.28),
+    inset 0 0.3em 0.5em rgba(255, 255, 255, 0.22);
+}
+/* 背面中央の彫り込み（牌背の窪み）と斜めの艶で立体感を足す */
+.tile.solid .s-end::before {
+  content: "";
+  position: absolute;
+  inset: 15% 17%;
+  border-radius: 10%;
+  background: linear-gradient(160deg, #d9731a, #f0993a);
+  box-shadow:
+    inset 0.06em 0.06em 0.1em rgba(90, 35, 0, 0.45),
+    inset -0.05em -0.05em 0.08em rgba(255, 220, 160, 0.5);
+}
+.tile.solid .s-end::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.16) 46%, transparent 54%);
+}
+.side-hand .tile.solid {
+  transform: rotateX(-90deg);
+  transform-origin: 50% 100%;
+}
+.side-hand .drawn-gap { flex: none; width: 1.5cqw; }
+
+/* ===== 河（捨て牌エリア） ===== */
+.pond {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(6, 3.2cqw);
+  gap: 0.9cqw 0.45cqw;
+  z-index: 1;
+  transform-style: preserve-3d;
+}
+.pond.me {
+  left: 50%;
+  top: 60.5%;
+  transform: translateX(-50%) translateZ(6px);
+}
+.pond.right {
+  left: 71%;
+  top: 43%;
+  transform: translate(-50%, -50%) rotate(-90deg) translateZ(6px);
+}
+.pond.left {
+  left: 29%;
+  top: 43%;
+  transform: translate(-50%, -50%) rotate(90deg) translateZ(6px);
+}
+
+.pond .cell {
+  position: relative;
+  width: 3.2cqw;
+  height: 4.32cqw;
+}
+.pond .cell .tile {
+  position: absolute;
+  inset: 0;
+}
+.pond .cell.called .tile { opacity: 0.45; }
+.pond .cell.riichi-cell .tile { transform: rotate(-90deg) scale(0.98); }
+
+@keyframes discard-in {
+  0% { transform: translateY(6cqw) scale(1.45); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.pond .cell.new .tile { animation: discard-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.pond .cell.riichi-cell.new .tile { animation: none; }
+
+/* ===== センター表示部 ===== */
+.center {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%) translateZ(2.2cqw);
+  width: 26cqw;
+  height: 20cqw;
+  background: linear-gradient(160deg, #152038, #090e1d);
+  border: 0.35cqw solid #3d4f73;
+  border-radius: 2.2cqw;
+  box-shadow:
+    0 1.2cqw 2.2cqw rgba(0, 0, 0, 0.65),
+    0 0.45cqw 0 #070b16,
+    inset 0 0.15cqw 0 rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  text-align: center;
+  z-index: 3;
+}
+.center .honba {
+  font-family: var(--font-num);
+  font-size: 1.9cqw;
+  margin-top: 0.9cqw;
+  white-space: nowrap;
+  color: #c8d5ea;
+}
+.center .round-frame {
+  margin: 0.7cqw auto 0;
+  width: 70%;
+  border: 0.32cqw solid #2e8f86;
+  border-radius: 1cqw;
+  padding: 0.5cqw 0 0.7cqw;
+  background: rgba(20, 60, 58, 0.35);
+}
+.center .round {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 3.6cqw;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #eaf2ff;
+}
+.center .remain {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 3.4cqw;
+  line-height: 1.1;
+  color: #eaf2ff;
+}
+.center .remain .remain-label {
+  font-size: 2.2cqw;
+  color: #9fd8ff;
+  margin-right: 0.4cqw;
+}
+
+.center .cscore {
+  position: absolute;
+  font-family: var(--font-num);
+  font-weight: 700;
+}
+.center .cscore.me {
+  bottom: 0.8cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3.3cqw;
+  color: var(--gold);
+  border-bottom: 0.4cqw solid #e8892b;
+  padding: 0 1cqw 0.2cqw;
+}
+.center .cscore.left {
+  left: 0.9cqw;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  font-size: 2.2cqw;
+  color: #e8eef7;
+}
+.center .cscore.right {
+  right: 0.9cqw;
+  top: 50%;
+  transform: translateY(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-size: 2.2cqw;
+  color: #e8eef7;
+}
+
+.center .wtab {
+  position: absolute;
+  width: 3.6cqw;
+  height: 3.6cqw;
+  border-radius: 0.7cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #333f58;
+  color: #dbe4f2;
+  font-family: var(--font-tile);
+  font-weight: 900;
+  font-size: 2.4cqw;
+  box-shadow: 0 0.25cqw 0.5cqw rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+.center .wtab.dealer { background: #c0392b; color: #fff; }
+.center .wtab.me { left: -1.2cqw; bottom: -1.2cqw; }
+.center .wtab.right { right: -1.2cqw; bottom: -1.2cqw; transform: rotate(-90deg); }
+.center .wtab.left { left: -1.2cqw; top: -1.2cqw; transform: rotate(90deg); }
+
+.center::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 2.2cqw;
+  pointer-events: none;
+  box-shadow: inset 0 -1.1cqw 0 0 var(--gold);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.center.turn-me::after { opacity: 1; }
+.center.turn-right::after { box-shadow: inset -1.1cqw 0 0 0 var(--gold); opacity: 1; }
+.center.turn-left::after { box-shadow: inset 1.1cqw 0 0 0 var(--gold); opacity: 1; }
+
+.riichi-stick {
+  position: absolute;
+  width: 9.5cqw;
+  height: 1.1cqw;
+  background: #f7f3e6;
+  border-radius: 1cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -2.4cqw;
+  box-shadow: 0 0.3cqw 0.5cqw rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 2;
+}
+.riichi-stick::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1cqw;
+  height: 1cqw;
+  border-radius: 50%;
+  background: #c0392b;
+}
+.riichi-stick.on { display: block; }
+.riichi-stick.side-r { left: auto; right: -9cqw; top: 50%; bottom: auto; transform: translateY(-50%) rotate(90deg); }
+.riichi-stick.side-l { left: -9cqw; top: 50%; bottom: auto; transform: translateY(-50%) rotate(90deg); }
+
+/* ===== 副露（鳴き牌） ===== */
+.board .melds-opp {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8cqw;
+  z-index: 2;
+}
+.board .melds-opp.right {
+  right: 16%;
+  top: 3.2%;
+  transform-origin: 100% 50%;
+  transform: rotate(-90deg) translateZ(6px);
+}
+.board .melds-opp.left {
+  right: 73%;
+  top: 68%;
+  flex-direction: column-reverse;
+  transform-origin: 100% 50%;
+  transform: rotate(90deg) translateZ(6px);
+}
+.meld { display: flex; gap: 0.35cqw; }
+.meld .side-box { position: relative; flex: none; }
+.meld .side-box .tile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  margin: 0;
+}
+
+/* ===== 卓外HUD・名札・手牌エリア ===== */
+.dora-zone {
+  position: absolute;
+  left: 1.4%;
+  top: 1.6%;
+  z-index: 4;
+}
+.dora-zone::before {
+  content: "ドラ表示";
+  display: block;
+  font-size: 1.4cqw;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 0.3cqw;
+}
+.dora-box2 {
+  display: inline-block;
+  padding: 0.55cqw 0.7cqw;
+  border: 0.28cqw solid rgba(223, 231, 242, 0.85);
+  border-radius: 0.6cqw;
+  background: rgba(5, 10, 24, 0.78);
+}
+.dora-tiles { display: flex; gap: 0.45cqw; }
+.counters {
+  margin-top: 0.7cqw;
+  font-size: 1.9cqw;
+  font-weight: 700;
+  color: #eaf2ff;
+  display: inline-flex;
+  gap: 1.6cqw;
+  background: rgba(5, 10, 24, 0.55);
+  padding: 0.15cqw 0.8cqw;
+  border-radius: 999px;
+}
+.match-title {
+  position: absolute;
+  left: 50%;
+  top: 6.8%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 1.5cqw;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  z-index: 4;
+}
+
+.plate {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.6cqw;
+  max-width: 17%;
+  font-size: 1.8cqw;
+  font-weight: 700;
+  color: #eaf2ff;
+  z-index: 2;
+  background: rgba(8, 15, 34, 0.72);
+  border-radius: 1.2cqw;
+  padding: 0.3cqw 0.9cqw;
+}
+.plate .pemoji { font-size: 2.6cqw; }
+.plate .picon {
+  width: 3.2cqw;
+  height: 3.2cqw;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: #22355c;
+}
+.seat-row .picon {
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: -0.35em;
+  margin-right: 0.35em;
+  background: #22355c;
+}
+.plate .psub { display: block; font-size: 1.35cqw; color: var(--muted); font-weight: 500; }
+.plate .off { color: var(--danger); }
+.plate.turn {
+  background: rgba(52, 42, 16, 0.85);
+  box-shadow: 0 0 0 0.22cqw var(--gold);
+  border-radius: 1.2cqw;
+  padding: 0.3cqw 0.9cqw;
+}
+.plate.riichi-on::after {
+  content: "";
+  position: absolute;
+  bottom: -1cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 9.5cqw;
+  height: 1.1cqw;
+  background: #f7f3e6;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.plate.riichi-on::before {
+  content: "";
+  position: absolute;
+  bottom: -0.72cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1cqw;
+  height: 1cqw;
+  border-radius: 50%;
+  background: #c0392b;
+  z-index: 1;
+}
+.plate.left { left: 0.4%; top: 20.5%; }
+.plate.right { right: 0.4%; top: 36%; flex-direction: row-reverse; text-align: right; }
+.plate.me { left: 1.4%; bottom: 17.5%; }
+
+.status-pill {
+  position: absolute;
+  top: 1%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(5, 10, 24, 0.78);
+  border: 1px solid rgba(223, 231, 242, 0.25);
+  border-radius: 999px;
+  padding: 0.5cqw 1.8cqw;
+  font-size: 2cqw;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 4;
+}
+.status-pill.mine { color: var(--gold); }
+
+/* 3D卓と2D手牌エリアの境界を柔らかく馴染ませる */
+.hand-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 17%;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(11, 20, 40, 0.88) 0%, #060b1a 35%, #040814 100%);
+  backdrop-filter: blur(4px);
+  border-top: 0.25cqw solid rgba(242, 199, 107, 0.45);
+  box-shadow:
+    0 -1.2cqw 2.4cqw rgba(0, 0, 0, 0.65),
+    inset 0 0.2cqw 0.6cqw rgba(255, 255, 255, 0.08);
+}
+
+/* 聴牌時の上がり牌表示 */
+.wait-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 13.8%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  background: rgba(8, 12, 24, 0.88);
+  border: 1px solid rgba(240, 200, 90, 0.55);
+  border-radius: 999px;
+  padding: 0.45cqw 1.3cqw;
+  z-index: 6;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.wait-bar .wlabel { color: var(--gold); font-weight: 700; font-size: 1.7cqw; }
+.wait-bar .witem { display: inline-flex; align-items: center; gap: 0.3cqw; }
+.wait-bar .wleft { color: #ffd76a; font-size: 1.6cqw; font-weight: 700; }
+.wait-bar .wtotal { color: #cfe0f4; font-size: 1.5cqw; }
+.hand-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3.4%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 3cqw;
+  z-index: 2;
+  pointer-events: none;
+}
+.hand-bar > * { pointer-events: auto; }
+.kita-box { display: inline-flex; gap: 0.25cqw; margin-left: 0.7cqw; align-items: flex-end; transform-style: preserve-3d; }
+/* 手牌公開・オープンリーチ時：他家の手牌は立てずに寝かせて表向きで見せる */
+.side-hand.open .tile.solid, .far-hand.open .tile.solid { transform: none; }
+.my-melds {
+  display: flex;
+  gap: 1.2cqw;
+  align-items: flex-end;
+}
+.hand-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35cqw;
+  perspective: 900px;
+  z-index: 2;
+}
+.hand-row .tile {
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+  flex: none;
+  touch-action: manipulation; /* ダブルタップズームで2回目のタップが飲まれるのを防ぐ */
+}
+.hand-row .tile:hover { transform: translateY(-6px); }
+.hand-row .tile.selected {
+  transform: translateY(-10px);
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
+.hand-row .tile.disabled { cursor: default; filter: brightness(0.82); }
+.hand-row .tile.disabled:hover { transform: none; }
+.hand-row .tile.pickable { outline: 3px solid var(--gold); outline-offset: 1px; }
+.hand-row .tile.drawn { margin-left: 1.4cqw; }
+.hand-row .tile.drawn-anim { animation: draw-in 0.35s ease; }
+
+@keyframes draw-in {
+  from { transform: translateY(-26px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* 操作ボタン群 */
+.action-bar {
+  position: absolute;
+  right: 1.2%;
+  bottom: 31%;
+  display: flex;
+  gap: 0.6cqw;
+  z-index: 5;
+}
+.action-bar button {
+  font-size: 2.6cqw;
+  padding: 1.2cqw 3cqw;
+  min-height: 0;
+  border-radius: 1cqw;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.side-btns {
+  position: absolute;
+  left: 0.7%;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8cqw;
+  z-index: 5;
+}
+.sbtn {
+  width: 5.4cqw;
+  height: 5.4cqw;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 1.1cqw;
+  font-weight: 800;
+  background: #232f49;
+  color: #dbe4f2;
+  border: 0.22cqw solid rgba(223, 231, 242, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2cqw;
+}
+.sbtn b { font-size: 2.4cqw; line-height: 1; }
+.sbtn small { font-size: 1.1cqw; font-weight: 700; opacity: 0.85; line-height: 1; }
+.sbtn.sort { background: #1f7a45; color: #fff; }
+.sbtn.on {
+  background: #8a6d1f;
+  color: #fff8e1;
+  border-color: var(--gold);
+}
+.sbtn:disabled { background: #232f49; opacity: 0.45; }
+.sbtn.ready {
+  background: #b03a2e;
+  color: #fff;
+  border-color: #ffb3a7;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+
+.stamp-btn {
+  position: absolute;
+  right: 0.7%;
+  top: 46%;
+  width: 5cqw;
+  height: 5cqw;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 2.6cqw;
+  background: #232f49;
+  color: #dbe4f2;
+  border: 0.22cqw solid rgba(223, 231, 242, 0.3);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sys-btns {
+  position: absolute;
+  right: 0.7%;
+  top: 1.2%;
+  display: flex;
+  gap: 0.7cqw;
+  z-index: 5;
+}
+.sys-btns button {
+  width: 4.6cqw;
+  height: 4.6cqw;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 1cqw;
+  font-size: 2.3cqw;
+  background: #2a7ab8;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.turn-timer {
+  position: absolute;
+  right: 1.2%;
+  bottom: 18%;
+  z-index: 4;
+  text-align: right;
+  font-family: var(--font-num);
+  font-weight: 700;
+  color: #8b98b0;
+  line-height: 1;
+}
+.turn-timer .tnum { font-size: 4.6cqw; }
+.turn-timer .plus { display: block; font-size: 2cqw; color: var(--gold); margin-top: 0.2cqw; }
+.turn-timer[hidden] { display: none; }
+
+/* ===== 麻雀牌（立体層構造・質感強化） ===== */
+.tile {
+  position: relative;
+  border-radius: 12%;
+  background: linear-gradient(160deg, #fffef8 0%, #f6f1df 55%, #e6dfc6 100%);
+  box-shadow:
+    inset 0 0.04em 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    0 0.1em 0 #efe6c8,
+    0 0.22em 0 #e8892b,
+    0 0.34em 0 #b5651d,
+    0 0.6em 0.5em rgba(0, 0, 0, 0.45);
+  color: #1a1a1a;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tile.back {
+  background: linear-gradient(150deg, #f8b45e 0%, #f09a3e 45%, #e8892b 80%, #d97c1e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.4),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.25),
+    0 0.12em 0 #d77f25,
+    0 0.24em 0 #b5651d,
+    0 0.5em 0.5em rgba(0, 0, 0, 0.45);
+}
+.tile.back::after {
+  content: "";
+  position: absolute;
+  inset: 16% 16% 22%;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8%;
+}
+/* 立体牌の「裏面」（暗槓の両端用）。顔の位置（translateZ）に裏柄を描いて表牌と揃える */
+.tile.solid .face.back-face {
+  background: linear-gradient(150deg, #f8b45e 0%, #f09a3e 45%, #e8892b 80%, #d97c1e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.4),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.25);
+}
+.tile.solid .face.back-face::after {
+  content: "";
+  position: absolute;
+  inset: 16% 16% 22%;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8%;
+}
+
+/* 二層構造の立体牌（layered） */
+.tile.layered {
+  background: linear-gradient(#f09a3e, #d97c26);
+}
+.tile.layered .face {
+  position: absolute;
+  overflow: hidden;
+  background: linear-gradient(160deg, #fffef8 0%, #f6f1df 55%, #e6dfc6 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+/* 下側に厚み層が見える牌（自家の河・副露） */
+.meld .tile.layered {
+  box-shadow:
+    inset 0 0.04em 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    0 0.45em 0.5em rgba(0, 0, 0, 0.4);
+}
+.tile.layered-b {
+  background: linear-gradient(to bottom, #e8892b 0%, #e8892b 84%, #ffb066 88.5%, #f09a3e 93%, #9e5210 100%);
+}
+.tile.layered-b .face {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 88%;
+  border-radius: 12% 12% 0 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    inset 0 -0.09em 0 rgba(255, 248, 225, 0.85);
+}
+
+/* 右側に厚み層が見える牌 */
+.tile.layered-xl {
+  background: linear-gradient(to right, #d97c26 0%, #e8892b 84%, #ffb066 88.5%, #e8892b 94%, #9e5210 100%);
+}
+.tile.layered-xl .face {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 88%;
+  border-radius: 12% 0 0 12%;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    inset -0.09em 0 0 rgba(255, 248, 225, 0.85);
+}
+
+/* 左側に厚み層が見える牌 */
+.tile.layered-xr {
+  background: linear-gradient(to left, #d97c26 0%, #e8892b 84%, #ffb066 88.5%, #e8892b 94%, #9e5210 100%);
+}
+.tile.layered-xr .face {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 88%;
+  border-radius: 0 12% 12% 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    inset 0.09em 0 0 rgba(255, 248, 225, 0.85);
+}
+
+/* 上側に厚み層が見える牌（立っている手牌） */
+.tile.layered-t {
+  background: linear-gradient(to bottom, #9e5210 0%, #e8892b 6%, #ffb066 11%, #f09a3e 13%, #e8892b 30%, #e8892b 100%);
+}
+.tile.layered-t .face {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 88%;
+  border-radius: 0 0 12% 12%;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.14),
+    inset 0 0.09em 0 rgba(255, 248, 225, 0.85);
+}
+
+/* 河と副露の接地影（コンタクトシャドウ）を強化して立体感を強調 */
+.board .pond .cell .tile.layered,
+.board .meld .tile.layered {
+  box-shadow:
+    0 0.65em 0.85em rgba(0, 0, 0, 0.65),
+    0 0.15em 0.25em rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    inset 0 -0.05em 0 rgba(0, 0, 0, 0.25);
+}
+
+/* 河の牌の厚み比率を強調 */
+.board .pond .tile.layered-b {
+  background: linear-gradient(to bottom, #e8892b 0%, #e8892b 76%, #ffb066 82.5%, #f09a3e 89%, #9e5210 100%);
+}
+.board .pond .tile.layered-b .face { height: 82%; }
+
+.board .pond .tile.layered-xl {
+  background: linear-gradient(to right, #d97c26 0%, #e8892b 76%, #ffb066 82.5%, #e8892b 91%, #9e5210 100%);
+}
+.board .pond .tile.layered-xl .face { width: 82%; }
+
+.board .pond .tile.layered-xr {
+  background: linear-gradient(to left, #d97c26 0%, #e8892b 76%, #ffb066 82.5%, #e8892b 91%, #9e5210 100%);
+}
+.board .pond .tile.layered-xr .face { width: 82%; }
+
+/* 手牌の影とヒントハイライト */
+.hand-row .tile.layered {
+  box-shadow:
+    0 0.55em 0.65em rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.hand-row .tile.layered.dora-hint {
+  box-shadow:
+    0 0 0 2px rgba(242, 199, 107, 0.6),
+    0 0.55em 0.65em rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.hand-row .tile.layered.selected {
+  box-shadow:
+    0 0 22px rgba(242, 199, 107, 0.75),
+    0 0.65em 0.75em rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+
+/* ===== 卓上の牌（河・副露）：本物の3D厚みを持つ牌 ===== */
+.tile.solid {
+  transform-style: preserve-3d;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.tile.solid .face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 12%;
+  transform: translateZ(0.62em);
+  background: linear-gradient(160deg, #fffef8 0%, #f6f1df 55%, #e6dfc6 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.16),
+    inset 0 0.05em 0 rgba(255, 255, 255, 0.9),
+    inset 0 -0.05em 0 rgba(120, 100, 50, 0.25);
+}
+.tile.solid .side {
+  position: absolute;
+  backface-visibility: visible;
+}
+/* 上=象牙の層、下=背面のオレンジ層（上から約38%が象牙） */
+.tile.solid .s-b {
+  left: 12%; top: 100%; width: 76%; height: 0.62em;
+  transform-origin: 50% 0;
+  transform: rotateX(90deg);
+  background: linear-gradient(to bottom, #c96f1d 0%, #f09a3e 58%, #f4ddb2 62%, #fbf3dc 100%);
+}
+.tile.solid .s-t {
+  left: 12%; top: -0.62em; width: 76%; height: 0.62em;
+  transform-origin: 50% 100%;
+  transform: rotateX(-90deg);
+  background: linear-gradient(to bottom, #fbf3dc 0%, #f4ddb2 38%, #e8892b 42%, #a85a14 100%);
+  box-shadow: inset 0 0 0 5em rgba(0, 0, 0, 0.22);
+}
+.tile.solid .s-l {
+  left: -0.62em; top: 12%; width: 0.62em; height: 76%;
+  transform-origin: 100% 50%;
+  transform: rotateY(90deg);
+  background: linear-gradient(to right, #fbf3dc 0%, #f4ddb2 38%, #e8892b 42%, #a85a14 100%);
+  box-shadow: inset 0 0 0 5em rgba(0, 0, 0, 0.16);
+}
+.tile.solid .s-r {
+  left: 100%; top: 12%; width: 0.62em; height: 76%;
+  transform-origin: 0 50%;
+  transform: rotateY(-90deg);
+  background: linear-gradient(to right, #a85a14 0%, #e8892b 58%, #f4ddb2 62%, #fbf3dc 100%);
+  box-shadow: inset 0 0 0 5em rgba(0, 0, 0, 0.1);
+}
+/* 卓への接地影 */
+.tile.solid .cnr {
+  position: absolute; width: 0.2017em; height: 0.62em;
+  transform-origin: 50% 0;
+  background: linear-gradient(to bottom, #c96f1d 0%, #f09a3e 58%, #f4ddb2 62%, #fbf3dc 100%);
+}
+.tile.solid .c-br { left: calc(100% - 0.161em); top: calc(100% - 0.081em); transform: rotate(-53.5deg) rotateX(90deg); }
+.tile.solid .c-bl { left: -0.041em; top: calc(100% - 0.081em); transform: rotate(53.5deg) rotateX(90deg); }
+.tile.solid .c-tr { left: calc(100% - 0.161em); top: 0.081em; transform: rotate(-126.5deg) rotateX(90deg); }
+.tile.solid .c-tl { left: -0.041em; top: 0.081em; transform: rotate(126.5deg) rotateX(90deg); }
+.tile.solid .sh {
+  position: absolute;
+  inset: 0.04em -0.12em -0.22em -0.12em;
+  border-radius: 0.2em;
+  background: rgba(0, 0, 0, 0.55);
+  filter: blur(0.14em);
+  transform: translateZ(-1px);
+}
+.pond .cell { transform-style: preserve-3d; }
+.pond .cell.last .tile.solid { outline: none; }
+.pond .cell.last .tile.solid .face {
+  box-shadow:
+    inset 0 0 0 0.12em var(--gold),
+    inset 0 0 0.9em rgba(255, 196, 64, 0.35),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+.pond .cell.called .tile.solid { opacity: 1; }
+.pond .cell.called .tile.solid .face { filter: brightness(0.6); }
+.board .meld, .board .meld .side-box,
+.board .melds-opp { transform-style: preserve-3d; }
+
+/* ===== 牌面の図柄（萬子・字牌・筒子・索子） ===== */
+.tile .man {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-tile);
+  line-height: 1.02;
+}
+.tile .man .num { font-weight: 700; font-size: 0.52em; }
+.tile .man .char { font-weight: 700; font-size: 0.47em; color: #c0392b; }
+
+.tile .honor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-tile);
+  font-weight: 900;
+  font-size: 0.8em;
+}
+.tile .honor.haku { color: transparent; }
+.tile .honor.haku::after {
+  content: "";
+  flex: none;
+  width: 52%;
+  height: 58%;
+  border: 0.09em solid #5b8fd6;
+  border-radius: 8%;
+}
+.tile .honor.hatsu { color: #1f8a4c; }
+.tile .honor.chun { color: #c0392b; }
+
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.bar {
+  position: absolute;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  overflow: hidden;
+}
+.bar::after {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 36%;
+  height: 9%;
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: 0 0.32em 0 rgba(0, 0, 0, 0.38);
+}
+
+/* 1索の孔雀 */
+.bird { position: absolute; inset: 4% 6% 8%; }
+.bird .feather {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 17%;
+  height: 46%;
+  border-radius: 50%;
+  background: #2a8a4a;
+  transform-origin: 50% 12%;
+}
+.bird .feather::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 10%;
+  transform: translateX(-50%);
+  width: 55%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #d9a441 0 32%, #1e5fa8 36% 100%);
+}
+.bird .body {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 52%;
+  border-radius: 50%;
+  background: linear-gradient(#2a9a70, #176048);
+}
+.bird .body::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  width: 54%;
+  height: 46%;
+  border-radius: 50%;
+  background: #1e5fa8;
+}
+.bird .head {
+  position: absolute;
+  left: 50%;
+  top: 2%;
+  transform: translateX(-50%);
+  width: 23%;
+  height: 17%;
+  border-radius: 50%;
+  background: #1e5fa8;
+}
+.bird .head::before {
+  content: "";
+  position: absolute;
+  right: -52%;
+  top: 38%;
+  border-left: 0.5em solid #d9a441;
+  border-top: 0.16em solid transparent;
+  border-bottom: 0.16em solid transparent;
+  font-size: 0.32em;
+}
+.bird .head::after {
+  content: "";
+  position: absolute;
+  left: 58%;
+  top: 26%;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 0.06em #1a1a1a;
+}
+
+/* ===== 局結果モーダル・レスポンシブ ===== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 10, 8, 0.72);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.overlay[hidden] { display: none; }
+.result-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  animation: pop 0.25s ease;
+}
+/* 携帯の縦持ちでも結果カードは横画面のまま出す（ステージの回転と合わせる） */
+@media (orientation: portrait) {
+  .result-card {
+    rotate: 90deg;
+    flex: none;
+    width: min(560px, 88vh);
+    max-height: 92vw;
+  }
+}
+@keyframes pop {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.result-card h2 { margin: 0 0 6px; font-size: 21px; }
+.yaku-list { margin: 8px 0; font-size: 15px; line-height: 1.7; }
+.yaku-list .dora { color: var(--gold); }
+.pay-line { font-family: var(--font-num); font-size: 14px; color: var(--muted); line-height: 1.8; }
+.result-hand { display: flex; gap: 3px; flex-wrap: wrap; margin: 10px 0; align-items: flex-end; }
+.result-hand .meld { margin-left: 10px; }
+.big-score { font-family: var(--font-num); font-size: 26px; font-weight: 700; color: var(--gold); }
+
+@media (max-width: 560px) {
+  .hand-row { min-height: 76px; }
+  header h1 { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ===== 対面スロット（視点回転対応） ===== */
+.board-tiles .pond.far {
+  left: 50%; top: 22.4%;
+  transform: translate(-50%, -50%) rotate(180deg) translateZ(6px);
+  grid-template-columns: repeat(6, 2.9cqw);
+  gap: 0.85cqw 0.45cqw;
+}
+.board-tiles .pond.far .cell { width: 2.9cqw; height: 3.92cqw; }
+.board .melds-far {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.8cqw;
+  z-index: 2;
+  transform-style: preserve-3d;
+  transform: rotate(180deg) translateZ(6px);
+}
+.board .melds-far.at-left { left: 6%; top: 13.5%; }
+.board .melds-far.at-right { left: auto; right: 6%; top: 11.5%; }
+.board .far-hand {
+  position: absolute;
+  left: 50%; top: 12.4%;
+  width: 44cqw; height: 3.65cqw;
+  transform: translateX(-50%) rotate(180deg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15cqw;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  z-index: 1;
+}
+.far-hand .tile.solid {
+  transform: rotateX(-90deg);
+  transform-origin: 50% 100%;
+}
+.far-hand .tile.solid .sh { display: none; }
+.far-hand .drawn-gap { flex: none; width: 1.5cqw; }
+.plate.far { left: 56%; top: 12.5%; }
+.center .cscore.far {
+  top: 0.6cqw; left: 50%;
+  transform: translateX(-50%) rotate(180deg);
+  font-size: 1.8cqw;
+  color: #e8eef7;
+}
+.center .wtab.far { right: -1.2cqw; top: -1.2cqw; transform: rotate(180deg); }
+.center.turn-far::after { box-shadow: inset 0 1.1cqw 0 0 var(--gold); opacity: 1; }
+.center .honba { display: none; }
+.center .honba-in {
+  font-family: var(--font-num);
+  font-size: 1.05cqw;
+  color: #a9c3ea;
+  margin-top: 0.35cqw;
+}
+
+/* ===== 鳴き・和了演出（Claude 案） ===== */
+.call-fx {
+  position: absolute;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 45;
+}
+.call-fx[data-slot="me"] { left: 50%; top: 64%; }
+.call-fx[data-slot="right"] { left: 79%; top: 42%; }
+.call-fx[data-slot="far"] { left: 50%; top: 24%; }
+.call-fx[data-slot="left"] { left: 21%; top: 42%; }
+.call-fx__text {
+  position: absolute; left: 0; top: 0;
+  translate: -50% -50%;
+  font-size: 11cqw;
+  font-weight: 900;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  background: linear-gradient(#fff6d8 20%, #d9b25a 70%, #a8802f);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #fff3cf;
+  filter: drop-shadow(0 .3cqw 0 #5b3f0c) drop-shadow(0 0 1.6cqw rgba(217, 178, 90, .7));
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: call-pop 1s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.call-fx__ring {
+  position: absolute; left: 0; top: 0;
+  width: 14cqw; height: 14cqw;
+  translate: -50% -50%;
+  border-radius: 50%;
+  border: .5cqw solid rgba(217, 178, 90, .9);
+  opacity: 0;
+  animation: call-ring .6s ease-out .08s forwards;
+}
+.call-fx--riichi .call-fx__text {
+  font-size: 9.5cqw;
+  background: linear-gradient(#ffe9ec 20%, #ff8fa3 70%, #d6455b);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 .3cqw 0 #5f1220) drop-shadow(0 0 1.6cqw rgba(255, 120, 140, .65));
+}
+.call-fx--riichi .call-fx__ring { border-color: rgba(255, 143, 163, .9); }
+@keyframes call-pop {
+  0%   { transform: scale(2.6); opacity: 0; }
+  14%  { transform: scale(.94); opacity: 1; }
+  24%  { transform: scale(1.04); }
+  34%  { transform: scale(1);    opacity: 1; }
+  78%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+@keyframes call-ring {
+  0%   { transform: scale(.3); opacity: .9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.win-fx {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.win-fx__flash {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 240, 190, .9), rgba(217, 178, 90, .35) 40%, transparent 70%);
+  opacity: 0;
+  animation: win-flash .5s ease-out forwards;
+}
+@keyframes win-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.win-fx__rays {
+  position: absolute; left: 50%; top: 50%;
+  width: 90cqw; height: 90cqw;
+  margin: -45cqw 0 0 -45cqw;
+  background: repeating-conic-gradient(from 0deg, rgba(217, 178, 90, .38) 0 6deg, transparent 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0 18%, transparent 62%);
+  mask-image: radial-gradient(circle, #000 0 18%, transparent 62%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-rays 1.8s ease-out forwards;
+}
+@keyframes win-rays {
+  0%   { transform: scale(.4) rotate(0deg); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: scale(1.15) rotate(40deg); opacity: 0; }
+}
+.win-fx__text {
+  position: relative;
+  font-size: 22cqw;
+  font-weight: 900;
+  letter-spacing: .06em;
+  background: linear-gradient(#fffbe8 15%, #f3d27a 55%, #b88a2e);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #fffbe8;
+  filter: drop-shadow(0 .6cqw 0 #4a3308) drop-shadow(0 0 3cqw rgba(217, 178, 90, .8));
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-text 2s cubic-bezier(.2, .9, .2, 1) forwards;
+}
+@keyframes win-text {
+  0%   { transform: scale(3) rotate(-3deg); opacity: 0; }
+  12%  { transform: scale(.92) rotate(0);   opacity: 1; }
+  20%  { transform: scale(1.06); }
+  28%  { transform: scale(1); }
+  72%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(.7) translateY(-14cqw); opacity: 0; }
+}
+.win-fx__spark {
+  position: absolute; left: 50%; top: 50%;
+  width: 1.1cqw; height: 1.1cqw;
+  margin: -.55cqw 0 0 -.55cqw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6d0 0 35%, #d9b25a 70%, transparent 72%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-spark 1.3s cubic-bezier(.1, .7, .3, 1) var(--delay, 0s) forwards;
+}
+@keyframes win-spark {
+  0%   { transform: translate(0, 0) scale(.4); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--tx), calc(var(--ty) + 4cqw)) scale(.1); opacity: 0; }
+}
+.result-panel--enter {
+  animation: panel-in .45s ease-out 1.5s both;
+}
+@keyframes panel-in {
+  from { transform: translateY(3cqw); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+
+/* ===== 対戦履歴リプレイ専用 ===== */
+.stage-wrap { height: calc(100dvh - 118px); }
+.replay-bar a.bar-link {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 10px;
+  font-size: 15px; border-radius: 10px; background: var(--panel2, #1a2947); color: var(--fg, #eef3fb);
+  text-decoration: none; box-sizing: border-box;
+}
+.replay-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
+  margin: 10px auto 4px; max-width: 900px; padding: 0 8px;
+}
+.replay-bar button, .replay-bar select {
+  min-height: 40px; padding: 6px 10px; font-size: 15px; border-radius: 10px;
+}
+.replay-bar button.play {
+  min-width: 52px; font-size: 18px; background: var(--accent, #c9a227); color: #20180a; font-weight: 700;
+}
+.replay-bar button.on { outline: 2px solid var(--accent, #c9a227); }
+#rp-slider { display: block; width: min(900px, 94vw); margin: 6px auto 0; }
+.replay-meta { text-align: center; color: var(--muted, #9aa); font-size: 13px; margin: 4px 0 14px; }
+.fx-flash {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 13cqw; font-weight: 900; color: #ffd94d; pointer-events: none; z-index: 40;
+  text-shadow: 0 0 18px rgba(255,180,0,.8), 0 3px 0 #7a4d00, 0 0 3px #000;
+  animation: fxflash .65s ease-out forwards;
+}
+@keyframes fxflash {
+  0% { opacity: 0; transform: scale(.6); }
+  25% { opacity: 1; transform: scale(1.08); }
+  45% { transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
+}
+.pond .cell.houjuu .tile { outline: 3px solid #e33; outline-offset: 1px; border-radius: 6px; }
+.wall-strip {
+  position: absolute; left: 1.5cqw; right: 1.5cqw; bottom: 15.5cqw; z-index: 25;
+  display: flex; flex-wrap: wrap; gap: 2px; background: rgba(6, 30, 34, .82);
+  border: 1px solid rgba(255,255,255,.25); border-radius: 8px; padding: 4px;
+}
+.opt-card label { display: block; margin: 10px 0; font-size: 16px; }
+.opt-card input[type="checkbox"] { width: 20px; height: 20px; vertical-align: -4px; margin-right: 8px; }
+.wall-card { max-width: min(92vw, 860px); }
+.wall-card .wrow { margin: 6px 0; }
+.wall-card .wname { font-size: 13px; color: var(--muted, #9aa); margin-bottom: 2px; }
+.wall-card .wtiles { display: flex; flex-wrap: wrap; gap: 2px; }
+.wall-order { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 10px; }
+.results-card { max-width: min(92vw, 560px); width: 560px; }
+.results-card .rrow {
+  border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 12px; margin: 8px 0;
+  cursor: pointer; background: rgba(255,255,255,.05); text-align: left; width: 100%; color: inherit; font-size: 15px;
+}
+.results-card .rrow:hover { background: rgba(255,255,255,.12); }
+.results-card .rhead { font-weight: 700; margin-bottom: 3px; }
+.results-card .rline { display: flex; justify-content: space-between; gap: 10px; }
+.results-card .rline .plus { color: #7ee787; }
+.results-card .rline .minus { color: #ff9a9a; }
+#result-overlay { cursor: pointer; }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>🀄 麻雀 対戦履歴</h1>
+  <span>
+    <a href="/play/kifu">対戦履歴の一覧</a>
+    <a href="/" style="margin-left:12px">トップへ</a>
+  </span>
+</header>
+<main>
+  <section id="game-screen">
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <div class="board" id="board">
+          <div class="table-frame"></div>
+          <div class="table-bg"></div>
+          <div class="side-hand left" id="wall-left"></div>
+          <div class="side-hand right" id="wall-right"></div>
+          <div class="far-hand" id="far-hand"></div>
+          <div class="center" id="center">
+            <div class="honba" id="c-honba">0本場・供託0</div>
+            <div class="round-frame">
+              <div class="round" id="c-round">東 1 局</div>
+              <div class="remain"><span class="remain-label">余</span><span id="c-remain">51</span></div>
+              <div class="honba-in" id="c-honba-in">0本場・供託0</div>
+            </div>
+            <div class="cscore left" id="c-score-left"></div>
+            <div class="cscore right" id="c-score-right"></div>
+            <div class="cscore me" id="c-score-me"></div>
+            <div class="cscore far" id="c-score-far"></div>
+            <div class="wtab far" id="wtab-far"></div>
+            <div class="wtab left" id="wtab-left"></div>
+            <div class="wtab right" id="wtab-right"></div>
+            <div class="wtab me" id="wtab-me"></div>
+            <div class="riichi-stick" id="stick-me"></div>
+            <div class="riichi-stick side-r" id="stick-right"></div>
+            <div class="riichi-stick side-l" id="stick-left"></div>
+          </div>
+        </div>
+        <div class="board board-tiles" id="board-tiles">
+          <div class="pond left" id="pond-left"></div>
+          <div class="pond right" id="pond-right"></div>
+          <div class="pond far" id="pond-far"></div>
+          <div class="pond me" id="pond-me"></div>
+          <div class="melds-opp left" id="melds-left"></div>
+          <div class="melds-opp right" id="melds-right"></div>
+          <div class="melds-far" id="melds-far"></div>
+        </div>
+        <div class="dora-zone">
+          <div class="dora-box2"><div class="dora-tiles" id="dora-tiles"></div></div>
+          <div class="counters"><span id="counter-wall">山 0</span><span id="counter-kita">北 ×0</span><span id="counter-aka">赤 ×0</span></div>
+        </div>
+        <div class="match-title" id="match-title">対戦履歴</div>
+        <div class="plate left" id="plate-left"></div>
+        <div class="plate right" id="plate-right"></div>
+        <div class="plate me" id="plate-me"></div>
+        <div class="plate far" id="plate-far"></div>
+        <div class="status-pill" id="replay-desc">読み込み中…</div>
+        <div class="hand-zone"></div>
+        <div class="wait-bar" id="wait-bar" style="display:none"></div>
+        <div class="hand-bar"><div class="hand-row" id="hand-row"></div><div class="my-melds" id="my-melds"></div></div>
+        <div class="fx-flash" id="fx-flash" hidden></div>
+        <div class="wall-strip" id="wall-strip" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="replay-bar" id="replay-bar">
+    <a class="bar-link" href="/play/kifu">一覧</a>
+    <button id="rp-fav" title="お気に入り">☆</button>
+    <button id="rp-wall">牌山</button>
+    <select id="rp-round" title="局"></select>
+    <select id="rp-jun" title="巡"></select>
+    <button id="rp-prev">◀ 前</button>
+    <button id="rp-play" class="play">▶</button>
+    <button id="rp-next">次 ▶</button>
+    <button id="rp-speed">×1</button>
+    <button id="rp-results">結果</button>
+    <button id="rp-view">視点</button>
+    <button id="rp-opts">表示</button>
+  </div>
+  <input type="range" id="rp-slider" min="0" max="0" value="0" step="1">
+  <p class="replay-meta" id="replay-meta"></p>
+</main>
+
+<!-- 局結果カード -->
+<div class="overlay" id="result-overlay" hidden>
+  <div class="result-card" id="result-card"></div>
+</div>
+
+<!-- 表示オプション -->
+<div class="overlay" id="opt-overlay" hidden>
+  <div class="result-card opt-card">
+    <h2>表示オプション</h2>
+    <label><input type="checkbox" id="opt-hands"> 手牌表示（全員の手牌を開く）</label>
+    <label><input type="checkbox" id="opt-houjuu"> 放銃牌表示</label>
+    <label><input type="checkbox" id="opt-wallshow"> 牌山表示（残りの山を下に並べる）</label>
+    <label><input type="checkbox" id="opt-fx"> 演出再生</label>
+    <label><input type="checkbox" id="opt-hidenames"> プレイヤー名非表示</label>
+    <label><input type="checkbox" id="opt-waits"> 聴牌詳細（自分の待ちを表示）</label>
+    <button class="secondary" id="opt-close">閉じる</button>
+  </div>
+</div>
+
+<!-- 配牌・牌山 -->
+<div class="overlay" id="wall-overlay" hidden>
+  <div class="result-card wall-card">
+    <h2 id="wall-title">配牌</h2>
+    <div id="wall-hands"></div>
+    <h3>ツモ牌（引く順）</h3>
+    <div id="wall-order" class="wall-order"></div>
+    <h3>王牌（嶺上・ドラ表示）</h3>
+    <div id="deadwall-order" class="wall-order"></div>
+    <button class="secondary" id="wall-close">閉じる</button>
+  </div>
+</div>
+
+<!-- 局結果リスト -->
+<div class="overlay" id="results-overlay" hidden>
+  <div class="result-card results-card">
+    <h2>対局結果</h2>
+    <div id="results-list"></div>
+    <button class="secondary" id="results-close">閉じる</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const WIND_NAME = { 27: '東', 28: '南', 29: '西', 30: '北' };
+const KANJI_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const HONOR = { 27: ['東', ''], 28: ['南', ''], 29: ['西', ''], 30: ['北', ''], 31: ['白', 'haku'], 32: ['發', 'hatsu'], 33: ['中', 'chun'] };
+const COLOR = { b: '#1e5fa8', g: '#2a8a4a', r: '#c0392b' };
+const PIN = {
+  1: 'big',
+  2: [[1, 0, 'g'], [1, 2, 'b']],
+  3: [[0, 0, 'b'], [1, 1, 'r'], [2, 2, 'g']],
+  4: [[0, 0, 'b'], [2, 0, 'g'], [0, 2, 'g'], [2, 2, 'b']],
+  5: [[0, 0, 'b'], [2, 0, 'b'], [1, 1, 'r'], [0, 2, 'b'], [2, 2, 'b']],
+  6: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
+  7: [[0, 0, 'g'], [1, 0, 'r'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
+  8: [[0, 0, 'b'], [2, 0, 'b'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b'], [0, 3, 'b'], [2, 3, 'b']],
+  9: [[0, 0, 'b'], [1, 0, 'b'], [2, 0, 'b'], [0, 1, 'r'], [1, 1, 'r'], [2, 1, 'r'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
+};
+const SOU = {
+  2: [[1, 0, 'b'], [1, 2, 'g']],
+  3: [[1, 0, 'b'], [0, 2, 'g'], [2, 2, 'g']],
+  4: [[0, 0, 'g'], [2, 0, 'b'], [0, 2, 'b'], [2, 2, 'g']],
+  5: [[0, 0, 'g'], [2, 0, 'g'], [1, 1, 'r'], [0, 2, 'g'], [2, 2, 'g']],
+  6: [[0, 0, 'g'], [1, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [1, 1, 'g'], [2, 1, 'g']],
+  7: [[1, 0, 'r'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
+  8: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
+  9: [[0, 0, 'g'], [1, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [1, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
+};
+const norm = (t) => (t === 34 ? 13 : t === 35 ? 22 : t);
+const isRedTile = (t) => t === 34 || t === 35;
+
+function tileEl(raw, size, opts = {}) {
+  const el = document.createElement('div');
+  el.className = 'tile';
+  const hScale = opts.hScale || 1;
+  const wScale = opts.wScale || 1;
+  if (size && typeof size === 'object' && size.cqw) {
+    el.style.width = (size.cqw * wScale) + 'cqw';
+    el.style.height = (size.cqw * 1.35 * hScale) + 'cqw';
+    el.style.fontSize = size.cqw + 'cqw';
+  } else {
+    const wpx = typeof size === 'number' ? size : 40;
+    el.style.width = Math.round(wpx * wScale) + 'px';
+    el.style.height = Math.round(wpx * 1.35 * hScale) + 'px';
+    el.style.fontSize = wpx + 'px';
+  }
+  if (opts.cls) el.className += ' ' + opts.cls;
+  if (opts.back) { el.classList.add('back'); return el; }
+  // 重ね構造の牌は、白い顔（.face）の中に模様を描く（残りがオレンジの層になる）
+  let host = el;
+  if (opts.solid) {
+    el.classList.add('solid');
+    host = document.createElement('div');
+    host.className = 'face';
+    for (const c of ['s-end', 'sh', 'side s-b', 'side s-t', 'side s-l', 'side s-r', 'cnr c-br', 'cnr c-bl', 'cnr c-tr', 'cnr c-tl']) {
+      const d = document.createElement('div');
+      d.className = c;
+      el.appendChild(d);
+    }
+    el.appendChild(host);
+  } else if (opts.layered) {
+    el.classList.add('layered', 'layered-' + opts.layered);
+    host = document.createElement('div');
+    host.className = 'face';
+    el.appendChild(host);
+  }
+  // 立体牌の裏面（暗槓の両端）：構造は立体のまま、顔に裏柄だけ描く
+  if (opts.solidBack) {
+    host.classList.add('back-face');
+    return el;
+  }
+  const t = norm(raw);
+  const red = isRedTile(raw);
+  const suit = t < 9 ? 0 : t < 18 ? 1 : t < 27 ? 2 : 3;
+  const rank = (t % 9) + 1;
+  if (suit === 0) {
+    host.innerHTML = `<div class="man"><span class="num">${KANJI_NUM[rank - 1]}</span><span class="char">萬</span></div>`;
+  } else if (suit === 3) {
+    const [ch, cls] = HONOR[t];
+    // 白は文字を入れない（透明文字が flex に残ると青枠が端に押し潰されるため）
+    host.innerHTML = `<div class="honor ${cls}">${cls === 'haku' ? '' : ch}</div>`;
+  } else if (suit === 1) {
+    if (rank === 1) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      d.style.cssText = 'left:50%;top:47%;width:66%;height:49%;background:radial-gradient(circle,#1e5fa8 0 10%,#f7f3e6 11% 20%,#2a8a4a 21% 36%,#f7f3e6 37% 50%,#c0392b 51% 100%)';
+      host.appendChild(d);
+    } else if (rank === 7) {
+      // 7筒は上段3つを斜め（階段状）に並べる実物の描き方にする（横一列だと9筒の欠けに見えるため）
+      const dots = [
+        [20, 17, 'g'], [50, 29, 'r'], [80, 41, 'g'],
+        [28, 63, 'b'], [72, 63, 'b'], [28, 85, 'b'], [72, 85, 'b'],
+      ];
+      for (const [x, y, c] of dots) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const col = COLOR[c];
+        d.style.cssText = `left:${x}%;top:${y}%;width:22%;height:${22 * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        host.appendChild(d);
+      }
+    } else {
+      const rows = rank === 8 ? 4 : 3;
+      for (const [cx, cy, c] of PIN[rank]) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const col = COLOR[red ? 'r' : c];
+        const size = rows === 4 ? 20 : 22;
+        d.style.cssText = `left:${27 + cx * 23}%;top:${rows === 4 ? 15 + cy * 23.3 : 24 + cy * 26}%;width:${size}%;height:${size * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        host.appendChild(d);
+      }
+    }
+  } else {
+    if (rank === 1) {
+      const b = document.createElement('div');
+      b.className = 'bird';
+      let feathers = '';
+      for (let i = -2; i <= 2; i++) feathers += `<div class="feather" style="transform:translateX(-50%) rotate(${i * 17}deg);background:${i % 2 === 0 ? '#2a8a4a' : '#1f7a58'}"></div>`;
+      b.innerHTML = feathers + '<div class="body"></div><div class="head"></div>';
+      host.appendChild(b);
+    } else if (rank === 8) {
+      // 8索： |/ \| が上段、|\ /| が下段（縦棒＋山＋横棒の編み目）を SVG の線で描く
+      const col = COLOR[red ? 'r' : 'g'];
+      const half = `
+        <line x1="15" y1="10" x2="15" y2="58"/>
+        <line x1="85" y1="10" x2="85" y2="58"/>
+        <line x1="31" y1="56" x2="50" y2="15"/>
+        <line x1="69" y1="56" x2="50" y2="15"/>`;
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:absolute;inset:4% 6%;';
+      wrap.innerHTML = `<svg viewBox="0 0 100 135" width="100%" height="100%" preserveAspectRatio="none">
+        <g stroke="${col}" stroke-width="10.5" stroke-linecap="round">${half}</g>
+        <g stroke="${col}" stroke-width="10.5" stroke-linecap="round" transform="translate(0 135) scale(1 -1)">${half}</g>
+      </svg>`;
+      host.appendChild(wrap);
+    } else {
+      const pat = SOU[rank];
+      const rows = Math.max(...pat.map((p) => p[1])) + 1;
+      for (const [cx, cy, c] of pat) {
+        const d = document.createElement('div');
+        d.className = 'bar';
+        let pos;
+        if (rows === 2) pos = `left:${26 + cx * 24}%;top:${12 + cy * 42}%;width:16%;height:32%;`;
+        else if (rows === 4) pos = `left:${24 + cx * 26}%;top:${7 + cy * 23.5}%;width:17%;height:18.5%;`;
+        else pos = `left:${24 + cx * 26}%;top:${9 + cy * 28.5}%;width:17%;height:25%;`;
+        d.style.cssText = pos + `background:${COLOR[red ? 'r' : c]}`;
+        host.appendChild(d);
+      }
+    }
+  }
+  return el;
+}
+
+// 抜いた北の並び（副露の横に置く）
+function kitaEl(count, cqw) {
+  const box = document.createElement('div');
+  box.className = 'kita-box';
+  for (let i = 0; i < count; i++) box.appendChild(tileEl(30, { cqw }, { solid: true }));
+  return box;
+}
+function meldEl(meld, size, solid) {
+  const wrap = document.createElement('div');
+  wrap.className = 'meld';
+  const tiles = meld.tiles;
+  tiles.forEach((raw, i) => {
+    // 横向きにするのは「鳴いた牌」そのもの（位置は鳴いた相手の方向で決まる）
+    const isCalled = meld.open && i === (meld.calledIndex !== undefined ? meld.calledIndex : tiles.length - 1);
+    const isAnkanEnd = !meld.open && meld.type === 'kan' && (i === 0 || i === tiles.length - 1);
+    const el = tileEl(raw, size, isAnkanEnd ? (solid ? { solid: true, solidBack: true } : { back: true }) : (solid ? { solid: true } : { layered: isCalled ? 'xr' : 'b' }));
+    if (isCalled) {
+      // 横向き牌は「幅=牌の高さ・高さ=牌の幅」の箱に中央配置して回す（レイアウト上の占有と見た目を一致させる）
+      const box = document.createElement('div');
+      box.className = 'side-box';
+      if (size && typeof size === 'object' && size.cqw) {
+        box.style.width = (size.cqw * 1.35) + 'cqw';
+        box.style.height = size.cqw + 'cqw';
+      } else {
+        const wpx = typeof size === 'number' ? size : 40;
+        box.style.width = Math.round(wpx * 1.35) + 'px';
+        box.style.height = wpx + 'px';
+      }
+      box.appendChild(el);
+      wrap.appendChild(box);
+    } else {
+      wrap.appendChild(el);
+    }
+  });
+  return wrap;
+}
+
+</script>
+<script>
+
+/* ===== 対戦履歴リプレイ ===== */
+const CODE = decodeURIComponent(location.pathname.split('/').pop() || '');
+let DATA = null;
+let steps = [];
+let roundLastStep = [];
+let idx = 0;
+let viewSeat = 0;
+let playing = false;
+let speed = 1;
+let timer = null;
+const opts = { hands: true, houjuu: true, wallShow: false, fx: true, hideNames: false, waits: true };
+try {
+  const saved = JSON.parse(localStorage.getItem('mj-replay-opts') || 'null');
+  if (saved) for (const k of Object.keys(opts)) if (typeof saved[k] === 'boolean') opts[k] = saved[k];
+} catch { /* 保存値が壊れていたら初期値のまま */ }
+
+const SEAT_CYCLE = [0, 1, null, 2];
+function slotOf(seat) {
+  const a = SEAT_CYCLE.indexOf(viewSeat);
+  const b = SEAT_CYCLE.indexOf(seat);
+  return ['me', 'right', 'far', 'left'][(((b - a) % 4) + 4) % 4];
+}
+function emptySlotOf(step) {
+  const used = new Set(step.players.map((p) => slotOf(p.seat)));
+  return ['right', 'far', 'left'].find((s) => !used.has(s)) || null;
+}
+const pname = (seat) => (opts.hideNames ? '' : ((DATA.players[seat] && DATA.players[seat].name) || ''));
+function nextKind(kind) {
+  if (kind < 27) {
+    const suit = Math.floor(kind / 9);
+    const rank = kind % 9;
+    return suit * 9 + (rank === 8 ? 0 : rank + 1);
+  }
+  if (kind === 30) return 27; // 北→東（ドラ表示牌としての北は東を指す）
+  if (kind < 30) return kind === 29 ? 27 : kind + 1;
+  return kind === 33 ? 31 : kind + 1;
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// そのステップ時点で最後に切った席（金のリング用）。手前向きに走査して求める
+function lastDiscardAt(i) {
+  for (let j = i; j >= 0; j--) {
+    if (steps[j].kind === 'discard') return steps[j].actor;
+    if (steps[j].kind === 'start') return null;
+  }
+  return null;
+}
+
+function renderSideHands(step) {
+  const els = { right: $('wall-right'), left: $('wall-left'), far: $('far-hand') };
+  for (const p of step.players) {
+    const slot = slotOf(p.seat);
+    if (slot === 'me') continue;
+    const el = els[slot];
+    if (!el) continue;
+    const tsize = slot === 'far' ? 2.3 : 2.7;
+    el.innerHTML = '';
+    if (opts.hands) {
+      el.classList.add('open');
+      const tiles = [...p.hand].sort((a, b) => norm(a) - norm(b) || a - b);
+      for (const raw of tiles) el.appendChild(tileEl(raw, { cqw: tsize }, { solid: true }));
+    } else {
+      el.classList.remove('open');
+      const drawn = step.phase === 'play' && step.turn === p.seat && p.hand.length % 3 === 2;
+      const n = drawn ? p.hand.length - 1 : p.hand.length;
+      for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+      if (drawn) {
+        const gap = document.createElement('div');
+        gap.className = 'drawn-gap';
+        el.appendChild(gap);
+        el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+      }
+    }
+  }
+}
+
+function renderWaitBar(step) {
+  const wb = $('wait-bar');
+  const me = step.players[viewSeat];
+  const waits = opts.waits && me ? me.waits : null;
+  if (!waits || !waits.length) { wb.style.display = 'none'; return; }
+  // 残り枚数: 見えている牌（河・副露・手牌・抜き北）を引く
+  const visible = new Array(34).fill(0);
+  const addTiles = (tiles) => { for (const raw of tiles) visible[norm(raw)]++; };
+  for (const p of step.players) {
+    addTiles(p.discards.map((d) => d.tile));
+    for (const m of p.melds) addTiles(m.tiles);
+    visible[30] += p.kita || 0;
+  }
+  addTiles(me.hand);
+  if (opts.hands) for (const p of step.players) if (p.seat !== viewSeat) addTiles(p.hand);
+  wb.style.display = 'flex';
+  wb.innerHTML = '';
+  const lab = document.createElement('span');
+  lab.className = 'wlabel';
+  lab.textContent = '待ち';
+  wb.appendChild(lab);
+  let total = 0;
+  for (const kind of waits) {
+    const left = Math.max(0, 4 - visible[kind]);
+    total += left;
+    const item = document.createElement('span');
+    item.className = 'witem';
+    item.appendChild(tileEl(kind, { cqw: 2.1 }, { layered: 'b' }));
+    const c = document.createElement('span');
+    c.className = 'wleft';
+    c.textContent = '×' + left;
+    item.appendChild(c);
+    wb.appendChild(item);
+  }
+  const tot = document.createElement('span');
+  tot.className = 'wtotal';
+  tot.textContent = '残り' + total + '枚';
+  wb.appendChild(tot);
+}
+
+function resultHandRow(winner, hand, melds, winTile) {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;margin:6px 0';
+  const tiles = [...(hand || [])].sort((a, b) => norm(a) - norm(b) || a - b);
+  for (const raw of tiles) row.appendChild(tileEl(raw, { cqw: 3.4 }, { layered: 'b' }));
+  for (const m of melds || []) {
+    const mel = meldEl(m, { cqw: 3.4 }, false);
+    mel.style.marginLeft = '8px';
+    row.appendChild(mel);
+  }
+  if (winTile !== undefined && winTile !== null) {
+    const w = tileEl(winTile, { cqw: 3.4 }, { layered: 't' });
+    w.style.marginLeft = '10px';
+    w.style.outline = '2px solid #ffd94d';
+    w.style.borderRadius = '6px';
+    row.appendChild(w);
+  }
+  void winner;
+  return row;
+}
+
+function renderResultCard(step) {
+  const overlay = $('result-overlay');
+  const card = $('result-card');
+  const r = step.lastResult;
+  if (!r || (step.phase !== 'roundEnd' && step.phase !== 'gameEnd')) { overlay.hidden = true; return; }
+  card.innerHTML = '';
+  const names = (s) => pname(s);
+  const winSection = (w, type) => {
+    const frag = document.createDocumentFragment();
+    const h = document.createElement('h2');
+    h.textContent = type === 'ron' ? `${names(w.winner)} のロン！` : `${names(w.winner)} のツモ！`;
+    frag.appendChild(h);
+    frag.appendChild(resultHandRow(w.winner, w.hand, w.melds, type === 'ron' ? step.lastResult.winTile : null));
+    const yl = document.createElement('div');
+    yl.className = 'yaku-list';
+    if (w.yakumans && w.yakumans.length > 0) {
+      yl.innerHTML = w.yakumans.map((y) => `<div>✦ ${y.name}${y.mult > 1 ? ` ×${y.mult}` : ''}</div>`).join('') + '<div>役満！</div>';
+    } else {
+      yl.innerHTML = (w.yaku || []).map((y) => `<div>${y.name} <span class="dora">${y.han}翻</span></div>`).join('')
+        + (w.doraCount > 0 ? `<div>ドラ <span class="dora">${w.doraCount}</span></div>` : '')
+        + (w.uraDoraCount > 0 ? `<div>裏ドラ <span class="dora">${w.uraDoraCount}</span></div>` : '')
+        + `<div style="margin-top:4px"><span class="big-score">${w.han}翻 ${w.fu}符</span></div>`;
+    }
+    frag.appendChild(yl);
+    const pl = document.createElement('div');
+    pl.className = 'pay-line';
+    pl.innerHTML = (w.payments || []).map((pay) => `${names(pay.from)} → ${names(pay.to)}: ${pay.amount}点`).join('<br>')
+      + (w.riichiSticks > 0 ? `<br>供託 ${w.riichiSticks} 本を獲得` : '');
+    frag.appendChild(pl);
+    return frag;
+  };
+  if (step.kind === 'end' && step.finalScores) {
+    const h = document.createElement('h2');
+    h.textContent = '対局結果';
+    card.appendChild(h);
+    const order = [0, 1, 2].sort((a, b) => step.placements[a] - step.placements[b]);
+    for (const seat of order) {
+      const fs = (step.finalScores || []).find((f) => f.seat === seat);
+      const row = document.createElement('div');
+      row.className = 'seat-row';
+      row.innerHTML = `<span><strong>${step.placements[seat]}位</strong>　<span class="pname"></span></span>`
+        + `<span style="font-family:var(--font-num)">${step.players[seat].score}点`
+        + (fs ? `（${fs.total > 0 ? '+' : ''}${fs.total}）` : '') + '</span>';
+      row.querySelector('.pname').textContent = pname(seat);
+      card.appendChild(row);
+    }
+  } else if (r.type === 'ron' || r.type === 'tsumo') {
+    if (r.wins && r.wins.length > 1) for (const w of r.wins) card.appendChild(winSection(w, 'ron'));
+    else card.appendChild(winSection(r, r.type));
+  } else if (r.type === 'draw') {
+    const h = document.createElement('h2');
+    const drawNames = { kyuushu: '九種九牌', suufon: '四風連打', suukan: '四槓散了' };
+    h.textContent = r.drawKind ? `${drawNames[r.drawKind] || '途中流局'}（途中流局）` : '流局';
+    card.appendChild(h);
+    if (!r.drawKind && r.tenpai) {
+      const d = document.createElement('div');
+      d.className = 'yaku-list';
+      d.innerHTML = r.tenpai.map((t, s) => `<div>${names(s)}: ${t ? 'テンパイ' : 'ノーテン'}</div>`).join('');
+      card.appendChild(d);
+      const pl = document.createElement('div');
+      pl.className = 'pay-line';
+      pl.innerHTML = (r.payments || []).map((pay) => `${names(pay.seat)}: ${pay.amount > 0 ? '+' : ''}${pay.amount}`).join('<br>');
+      card.appendChild(pl);
+    }
+  } else if (r.type === 'gameEnd') {
+    overlay.hidden = true;
+    return;
+  }
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.textContent = 'タップで閉じる';
+  card.appendChild(note);
+  overlay.hidden = false;
+}
+
+function flash(text) {
+  if (!opts.fx || !text) return;
+  const el = $('fx-flash');
+  el.textContent = text;
+  el.hidden = false;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => { el.hidden = true; }, 680 / speed);
+}
+function fxFor(step, prev) {
+  if (!step) return null;
+  if (step.kind === 'tsumo') return 'ツモ';
+  if (step.kind === 'kan') return 'カン';
+  if (step.kind === 'nuki') return '北抜き';
+  if (step.kind === 'call' && step.lastResult && step.lastResult.type === 'ron') return 'ロン';
+  if (step.kind === 'discard' && step.actor !== null && step.actor !== undefined) {
+    const now = step.players[step.actor];
+    const before = prev && prev.players[step.actor];
+    if (now && now.riichi && before && !before.riichi) return now.openRiichi ? 'オープンリーチ' : 'リーチ';
+  }
+  return null;
+}
+
+function render(withFx = false) {
+  const step = steps[idx];
+  if (!step) return;
+  const prev = idx > 0 ? steps[idx - 1] : null;
+  // ドラ表示
+  const dt = $('dora-tiles');
+  dt.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const ind = step.doraIndicators[i];
+    dt.appendChild(tileEl(ind === undefined ? 0 : ind, { cqw: 2.6 }, { back: ind === undefined }));
+  }
+  $('match-title').textContent = (DATA.length === 'south' ? '半荘戦' : '東風戦') + ' 対戦履歴';
+  renderSideHands(step);
+  // 河・名札・副露
+  const pondEls = { me: $('pond-me'), right: $('pond-right'), far: $('pond-far'), left: $('pond-left') };
+  const plateEls = { me: $('plate-me'), right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
+  const meldEls = { right: $('melds-right'), left: $('melds-left') };
+  const empty = emptySlotOf(step);
+  const lastSeat = lastDiscardAt(idx);
+  for (const p of step.players) {
+    const slot = slotOf(p.seat);
+    const pond = pondEls[slot];
+    pond.innerHTML = '';
+    p.discards.forEach((d, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (d.called ? ' called' : '') + (d.riichi ? ' riichi-cell' : '')
+        + (p.seat === lastSeat && i === p.discards.length - 1 ? ' last' : '')
+        + (opts.houjuu && step.lastResult && step.lastResult.type === 'ron' && step.lastResult.from === p.seat && i === p.discards.length - 1 ? ' houjuu' : '');
+      cell.appendChild(tileEl(d.tile, { cqw: slot === 'far' ? 2.9 : 3.2 }, { solid: true }));
+      pond.appendChild(cell);
+    });
+    // 名札
+    const plate = plateEls[slot];
+    plate.innerHTML = '';
+    const em = document.createElement('span');
+    em.className = 'pemoji';
+    em.textContent = { me: '🐱', right: '🐼', left: '🦊', far: '🐰' }[slot];
+    plate.appendChild(em);
+    const nm = document.createElement('span');
+    nm.textContent = slot === 'me' && !opts.hideNames ? (pname(p.seat) || 'あなた') : pname(p.seat);
+    plate.appendChild(nm);
+    plate.classList.toggle('riichi-on', p.riichi);
+    plate.classList.toggle('turn', (step.phase === 'play' || step.phase === 'call') && step.turn === p.seat);
+    // 副露
+    if (slot === 'me') {
+      const box = $('my-melds');
+      box.innerHTML = '';
+      for (const m of p.melds) box.appendChild(meldEl(m, { cqw: 4.6 }));
+      if (p.kita > 0) box.appendChild(kitaEl(p.kita, 4.6));
+    } else if (slot === 'far') {
+      const mb = $('melds-far');
+      mb.innerHTML = '';
+      mb.className = 'melds-far ' + (empty === 'left' ? 'at-left' : 'at-right');
+      const order = empty === 'left' ? [3, 2, 1, 0] : [2, 3, 0, 1];
+      const seq = order.filter((i) => i < p.melds.length);
+      for (let i = 0; i < p.melds.length; i++) if (!seq.includes(i)) seq.push(i);
+      seq.forEach((i) => mb.appendChild(meldEl(p.melds[i], { cqw: 3.3 }, true)));
+      if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
+    } else {
+      const mb = meldEls[slot];
+      mb.innerHTML = '';
+      for (const m of p.melds) mb.appendChild(meldEl(m, { cqw: 3.3 }, true));
+      if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
+    }
+  }
+  // センター
+  $('c-round').textContent = step.label.replace(/(.)(\d)(.)/, '$1 $2 $3');
+  $('c-honba-in').textContent = `${step.honba}本場・供託${step.kyotaku}`;
+  $('c-honba').textContent = `${step.honba}本場・供託${step.kyotaku}`;
+  $('c-remain').textContent = step.wallLeft;
+  document.querySelector('.round-frame').style.marginTop = empty === 'far' ? '' : '3.4cqw';
+  const scoreEls = { me: $('c-score-me'), right: $('c-score-right'), far: $('c-score-far'), left: $('c-score-left') };
+  const tabEls = { me: $('wtab-me'), right: $('wtab-right'), far: $('wtab-far'), left: $('wtab-left') };
+  const doraKinds = step.doraIndicators.map(nextKind);
+  for (const p of step.players) {
+    const slot = slotOf(p.seat);
+    scoreEls[slot].textContent = p.score;
+    const tab = tabEls[slot];
+    tab.textContent = WIND_NAME[p.wind];
+    tab.style.opacity = '';
+    tab.classList.toggle('dealer', p.wind === 27);
+    if (slot === 'me') $('stick-me').classList.toggle('on', p.riichi);
+    if (slot === 'right') $('stick-right').classList.toggle('on', p.riichi);
+    if (slot === 'left') $('stick-left').classList.toggle('on', p.riichi);
+  }
+  if (empty) {
+    scoreEls[empty].textContent = '';
+    const etab = tabEls[empty];
+    etab.textContent = '北';
+    etab.style.opacity = '0.35';
+    etab.classList.remove('dealer');
+  }
+  const turnSlot = (step.phase === 'play' || step.phase === 'call') ? slotOf(step.turn) : null;
+  $('center').className = 'center' + (turnSlot ? ' turn-' + turnSlot : '');
+  // 自分の手牌
+  const me = step.players[viewSeat];
+  const rowEl = $('hand-row');
+  rowEl.innerHTML = '';
+  {
+    const hand = [...me.hand];
+    const hasDrawn = step.phase === 'play' && step.turn === viewSeat && step.lastDrawn !== null && step.lastDrawn !== undefined;
+    const drawnTile = hasDrawn ? hand.pop() : null;
+    hand.sort((a, b) => norm(a) - norm(b) || a - b);
+    if (hasDrawn) hand.push(drawnTile);
+    const avail = rowEl.clientWidth || 1180;
+    const tileW = Math.max(40, Math.min(80, Math.floor((avail - 13 * 5 - 24) / 14)));
+    hand.forEach((raw, i) => {
+      const isDrawn = hasDrawn && i === hand.length - 1;
+      const el = tileEl(raw, tileW, { cls: isDrawn ? 'drawn' : '', layered: 't' });
+      if (doraKinds.includes(norm(raw)) || isRedTile(raw)) el.classList.add('dora-hint');
+      rowEl.appendChild(el);
+    });
+  }
+  // カウンター
+  let aka = 0;
+  for (const raw of me.hand) if (isRedTile(raw)) aka++;
+  for (const m of me.melds) for (const raw of m.tiles) if (isRedTile(raw)) aka++;
+  $('counter-aka').textContent = `赤 ×${aka}`;
+  $('counter-kita').textContent = `北 ×${me.kita || 0}`;
+  $('counter-wall').textContent = `山 ${step.wallLeft}`;
+  renderWaitBar(step);
+  // 牌山表示
+  const ws = $('wall-strip');
+  if (opts.wallShow) {
+    ws.hidden = false;
+    ws.innerHTML = '';
+    for (const raw of step.wall) ws.appendChild(tileEl(raw, { cqw: 1.7 }, { layered: 'b' }));
+  } else {
+    ws.hidden = true;
+  }
+  // 説明・スライダー・セレクタ
+  $('replay-desc').textContent = `${step.label} ${step.honba}本場 ・ ${step.desc || ''}`;
+  $('rp-slider').value = idx;
+  syncSelectors();
+  renderResultCard(step);
+  if (withFx) flash(fxFor(step, prev));
+}
+
+function syncSelectors() {
+  const step = steps[idx];
+  const roundSel = $('rp-round');
+  if (roundSel.value !== String(step.round)) roundSel.value = String(step.round);
+  const junSel = $('rp-jun');
+  const juns = [...new Set(steps.filter((s) => s.round === step.round).map((s) => s.jun))].sort((a, b) => a - b);
+  const cur = junSel.dataset.round;
+  if (cur !== String(step.round)) {
+    junSel.dataset.round = String(step.round);
+    junSel.innerHTML = '';
+    for (const j of juns) {
+      const o = document.createElement('option');
+      o.value = String(j);
+      o.textContent = `${j}巡`;
+      junSel.appendChild(o);
+    }
+  }
+  junSel.value = String(step.jun);
+}
+
+function goTo(i, withFx = false) {
+  idx = Math.max(0, Math.min(steps.length - 1, i));
+  render(withFx);
+}
+function stopPlay() {
+  playing = false;
+  if (timer) { clearInterval(timer); timer = null; }
+  $('rp-play').textContent = '▶';
+}
+function startPlay() {
+  if (idx >= steps.length - 1) idx = 0;
+  playing = true;
+  $('rp-play').textContent = '⏸';
+  timer = setInterval(() => {
+    if (idx >= steps.length - 1) { stopPlay(); return; }
+    const cur = steps[idx];
+    idx++;
+    render(true);
+    // 局の結果カードが出るステップでは少し長めに止める
+    if (cur.phase === 'roundEnd') { /* 次の tick まで通常通り */ }
+  }, 950 / speed);
+}
+
+function buildSelectors() {
+  const roundSel = $('rp-round');
+  roundSel.innerHTML = '';
+  DATA.rounds.forEach((r, i) => {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = `${r.label} ${r.honba}本場`;
+    roundSel.appendChild(o);
+  });
+  $('rp-slider').max = steps.length - 1;
+  roundLastStep = DATA.rounds.map((r, i) => {
+    let last = r.firstStep;
+    steps.forEach((s, j) => { if (s.round === i) last = j; });
+    return last;
+  });
+}
+
+/* ===== ポップアップ ===== */
+function openWall() {
+  const step = steps[idx];
+  const start = steps[DATA.rounds[step.round].firstStep];
+  $('wall-title').textContent = `${start.label} - ${start.honba}本場 配牌`;
+  const box = $('wall-hands');
+  box.innerHTML = '';
+  for (const p of start.players) {
+    const wrap = document.createElement('div');
+    wrap.className = 'wrow';
+    const nm = document.createElement('div');
+    nm.className = 'wname';
+    nm.textContent = `${WIND_NAME[p.wind]} ${pname(p.seat)}`;
+    wrap.appendChild(nm);
+    const tiles = document.createElement('div');
+    tiles.className = 'wtiles';
+    const hand = [...p.hand].sort((a, b) => norm(a) - norm(b) || a - b);
+    for (const raw of hand) tiles.appendChild(tileEl(raw, { cqw: 3.2 }, { layered: 'b' }));
+    wrap.appendChild(tiles);
+    box.appendChild(wrap);
+  }
+  const order = $('wall-order');
+  order.innerHTML = '';
+  for (const raw of start.wall) order.appendChild(tileEl(raw, { cqw: 2.6 }, { layered: 'b' }));
+  const dead = $('deadwall-order');
+  dead.innerHTML = '';
+  for (const raw of start.deadWall) dead.appendChild(tileEl(raw, { cqw: 2.6 }, { layered: 'b' }));
+  $('wall-overlay').hidden = false;
+}
+
+function summaryLines(summary) {
+  const lines = [];
+  if (!summary) return lines;
+  if (summary.type === 'ron') {
+    const wins = summary.wins && summary.wins.length ? summary.wins : [summary];
+    for (const w of wins) {
+      const gain = (w.payments || []).reduce((a, p) => a + p.amount, 0) + (w.riichiSticks || 0) * 1000;
+      lines.push({ label: 'ロン', name: pname(w.winner), delta: gain });
+      for (const p of w.payments || []) lines.push({ label: '放銃', name: pname(p.from), delta: -p.amount });
+    }
+  } else if (summary.type === 'tsumo') {
+    const gain = (summary.payments || []).reduce((a, p) => a + p.amount, 0) + (summary.riichiSticks || 0) * 1000;
+    lines.push({ label: 'ツモ', name: pname(summary.winner), delta: gain });
+    for (const p of summary.payments || []) lines.push({ label: '', name: pname(p.from), delta: -p.amount });
+  } else if (summary.type === 'draw') {
+    lines.push({ label: summary.drawKind ? '途中流局' : '流局', name: '', delta: null });
+    if (summary.tenpai) summary.tenpai.forEach((t, s) => { if (t) lines.push({ label: 'テンパイ', name: pname(s), delta: null }); });
+  }
+  return lines;
+}
+
+function openResults() {
+  const box = $('results-list');
+  box.innerHTML = '';
+  DATA.rounds.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.className = 'rrow';
+    const head = document.createElement('div');
+    head.className = 'rhead';
+    head.textContent = `${r.label} ${r.honba}本場`;
+    b.appendChild(head);
+    for (const line of summaryLines(r.summary)) {
+      const row = document.createElement('div');
+      row.className = 'rline';
+      const left = document.createElement('span');
+      left.textContent = `${line.label} ${line.name}`;
+      row.appendChild(left);
+      if (line.delta !== null && line.delta !== undefined) {
+        const right = document.createElement('span');
+        right.className = line.delta >= 0 ? 'plus' : 'minus';
+        right.textContent = `${line.delta >= 0 ? '+' : ''}${line.delta}`;
+        row.appendChild(right);
+      }
+      b.appendChild(row);
+    }
+    b.onclick = () => { $('results-overlay').hidden = true; stopPlay(); goTo(roundLastStep[i]); };
+    box.appendChild(b);
+  });
+  const fb = document.createElement('button');
+  fb.className = 'rrow';
+  fb.innerHTML = '<div class="rhead">最終結果</div>';
+  fb.onclick = () => { $('results-overlay').hidden = true; stopPlay(); goTo(steps.length - 1); };
+  box.appendChild(fb);
+  $('results-overlay').hidden = false;
+}
+
+/* ===== イベント ===== */
+/* 前/次ボタン：タップで1手、長押しで連続送り */
+function holdStep(el, stepFn) {
+  let delay = null;
+  let interval = null;
+  const stop = () => { clearTimeout(delay); clearInterval(interval); delay = interval = null; };
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    stop();
+    stopPlay();
+    stepFn();
+    delay = setTimeout(() => { interval = setInterval(stepFn, 110); }, 380);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, stop);
+  el.addEventListener('click', (e) => { e.preventDefault(); }); // pointerdown で処理済み（二重発火防止）
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+}
+holdStep($('rp-prev'), () => goTo(idx - 1));
+holdStep($('rp-next'), () => goTo(idx + 1, true));
+$('rp-play').onclick = () => { playing ? stopPlay() : startPlay(); };
+$('rp-speed').onclick = () => {
+  speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+  $('rp-speed').textContent = '×' + speed;
+  if (playing) { stopPlay(); startPlay(); }
+};
+$('rp-slider').oninput = (e) => { stopPlay(); goTo(Number(e.target.value)); };
+$('rp-round').onchange = (e) => { stopPlay(); goTo(DATA.rounds[Number(e.target.value)].firstStep); };
+$('rp-jun').onchange = (e) => {
+  const round = steps[idx].round;
+  const j = steps.findIndex((s) => s.round === round && s.jun === Number(e.target.value));
+  if (j >= 0) { stopPlay(); goTo(j); }
+};
+$('rp-view').onclick = () => { viewSeat = (viewSeat + 1) % 3; render(); toast(`視点: ${pname(viewSeat)}`); };
+$('rp-wall').onclick = openWall;
+$('wall-close').onclick = () => { $('wall-overlay').hidden = true; };
+$('wall-overlay').onclick = (e) => { if (e.target.id === 'wall-overlay') $('wall-overlay').hidden = true; };
+$('rp-results').onclick = openResults;
+$('results-close').onclick = () => { $('results-overlay').hidden = true; };
+$('results-overlay').onclick = (e) => { if (e.target.id === 'results-overlay') $('results-overlay').hidden = true; };
+$('rp-opts').onclick = () => { $('opt-overlay').hidden = false; };
+$('opt-close').onclick = () => { $('opt-overlay').hidden = true; };
+$('opt-overlay').onclick = (e) => { if (e.target.id === 'opt-overlay') $('opt-overlay').hidden = true; };
+$('result-overlay').onclick = () => { $('result-overlay').hidden = true; };
+for (const [id, key] of [['opt-hands', 'hands'], ['opt-houjuu', 'houjuu'], ['opt-wallshow', 'wallShow'], ['opt-fx', 'fx'], ['opt-hidenames', 'hideNames'], ['opt-waits', 'waits']]) {
+  const el = $(id);
+  el.checked = opts[key];
+  el.onchange = () => {
+    opts[key] = el.checked;
+    try { localStorage.setItem('mj-replay-opts', JSON.stringify(opts)); } catch { /* 保存できなくても動作は続ける */ }
+    render();
+  };
+}
+$('rp-fav').onclick = async () => {
+  if (!DATA.loggedIn) { toast('お気に入りはログインが必要です'); return; }
+  const next = !DATA.favorite;
+  const res = await fetch('/api/mahjong-history/favorite', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: CODE, favorite: next }),
+  });
+  if (res.ok) {
+    const j = await res.json();
+    DATA.favorite = j.favorite;
+    $('rp-fav').textContent = j.favorite ? '★' : '☆';
+    toast(j.favorite ? 'お気に入りに追加しました' : 'お気に入りを外しました');
+  }
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { stopPlay(); goTo(idx - 1); }
+  if (e.key === 'ArrowRight') { stopPlay(); goTo(idx + 1, true); }
+  if (e.key === ' ') { e.preventDefault(); playing ? stopPlay() : startPlay(); }
+});
+
+/* ===== ステージのフィット（対局画面と同じ方式） ===== */
+function fitStage() {
+  const stage = $('stage');
+  if (!stage) return;
+  const wrap = stage.parentElement;
+  const vw = wrap.clientWidth || window.innerWidth;
+  const vh = wrap.clientHeight || window.innerHeight;
+  const portrait = window.innerHeight > window.innerWidth;
+  const s = portrait ? Math.min(vw / 800, vh / 1280) : Math.min(vw / 1280, vh / 800);
+  stage.style.transform = (portrait ? 'rotate(90deg) ' : '') + `scale(${s})`;
+}
+window.addEventListener('resize', fitStage);
+document.body.classList.add('in-game');
+
+/* ===== 読み込み ===== */
+(async () => {
+  try {
+    const res = await fetch(`/api/mahjong-history/view/${encodeURIComponent(CODE)}`);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      $('replay-desc').textContent = j.error || '対戦履歴を読み込めませんでした';
+      return;
+    }
+    DATA = await res.json();
+    steps = DATA.steps;
+    viewSeat = DATA.mySeat >= 0 ? DATA.mySeat : (steps[steps.length - 1].placements || [1]).indexOf(1);
+    if (viewSeat < 0) viewSeat = 0;
+    $('rp-fav').textContent = DATA.favorite ? '★' : '☆';
+    const d = new Date(DATA.createdAt);
+    $('replay-meta').textContent = `${DATA.length === 'south' ? '半荘戦' : '東風戦'} ・ ${d.toLocaleString('ja-JP')} ・ コード ${DATA.code.slice(0, 3)}-${DATA.code.slice(3)} ・ ${steps.length}ステップ`;
+    buildSelectors();
+    fitStage();
+    goTo(0);
+  } catch (e) {
+    $('replay-desc').textContent = '対戦履歴を読み込めませんでした';
+  }
+})();
+
+</script>
+</body>
+</html>

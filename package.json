@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node dev/test-shogi-core.js && node dev/test-usi-engine.js && node dev/test-connect4-core.js && node dev/test-session-restore.js && node dev/test-game-interactions.js && node dev/test-babanuki-core.js && node dev/test-gacha.js && node dev/test-kifu.js && node dev/test-mahjong.js && node dev/test-mahjong-game.js && node dev/test-mahjong-kita.js && node dev/test-mahjong-settings.js && node dev/test-mahjong-waits.js"
+    "test": "node dev/test-shogi-core.js && node dev/test-usi-engine.js && node dev/test-connect4-core.js && node dev/test-session-restore.js && node dev/test-game-interactions.js && node dev/test-babanuki-core.js && node dev/test-gacha.js && node dev/test-kifu.js && node dev/test-mahjong.js && node dev/test-mahjong-game.js && node dev/test-mahjong-kita.js && node dev/test-mahjong-settings.js && node dev/test-mahjong-waits.js && node dev/test-mahjong-replay.js && node dev/test-mahjong-history.js"
   },
   "keywords": [],
   "author": "ゆまる",
