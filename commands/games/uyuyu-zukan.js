@@ -41,12 +41,19 @@ module.exports = {
             );
         if (imageBuffer) embed.setImage('attachment://uyuyu-zukan.png');
 
-        // 所持一覧（名前と個数）
+        // 所持一覧（名前と個数）。Discord のフィールド上限（1024字）を超える場合は行単位で分割する
         const owned = entries.filter(e => e.count > 0);
         if (owned.length) {
-            embed.addFields({
-                name: '所持中',
-                value: owned.map(e => `<:${e.name}:${e.id}> ${e.name} ×${e.count}（${TIER_LABEL[e.tier]}）`).join('\n'),
+            const lines = owned.map(e => `<:${e.name}:${e.id}> ${e.name} ×${e.count}（${TIER_LABEL[e.tier]}）`);
+            const chunks = [];
+            let cur = '';
+            for (const line of lines) {
+                if (cur && cur.length + 1 + line.length > 1000) { chunks.push(cur); cur = ''; }
+                cur = cur ? cur + '\n' + line : line;
+            }
+            if (cur) chunks.push(cur);
+            chunks.forEach((value, i) => {
+                embed.addFields({ name: i === 0 ? '所持中' : '所持中（続き）', value });
             });
         }
         // 未所持の条件枠はヒントだけ出す（答えは書かない）
