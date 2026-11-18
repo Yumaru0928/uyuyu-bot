@@ -810,6 +810,11 @@ function attach(server, { verifyToken = null } = {}) {
       if (msg.type === 'leave') {
         ws.mahjong = null;
         slot.ws = null;
+        if (room.mode === 'bot' && room.phase === 'playing') {
+          // Bot戦の退出ボタンは即解散（切断との違いはここだけ：切断では残す）
+          destroyRoom(room);
+          return;
+        }
         if (room.phase === 'playing') {
           // 対局は止めない: 席は Bot 代行になり、リンクから戻ってこられる
           broadcast(room, { type: 'player_disconnected', name: slot.user.name }, seat);
@@ -844,7 +849,19 @@ function attach(server, { verifyToken = null } = {}) {
       slot.ws = null;
       ws.mahjong = null;
 
-      if (room.mode === 'bot') { destroyRoom(room); return; }
+      if (room.mode === 'bot') {
+        // Bot戦は「切断」では解散しない（アプリ切り替え等で落ちても戻って来られるように）。
+        // 解散は退出ボタン（leave）か、終局後に席が外れた時だけ
+        if (room.phase === 'playing') {
+          broadcast(room, { type: 'player_disconnected', name: slot.user.name }, seat);
+          startGrace(room, seat);
+          pump(room);
+        } else if (room.phase === 'finished') {
+          startGrace(room, seat);
+        }
+        // lobby は待機TTL（10分）で掃除される
+        return;
+      }
       if (room.phase === 'lobby') {
         if (seat === room.hostSeat) {
           broadcast(room, { type: 'room_closed', message: 'ホストが退出したため、ルームは解散しました。' }, seat);

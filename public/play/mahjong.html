@@ -1323,12 +1323,12 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 
 /* ===== 対面スロット（視点回転対応） ===== */
 .board-tiles .pond.far {
-  left: 50%; top: 22.7%;
+  left: 50%; top: 20.6%;
   transform: translate(-50%, -50%) rotate(180deg) translateZ(6px);
-  grid-template-columns: repeat(6, 2.6cqw);
-  gap: 0.7cqw 0.35cqw;
+  grid-template-columns: repeat(6, 2.9cqw);
+  gap: 0.85cqw 0.45cqw;
 }
-.board-tiles .pond.far .cell { width: 2.6cqw; height: 3.51cqw; }
+.board-tiles .pond.far .cell { width: 2.9cqw; height: 3.92cqw; }
 .board .melds-far {
   position: absolute;
   display: grid;
@@ -2043,6 +2043,18 @@ function connect(onOpen) {
   };
   ws.onerror = () => { /* onclose 側で処理 */ };
 }
+
+// アプリ切り替えから戻った時、タイマーを待たずに即再接続する
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (intentionalClose || !roomCode) return;
+  if (!ws || ws.readyState >= 2) {
+    clearTimeout(reconnectTimer);
+    connect(() => {
+      send({ type: 'join', code: roomCode, token: me.token, name: me.name });
+    });
+  }
+});
 function send(obj) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
 }
@@ -2051,9 +2063,11 @@ function handle(msg) {
   switch (msg.type) {
     case 'created':
       roomCode = msg.code;
+      saveRoomCode();
       break;
     case 'lobby':
       roomCode = msg.code;
+      saveRoomCode();
       mySeat = msg.youSeat;
       renderLobby(msg);
       show('lobby-screen');
@@ -2087,6 +2101,11 @@ function handle(msg) {
       backToMenu();
       break;
     case 'error':
+      // 保存済みルームがもう無い場合はキャッシュを消す（次回また自動参加を試さない）
+      if (/見つかりませんでした|参加できません/.test(msg.message || '')) {
+        roomCode = null;
+        saveRoomCode();
+      }
       toast(msg.message);
       break;
   }
@@ -2095,7 +2114,8 @@ function handle(msg) {
 function backToMenu() {
   intentionalClose = true;
   if (ws) { try { ws.close(); } catch { /* noop */ } }
-  roomCode = null; lastView = null; mySeat = -1;
+  roomCode = null; saveRoomCode();
+  lastView = null; mySeat = -1;
   prevPondCounts = [0, 0, 0];
   prevTotalDiscards = 0;
   lastDiscardSeat = -1;
@@ -2227,39 +2247,50 @@ function buildSideHands(view) {
     }
   }
 }
+// 上がり牌表示：聴牌中は「待ち」、自分の番で牌を選んだら「切ると」の待ちを出す
+let selectedRaw = null;
+function renderWaitBar(view) {
+  const wb = $('wait-bar');
+  let list = null;
+  let label = '待ち';
+  if (view && view.discardWaits && selectedRaw !== null && view.discardWaits[norm(selectedRaw)]) {
+    list = view.discardWaits[norm(selectedRaw)];
+    label = '切ると';
+  } else if (view && view.waits && view.waits.length) {
+    list = view.waits;
+  }
+  if (!list || !list.length) {
+    wb.style.display = 'none';
+    return;
+  }
+  wb.style.display = 'flex';
+  wb.innerHTML = '';
+  const lab = document.createElement('span');
+  lab.className = 'wlabel';
+  lab.textContent = label;
+  wb.appendChild(lab);
+  let total = 0;
+  for (const w of list) {
+    total += w.left;
+    const item = document.createElement('span');
+    item.className = 'witem';
+    item.appendChild(tileEl(w.tile, { cqw: 2.1 }, { layered: 'b' }));
+    const c = document.createElement('span');
+    c.className = 'wleft';
+    c.textContent = '×' + w.left;
+    item.appendChild(c);
+    wb.appendChild(item);
+  }
+  const tot = document.createElement('span');
+  tot.className = 'wtotal';
+  tot.textContent = '残り' + total + '枚';
+  wb.appendChild(tot);
+}
+
 function renderState(view) {
   lastView = view;
   buildSideHands(view);
-  // 聴牌時の上がり牌表示（サーバーが本人分だけ view.waits に入れてくる）
-  {
-    const wb = $('wait-bar');
-    if (view.waits && view.waits.length) {
-      wb.style.display = 'flex';
-      wb.innerHTML = '';
-      const lab = document.createElement('span');
-      lab.className = 'wlabel';
-      lab.textContent = '待ち';
-      wb.appendChild(lab);
-      let total = 0;
-      for (const w of view.waits) {
-        total += w.left;
-        const item = document.createElement('span');
-        item.className = 'witem';
-        item.appendChild(tileEl(w.tile, { cqw: 2.1 }, { layered: 'b' }));
-        const c = document.createElement('span');
-        c.className = 'wleft';
-        c.textContent = '×' + w.left;
-        item.appendChild(c);
-        wb.appendChild(item);
-      }
-      const tot = document.createElement('span');
-      tot.className = 'wtotal';
-      tot.textContent = '残り' + total + '枚';
-      wb.appendChild(tot);
-    } else {
-      wb.style.display = 'none';
-    }
-  }
+  renderWaitBar(view);
   // ドラ表示
   const dt = $('dora-tiles');
   dt.innerHTML = '';
@@ -2629,7 +2660,7 @@ function renderHand(view) {
   const myP = view.players[mySeat];
   if (!myP || !myP.hand) return;
   const _play = view.phase === 'play' && view.actions && view.actions.type === 'play';
-  if (!_play) selectedIdx = null;
+  if (!_play) { selectedIdx = null; selectedRaw = null; }
   const _dr = _play && myP.drawnTile !== null && myP.drawnTile !== undefined;
   const hand = myP.hand.slice();
   const _last = _dr ? hand.pop() : null;
@@ -2668,12 +2699,15 @@ function renderHand(view) {
         if (selectedIdx !== i) {
           // 選択だけなら手牌を作り直さない（作り直すとツモ牌のアニメーションが再生されて動く）
           selectedIdx = i;
+          selectedRaw = raw;
           row.querySelectorAll('.tile.selected').forEach((t) => t.classList.remove('selected'));
           el.classList.add('selected');
           renderStatus(lastView);
+          renderWaitBar(lastView);
           return;
         }
         selectedIdx = null;
+        selectedRaw = null;
         if (riichiArmed) {
           send({ type: 'discard', tile: raw, riichi: true, ...(openArmed ? { open: true } : {}) });
           riichiArmed = false;
@@ -2946,9 +2980,19 @@ function createHumanRoom() {
     send({ type: 'create', mode: 'human', token: me.token, name: me.name });
   });
 }
+// 対局の再開用にルームコードを端末に残す（退出ボタンを押すまで消さない）
+const ROOM_SAVE_KEY = 'mj-room-code';
+function saveRoomCode() {
+  try {
+    if (roomCode) localStorage.setItem(ROOM_SAVE_KEY, roomCode);
+    else localStorage.removeItem(ROOM_SAVE_KEY);
+  } catch { /* 保存できなくても対局は続行 */ }
+}
 function joinRoom(code) {
   if (!me.loggedIn) { toast('人間同士の対戦には Discord ログインが必要です'); return; }
   roomMode = 'human';
+  roomCode = code;
+  saveRoomCode();
   tryLockLandscape();
   connect(() => {
     send({ type: 'join', code, token: me.token, name: me.name });
@@ -3014,6 +3058,11 @@ window.addEventListener('resize', () => {
     $('join-code').value = roomParam.toUpperCase();
     if (me.loggedIn) joinRoom(roomParam.toUpperCase());
     else toast('参加するには Discord ログインが必要です（ログイン後に自動で参加します）');
+  } else if (me.loggedIn) {
+    // 前回の対局が残っていたら自動で戻る（退出ボタンを押した場合だけ保存が消える）
+    let saved = null;
+    try { saved = localStorage.getItem(ROOM_SAVE_KEY); } catch { /* noop */ }
+    if (saved) joinRoom(saved);
   }
 })();
 </script>

@@ -70,4 +70,22 @@ function tenpaiMatch() {
   ok(view.waits === null, '14枚（ツモ番）では waits=null');
 }
 
+{
+  // 打牌前の「切った時の待ち」先読み（discardWaits）
+  const m = game.createMatch({});
+  game.startRound(m);
+  // 13枚で 3索・6索待ちの聴牌形 + 余分な1萬
+  m.players[0].hand = [10, 11, 12, 13, 14, 15, 19, 20, 23, 24, 25, 30, 30, 0];
+  m.players[0].melds = [];
+  m.turn = 0;
+  const view = game.publicView(m, 0);
+  ok(view.discardWaits !== null, '打牌前は discardWaits が返る');
+  ok(Array.isArray(view.discardWaits[0]), '1萬を切ると聴牌（待ちあり）');
+  ok(view.discardWaits[0].map((w) => w.tile).join(',') === '18,21', '待ちは3索・6索');
+  ok(view.discardWaits[30] === undefined, '北を切ると聴牌にならないので entry なし');
+  // 相手の番では先読みは返らない
+  m.turn = 1;
+  ok(game.publicView(m, 0).discardWaits === null, '相手の番では discardWaits=null');
+}
+
 console.log(`\n全 ${passed} 件 OK`);
