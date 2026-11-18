@@ -227,6 +227,12 @@ function attach(server, { verifyToken = null } = {}) {
 
   function broadcastState(room) {
     if (!room.match) return;
+    // 時計は配信前に仕掛ける（view.time はこの時点の room.clock / callStart から作るため。
+    // 以前は pump が配信後に仕掛けていたので、手番タイマーがほぼ常に出なかった）
+    if (room.phase === 'playing') {
+      if (room.match.phase === 'play') armPlayClock(room);
+      else if (room.match.phase === 'call') armCallWindow(room);
+    }
     const players = room.playerSeats.map((seat) => {
       const slot = room.slots[seat];
       return { name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws), icon: slotIcon(slot) };
