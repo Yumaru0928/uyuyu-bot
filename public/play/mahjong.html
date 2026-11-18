@@ -41,7 +41,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  touch-action: manipulation;
 }
+button { touch-action: manipulation; }
 
 /* ===== メニュー・ロビー共通UI ===== */
 header {
@@ -682,17 +684,19 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   cursor: pointer;
   transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
   flex: none;
+  touch-action: manipulation; /* ダブルタップズームで2回目のタップが飲まれるのを防ぐ */
 }
 .hand-row .tile:hover { transform: translateY(-6px); }
 .hand-row .tile.selected {
-  transform: translateY(-16px);
+  transform: translateY(-10px);
   outline: 3px solid var(--gold);
   outline-offset: 1px;
 }
 .hand-row .tile.disabled { cursor: default; filter: brightness(0.82); }
 .hand-row .tile.disabled:hover { transform: none; }
 .hand-row .tile.pickable { outline: 3px solid var(--gold); outline-offset: 1px; }
-.hand-row .tile.drawn { margin-left: 1.4cqw; animation: draw-in 0.35s ease; }
+.hand-row .tile.drawn { margin-left: 1.4cqw; }
+.hand-row .tile.drawn-anim { animation: draw-in 0.35s ease; }
 
 @keyframes draw-in {
   from { transform: translateY(-26px); opacity: 0; }
@@ -1768,6 +1772,7 @@ let timerKey = null;
 let timerDeadline = 0;
 let timerInterval = null;
 let selectedIdx = null;
+let lastDrawnAnimKey = null; // ツモ牌の出現アニメーションを再生済みのツモ（再描画で再生しない）
 let autoSort = true;
 let autoWin = false;  // 和ボタン：自動和了（ツモ・ロンを自動で上がる）。既定はOFF
 let noCall = false;   // 鳴ボタン：鳴きなし（ポン・カンを聞かずに自動でパス）。既定はOFF
@@ -1879,6 +1884,7 @@ function backToMenu() {
   prevPondCounts = [0, 0, 0];
   prevTotalDiscards = 0;
   lastDiscardSeat = -1;
+  lastDrawnAnimKey = null;
   show('menu-screen');
 }
 
@@ -2354,7 +2360,14 @@ function renderHand(view) {
   const drawnActive = myTurn && myP.drawnTile !== null && myP.drawnTile !== undefined;
   hand.forEach((raw, i) => {
     const isDrawn = drawnActive && i === hand.length - 1;
-    const el = tileEl(raw, tileW, { cls: isDrawn ? 'drawn' : '', layered: 't' });
+    let cls = '';
+    if (isDrawn) {
+      cls = 'drawn';
+      // ツモ牌の出現アニメーションは「新しいツモ」の時だけ（再描画のたびに再生しない）
+      const dkey = `${view.roundLabel}:${view.honba}:${view.wallCount}:${raw}`;
+      if (dkey !== lastDrawnAnimKey) { cls += ' drawn-anim'; lastDrawnAnimKey = dkey; }
+    }
+    const el = tileEl(raw, tileW, { cls, layered: 't' });
     // ドラのヒント表示
     if (view.doraKinds.includes(norm(raw)) || isRedTile(raw)) el.classList.add('dora-hint');
     let clickable = false;
@@ -2366,8 +2379,18 @@ function renderHand(view) {
     if (riichiArmed && clickable) el.classList.add('pickable');
     if (clickable) {
       if (selectedIdx === i) el.classList.add('selected');
-      el.onclick = () => {
-        if (selectedIdx !== i) { selectedIdx = i; renderHand(lastView); renderStatus(lastView); return; }
+      // click ではなく pointerdown で受ける（モバイルで2タップ目がズーム判定に飲まれないように）
+      el.onpointerdown = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        e.preventDefault();
+        if (selectedIdx !== i) {
+          // 選択だけなら手牌を作り直さない（作り直すとツモ牌のアニメーションが再生されて動く）
+          selectedIdx = i;
+          row.querySelectorAll('.tile.selected').forEach((t) => t.classList.remove('selected'));
+          el.classList.add('selected');
+          renderStatus(lastView);
+          return;
+        }
         selectedIdx = null;
         if (riichiArmed) {
           send({ type: 'discard', tile: raw, riichi: true });
