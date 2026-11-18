@@ -1948,7 +1948,8 @@ function buildSettingsPanel(container, settings, editable, onChange) {
   g1.appendChild(tiles([['トップ賞', 'topAward']]));
 
   const g2 = group('役・ドラ');
-  g2.appendChild(seg('はんしばり', [['0', 'なし'], ['1', '1翻'], ['2', '2翻'], ['3', '3翻'], ['4', '4翻'], ['5', '満貫']], rules.shibari ?? 0, (v) => { rules.shibari = Number(v); }));
+  // 1翻縛りは「なし」と実質同一（和了には最低1翻の役が要る）ため選択肢に入れない
+  g2.appendChild(seg('はんしばり', [['0', 'なし'], ['2', '2翻'], ['3', '3翻'], ['4', '4翻'], ['5', '満貫']], (rules.shibari ?? 0) <= 1 ? 0 : rules.shibari, (v) => { rules.shibari = Number(v); }));
   g2.appendChild(tiles([['赤ドラ', 'redDora'], ['裏ドラ', 'uraDora'], ['北抜き', 'kita'], ['喰いタン', 'kuitan']]));
 
   const g3 = group('進行・終了');
