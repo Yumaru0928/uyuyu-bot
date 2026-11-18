@@ -99,6 +99,9 @@ function buildReplay(record) {
         discards++;
         pushStep('discard', `${nameOf(ev.s)} が打牌${ev.riichi ? '（リーチ）' : ''}`, ev.s);
       } else if (ev.t === 'c') {
+        // ロン即決でウィンドウが閉じた後に記録された残りの応答は、結果に影響しないので読み飛ばす
+        // （ロン解決は非ロン応答を見ない・ダブルロンは全ロン候補の応答を待ってから即決する仕様のため）
+        if (match.phase !== 'call') continue;
         mustOk(game.applyCallResponse(match, ev.s, ev.a), ev);
         if (game.callSettled(match)) {
           const beforeMelds = match.players.map((p) => p.melds.length);

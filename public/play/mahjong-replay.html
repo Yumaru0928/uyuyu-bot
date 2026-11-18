@@ -1912,6 +1912,10 @@ let playing = false;
 let speed = 1;
 let timer = null;
 const opts = { hands: true, houjuu: true, wallShow: false, fx: true, hideNames: false, waits: true };
+try {
+  const saved = JSON.parse(localStorage.getItem('mj-replay-opts') || 'null');
+  if (saved) for (const k of Object.keys(opts)) if (typeof saved[k] === 'boolean') opts[k] = saved[k];
+} catch { /* 保存値が壊れていたら初期値のまま */ }
 
 const SEAT_CYCLE = [0, 1, null, 2];
 function slotOf(seat) {
@@ -2424,8 +2428,24 @@ function openResults() {
 }
 
 /* ===== イベント ===== */
-$('rp-prev').onclick = () => { stopPlay(); goTo(idx - 1); };
-$('rp-next').onclick = () => { stopPlay(); goTo(idx + 1, true); };
+/* 前/次ボタン：タップで1手、長押しで連続送り */
+function holdStep(el, stepFn) {
+  let delay = null;
+  let interval = null;
+  const stop = () => { clearTimeout(delay); clearInterval(interval); delay = interval = null; };
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    stop();
+    stopPlay();
+    stepFn();
+    delay = setTimeout(() => { interval = setInterval(stepFn, 110); }, 380);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, stop);
+  el.addEventListener('click', (e) => { e.preventDefault(); }); // pointerdown で処理済み（二重発火防止）
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+}
+holdStep($('rp-prev'), () => goTo(idx - 1));
+holdStep($('rp-next'), () => goTo(idx + 1, true));
 $('rp-play').onclick = () => { playing ? stopPlay() : startPlay(); };
 $('rp-speed').onclick = () => {
   speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
@@ -2453,7 +2473,11 @@ $('result-overlay').onclick = () => { $('result-overlay').hidden = true; };
 for (const [id, key] of [['opt-hands', 'hands'], ['opt-houjuu', 'houjuu'], ['opt-wallshow', 'wallShow'], ['opt-fx', 'fx'], ['opt-hidenames', 'hideNames'], ['opt-waits', 'waits']]) {
   const el = $(id);
   el.checked = opts[key];
-  el.onchange = () => { opts[key] = el.checked; render(); };
+  el.onchange = () => {
+    opts[key] = el.checked;
+    try { localStorage.setItem('mj-replay-opts', JSON.stringify(opts)); } catch { /* 保存できなくても動作は続ける */ }
+    render();
+  };
 }
 $('rp-fav').onclick = async () => {
   if (!DATA.loggedIn) { toast('お気に入りはログインが必要です'); return; }
@@ -2504,7 +2528,7 @@ document.body.classList.add('in-game');
     if (viewSeat < 0) viewSeat = 0;
     $('rp-fav').textContent = DATA.favorite ? '★' : '☆';
     const d = new Date(DATA.createdAt);
-    $('replay-meta').textContent = `${DATA.length === 'south' ? '半荘戦' : '東風戦'} ・ ${d.toLocaleString('ja-JP')} ・ コード ${DATA.code} ・ ${steps.length}ステップ`;
+    $('replay-meta').textContent = `${DATA.length === 'south' ? '半荘戦' : '東風戦'} ・ ${d.toLocaleString('ja-JP')} ・ コード ${DATA.code.slice(0, 3)}-${DATA.code.slice(3)} ・ ${steps.length}ステップ`;
     buildSelectors();
     fitStage();
     goTo(0);

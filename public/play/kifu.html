@@ -862,7 +862,7 @@ document.addEventListener('keydown', (ev) => {
       const names = item.players.map((p) => p.name).join(' / ');
       const place = item.myPlacement ? `${item.myPlacement}位` : '';
       const score = item.scores ? `${Math.max(...item.scores)}点トップ` : '';
-      meta.textContent = `${fmtDate(item.createdAt)} ・ ${names} ・ ${place} ${score} ・ ${item.rounds}局`;
+      meta.textContent = `${fmtDate(item.createdAt)} ・ ${names} ・ ${place} ${score} ・ ${item.rounds}局 ・ コード: ${item.code.slice(0, 3)}-${item.code.slice(3)}`;
       main.appendChild(meta);
       row.appendChild(main);
       const fav = document.createElement('button');

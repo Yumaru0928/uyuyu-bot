@@ -204,7 +204,7 @@ function recordMatch(p) {
 
 function getByCode(code) {
   if (typeof code !== 'string') return null;
-  const normalized = code.trim().toUpperCase();
+  const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   return st.data.records.find((r) => r.code === normalized) ?? null;
 }
 

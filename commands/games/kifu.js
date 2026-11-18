@@ -84,7 +84,7 @@ module.exports = {
         name: `${fav ? '★ ' : ''}${fav?.name ?? `三人麻雀（${r.length === 'south' ? '半荘' : '東風'}）`}`,
         value:
           `${names} ・ ${placement ? `${placement}位` : ''}${top !== null ? ` ・ トップ ${top}点` : ''} ・ ${r.rounds.length}局 ・ ${fmtDate(r.createdAt)}\n` +
-          `コード: **${r.code}** ・ [リプレイを見る](${BASE_URL}/play/mahjong/replay/${r.code})`,
+          `コード: **${r.code.slice(0, 3)}-${r.code.slice(3)}** ・ [リプレイを見る](${BASE_URL}/play/mahjong/replay/${r.code})`,
       });
     }
 
