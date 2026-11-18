@@ -1080,21 +1080,38 @@ function publicView(match, seat) {
   // 聴牌時は上がり牌（待ち）と残り枚数を本人にだけ教える。残り枚数は見えている牌
   // （自分の手牌・全員の河と副露・ドラ表示・抜き北）から数える
   let waits = null;
+  let discardWaits = null;
   const meP = match.players[seat];
-  if (match.phase === 'play' && meP.hand.length % 3 === 1) {
-    const kinds = core.waitingTiles(countsOf(meP.hand), meP.melds.length)
-      .filter((t) => t === 0 || t === 8 || t >= 9); // 三麻の牌山にある種類だけ
-    if (kinds.length) {
-      const visible = new Array(34).fill(0);
-      const add = (raw) => { visible[core.normalizeTile(raw)]++; };
-      for (const p of match.players) {
-        for (const d of p.discards) add(d.tile);
-        for (const meld of p.melds) meld.tiles.forEach(add);
-        visible[30] += p.kita || 0;
+  if (match.phase === 'play' && meP.hand.length % 3 !== 0) {
+    const visible = new Array(34).fill(0);
+    const add = (raw) => { visible[core.normalizeTile(raw)]++; };
+    for (const p of match.players) {
+      for (const d of p.discards) add(d.tile);
+      for (const meld of p.melds) meld.tiles.forEach(add);
+      visible[30] += p.kita || 0;
+    }
+    meP.hand.forEach(add);
+    match.doraIndicators.forEach(add);
+    const toWaits = (kinds) => kinds
+      .filter((t) => t === 0 || t === 8 || t >= 9) // 三麻の牌山にある種類だけ
+      .map((t) => ({ tile: t, left: Math.max(0, 4 - visible[t]) }));
+    if (meP.hand.length % 3 === 1) {
+      const kinds = toWaits(core.waitingTiles(countsOf(meP.hand), meP.melds.length));
+      if (kinds.length) waits = kinds;
+    } else if (match.turn === seat) {
+      // 自分の打牌前（3n+2枚）：牌の種類ごとに「それを切った時の待ち」を先読みして渡す
+      const map = {};
+      const seenKinds = new Set();
+      for (const raw of meP.hand) {
+        const kind = core.normalizeTile(raw);
+        if (seenKinds.has(kind)) continue;
+        seenKinds.add(kind);
+        const idx = meP.hand.findIndex((t) => core.normalizeTile(t) === kind);
+        const rest = meP.hand.filter((_, i) => i !== idx);
+        const kinds = toWaits(core.waitingTiles(countsOf(rest), meP.melds.length));
+        if (kinds.length) map[kind] = kinds;
       }
-      meP.hand.forEach(add);
-      match.doraIndicators.forEach(add);
-      waits = kinds.map((t) => ({ tile: t, left: Math.max(0, 4 - visible[t]) }));
+      if (Object.keys(map).length) discardWaits = map;
     }
   }
   return {
@@ -1115,6 +1132,7 @@ function publicView(match, seat) {
       : null,
     actions,
     waits,
+    discardWaits,
     lastResult: match.phase === 'roundEnd' || match.phase === 'gameEnd' ? match.lastResult : null,
     placements: match.placements,
     finalScores: match.finalScores,
