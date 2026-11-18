@@ -1323,7 +1323,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 
 /* ===== 対面スロット（視点回転対応） ===== */
 .board-tiles .pond.far {
-  left: 50%; top: 20.6%;
+  left: 50%; top: 22.4%;
   transform: translate(-50%, -50%) rotate(180deg) translateZ(6px);
   grid-template-columns: repeat(6, 2.9cqw);
   gap: 0.85cqw 0.45cqw;
@@ -1342,7 +1342,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .board .melds-far.at-right { left: auto; right: 6%; top: 11.5%; }
 .board .far-hand {
   position: absolute;
-  left: 50%; top: 15%;
+  left: 50%; top: 12.4%;
   width: 44cqw; height: 3.65cqw;
   transform: translateX(-50%) rotate(180deg);
   display: flex;
@@ -2220,6 +2220,8 @@ function buildSideHands(view) {
     if (slot === 'me') continue;
     const el = els[slot];
     if (!el) continue;
+    // 対面の手牌は河と重ならないよう一回り小さくする
+    const tsize = slot === 'far' ? 2.3 : 2.7;
     // 手牌が見えている席（手牌公開・オープンリーチ・終局など）は表向きで並べる
     if (Array.isArray(p.hand)) {
       const tiles = [...p.hand].sort((a, b) => norm(a) - norm(b) || a - b);
@@ -2228,7 +2230,7 @@ function buildSideHands(view) {
       el.dataset.count = key;
       el.classList.add('open');
       el.innerHTML = '';
-      for (const raw of tiles) el.appendChild(tileEl(raw, { cqw: 2.7 }, { solid: true }));
+      for (const raw of tiles) el.appendChild(tileEl(raw, { cqw: tsize }, { solid: true }));
       continue;
     }
     el.classList.remove('open');
@@ -2238,12 +2240,12 @@ function buildSideHands(view) {
     el.dataset.count = key;
     el.innerHTML = '';
     const n = drawn ? p.handCount - 1 : p.handCount;
-    for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: 2.7 }, { solid: true }));
+    for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
     if (drawn) {
       const gap = document.createElement('div');
       gap.className = 'drawn-gap';
       el.appendChild(gap);
-      el.appendChild(tileEl(0, { cqw: 2.7 }, { solid: true }));
+      el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
     }
   }
 }
