@@ -2114,6 +2114,12 @@ function handle(msg) {
     case 'player_back':
       toast(`${msg.name} さんが戻ってきました`);
       break;
+    case 'session_takeover':
+      // 別の画面（再読み込み後の新しい画面含む）に席を引き継いだ。自動再接続はしない
+      intentionalClose = true;
+      clearTimeout(reconnectTimer);
+      toast('別の画面で対局が開かれたため、この画面は切断されました');
+      break;
     case 'room_closed':
       toast(msg.message);
       backToMenu();

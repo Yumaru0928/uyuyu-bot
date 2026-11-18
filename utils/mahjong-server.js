@@ -637,8 +637,11 @@ function attach(server, { verifyToken = null } = {}) {
         const mySeat = user.id ? room.slots.findIndex((s) => s && !s.bot && s.user.id === user.id) : -1;
         if (mySeat >= 0) {
           const slot = room.slots[mySeat];
-          if (slot.ws && slot.ws !== ws && slot.ws.readyState === 1) {
-            return send(ws, { type: 'error', message: 'すでに別の画面で参加しています' });
+          if (slot.ws && slot.ws !== ws) {
+            // 再読み込み・別タブは新しい接続を優先する。古い接続は切断検知が
+            // 遅れることがあるため、通知してからこちらで切って席を引き継ぐ
+            send(slot.ws, { type: 'session_takeover' });
+            try { slot.ws.close(); } catch { /* noop */ }
           }
           slot.ws = ws;
           slot.user.name = user.name;
