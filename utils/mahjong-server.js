@@ -129,8 +129,7 @@ function makeRoom({ mode, createdVia, hooks = null }) {
     length: 'east',
     phase: 'lobby', // 'lobby' | 'playing' | 'finished'
     match: null,
-    playerSeats: [], // 対局の席番号（=スロット番号。三麻は3席固定でスロットと一致）
-    firstDealer: 0,
+    playerSeats: [], // 対局の席順に並んだスロット番号（開始時にシャッフルして割り当てる）
     rematchOffers: new Set(),
     graceTimers: new Map(),
     botTimer: null, callTimer: null, roundTimer: null,
@@ -213,10 +212,10 @@ function attach(server, { verifyToken = null } = {}) {
       const slot = room.slots[seat];
       return { name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws), icon: slotIcon(slot) };
     });
-    room.playerSeats.forEach((seat) => {
-      const slot = room.slots[seat];
+    room.playerSeats.forEach((slotIdx, matchSeat) => {
+      const slot = room.slots[slotIdx];
       if (!slot || slot.bot || !slot.ws) return;
-      send(slot.ws, { type: 'state', seat, players, view: game.publicView(room.match, seat) });
+      send(slot.ws, { type: 'state', seat: matchSeat, players, view: game.publicView(room.match, matchSeat) });
     });
   }
 
@@ -234,7 +233,7 @@ function attach(server, { verifyToken = null } = {}) {
   // ---- 対局の駆動 ----
 
   function seatIsAuto(room, seat) {
-    const slot = room.slots[seat];
+    const slot = room.slots[room.playerSeats[seat]];
     return slot.bot || !slot.ws; // Bot 席 or 切断中の人間席は代行
   }
 
@@ -294,7 +293,7 @@ function attach(server, { verifyToken = null } = {}) {
         if (room.match.call.responses[seat] === undefined) {
           const opts = room.match.call.options[seat];
           // 代行はロンだけ拾い、鳴きはパス（切断中の席を勝手に開かせない）
-          const action = room.slots[seat].bot ? game.botChooseCall(room.match, seat) : (opts.ron ? 'ron' : 'pass');
+          const action = room.slots[room.playerSeats[seat]].bot ? game.botChooseCall(room.match, seat) : (opts.ron ? 'ron' : 'pass');
           game.applyCallResponse(room.match, seat, action);
           maybeResolveCall(room);
         }
@@ -357,11 +356,16 @@ function attach(server, { verifyToken = null } = {}) {
   function startGame(room) {
     if (room.waitingTimer) { clearTimeout(room.waitingTimer); room.waitingTimer = null; }
     if (room.finishedTimer) { clearTimeout(room.finishedTimer); room.finishedTimer = null; }
+    // 座る席はランダムに割り当てる
     room.playerSeats = filledSeats(room);
+    for (let i = room.playerSeats.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [room.playerSeats[i], room.playerSeats[j]] = [room.playerSeats[j], room.playerSeats[i]];
+    }
     room.match = game.createMatch({ length: room.length });
-    room.match.firstDealer = room.playerSeats.indexOf(room.firstDealer);
-    if (room.match.firstDealer < 0) room.match.firstDealer = 0;
-    room.match.dealer = room.match.firstDealer;
+    // 起家は「対面が空席になる席（席0）の視点から見て左の席」＝席2に固定
+    room.match.firstDealer = 2;
+    room.match.dealer = 2;
     room.phase = 'playing';
     room.rematchOffers.clear();
     room.recorded = false;
@@ -443,9 +447,6 @@ function attach(server, { verifyToken = null } = {}) {
     for (let s = 0; s < MAX_PLAYERS; s++) {
       if (!room.slots[s]) room.slots[s] = botSlot(`Bot ${s + 1}`);
     }
-    const seats = filledSeats(room);
-    const prev = seats.indexOf(room.firstDealer);
-    room.firstDealer = seats[(prev + 1) % seats.length];
     startGame(room);
     return true;
   }
@@ -545,6 +546,8 @@ function attach(server, { verifyToken = null } = {}) {
       const slot = room.slots[seat];
       if (!slot || slot.ws !== ws) return;
       const m = room.match;
+      // 対局中の操作は「スロット番号」ではなくシャッフル後の「対局の席番号」で扱う
+      const mSeat = room.playerSeats.indexOf(seat);
 
       if (msg.type === 'add_bot') {
         if (room.phase !== 'lobby' || room.mode !== 'human') return send(ws, { type: 'error', message: '今は Bot を追加できません' });
@@ -581,14 +584,13 @@ function attach(server, { verifyToken = null } = {}) {
         if (filledSeats(room).length < MAX_PLAYERS) {
           return send(ws, { type: 'error', message: '三麻は3席そろってから開始できます（Bot で埋めることもできます）' });
         }
-        room.firstDealer = room.hostSeat;
         startGame(room);
         return;
       }
 
       if (msg.type === 'discard') {
         if (!m || room.phase !== 'playing') return;
-        const r = game.applyDiscard(m, seat, msg.tile, { riichi: Boolean(msg.riichi) });
+        const r = game.applyDiscard(m, mSeat, msg.tile, { riichi: Boolean(msg.riichi) });
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         afterAction(room);
         return;
@@ -596,7 +598,7 @@ function attach(server, { verifyToken = null } = {}) {
 
       if (msg.type === 'tsumo') {
         if (!m || room.phase !== 'playing') return;
-        const r = game.applyTsumo(m, seat);
+        const r = game.applyTsumo(m, mSeat);
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         afterAction(room);
         return;
@@ -604,7 +606,7 @@ function attach(server, { verifyToken = null } = {}) {
 
       if (msg.type === 'kan') {
         if (!m || room.phase !== 'playing') return;
-        const r = game.applyKan(m, seat, msg.tile, msg.kanKind);
+        const r = game.applyKan(m, mSeat, msg.tile, msg.kanKind);
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         afterAction(room);
         return;
@@ -612,7 +614,7 @@ function attach(server, { verifyToken = null } = {}) {
 
       if (msg.type === 'nuki') {
         if (!m || room.phase !== 'playing') return;
-        const r = game.applyNuki(m, seat);
+        const r = game.applyNuki(m, mSeat);
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         afterAction(room);
         return;
@@ -620,8 +622,8 @@ function attach(server, { verifyToken = null } = {}) {
 
       if (msg.type === 'call_response') {
         if (!m || room.phase !== 'playing' || m.phase !== 'call') return;
-        if (m.call.responses[seat] !== undefined) return;
-        const r = game.applyCallResponse(m, seat, msg.action);
+        if (m.call.responses[mSeat] !== undefined) return;
+        const r = game.applyCallResponse(m, mSeat, msg.action);
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         broadcastState(room); // 応答したことを表示に反映（ボタンを消す）
         maybeResolveCall(room);
@@ -631,9 +633,6 @@ function attach(server, { verifyToken = null } = {}) {
       if (msg.type === 'rematch') {
         if (room.phase !== 'finished') return send(ws, { type: 'error', message: '対局が終わってから押してください' });
         if (room.mode === 'bot') {
-          const seats = filledSeats(room);
-          const prev = seats.indexOf(room.firstDealer);
-          room.firstDealer = seats[(prev + 1) % seats.length];
           startGame(room);
           return;
         }
