@@ -700,6 +700,27 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
     inset 0 0.2cqw 0.6cqw rgba(255, 255, 255, 0.08);
 }
 
+/* 聴牌時の上がり牌表示 */
+.wait-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 13.8%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  background: rgba(8, 12, 24, 0.88);
+  border: 1px solid rgba(240, 200, 90, 0.55);
+  border-radius: 999px;
+  padding: 0.45cqw 1.3cqw;
+  z-index: 6;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.wait-bar .wlabel { color: var(--gold); font-weight: 700; font-size: 1.7cqw; }
+.wait-bar .witem { display: inline-flex; align-items: center; gap: 0.3cqw; }
+.wait-bar .wleft { color: #ffd76a; font-size: 1.6cqw; font-weight: 700; }
+.wait-bar .wtotal { color: #cfe0f4; font-size: 1.5cqw; }
 .hand-bar {
   position: absolute;
   left: 0;
@@ -1602,6 +1623,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
         <div class="plate far" id="plate-far"></div>
         <div class="status-pill" id="status-text">接続中…</div>
         <div class="hand-zone"></div>
+        <div class="wait-bar" id="wait-bar" style="display:none"></div>
         <div class="hand-bar"><div class="hand-row" id="hand-row"></div><div class="my-melds" id="my-melds"></div></div>
         <div class="side-btns">
           <button class="sbtn sort" id="btn-sort"><b>理</b><small>理牌</small></button>
@@ -2208,6 +2230,36 @@ function buildSideHands(view) {
 function renderState(view) {
   lastView = view;
   buildSideHands(view);
+  // 聴牌時の上がり牌表示（サーバーが本人分だけ view.waits に入れてくる）
+  {
+    const wb = $('wait-bar');
+    if (view.waits && view.waits.length) {
+      wb.style.display = 'flex';
+      wb.innerHTML = '';
+      const lab = document.createElement('span');
+      lab.className = 'wlabel';
+      lab.textContent = '待ち';
+      wb.appendChild(lab);
+      let total = 0;
+      for (const w of view.waits) {
+        total += w.left;
+        const item = document.createElement('span');
+        item.className = 'witem';
+        item.appendChild(tileEl(w.tile, { cqw: 2.1 }, { layered: 'b' }));
+        const c = document.createElement('span');
+        c.className = 'wleft';
+        c.textContent = '×' + w.left;
+        item.appendChild(c);
+        wb.appendChild(item);
+      }
+      const tot = document.createElement('span');
+      tot.className = 'wtotal';
+      tot.textContent = '残り' + total + '枚';
+      wb.appendChild(tot);
+    } else {
+      wb.style.display = 'none';
+    }
+  }
   // ドラ表示
   const dt = $('dora-tiles');
   dt.innerHTML = '';
