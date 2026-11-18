@@ -235,6 +235,7 @@ function issueBabanukiToken(user) {
     const payload = Buffer.from(JSON.stringify({
         id: String(user.id),
         name: user.username || 'プレイヤー',
+        avatar: user.avatar || null,
         exp: Date.now() + BABANUKI_TOKEN_TTL_MS
     }), 'utf-8').toString('base64url');
     const sig = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
@@ -251,7 +252,7 @@ function verifyBabanukiToken(token) {
         if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
         const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
         if (!data.id || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
-        return { id: String(data.id), name: String(data.name || 'プレイヤー') };
+        return { id: String(data.id), name: String(data.name || 'プレイヤー'), avatar: data.avatar ? String(data.avatar) : null };
     } catch {
         return null;
     }

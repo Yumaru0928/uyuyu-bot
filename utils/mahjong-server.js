@@ -33,6 +33,7 @@ const crypto = require('node:crypto');
 const { WebSocketServer } = require('ws');
 const game = require('./mahjong-game.js');
 const { baseUrl } = require('./notify/common.js');
+const { UYUYU_EMOJIS } = require('./emojis.js');
 
 const WS_PATH = '/play/mahjong/ws';
 const RECONNECT_GRACE_MS = 60_000;
@@ -70,7 +71,23 @@ function send(ws, obj) {
 }
 
 function botSlot(name) {
-  return { ws: null, user: { id: 'BOT', name, guest: false }, bot: true };
+  // Bot のアイコンは、うゆゆ絵文字からランダムに1つ選ぶ
+  const e = UYUYU_EMOJIS[crypto.randomInt(UYUYU_EMOJIS.length)];
+  const icon = e ? `https://cdn.discordapp.com/emojis/${e.id}.png?size=64` : null;
+  return { ws: null, user: { id: 'BOT', name, guest: false }, bot: true, icon };
+}
+
+// 席のアイコンURL：Bot はうゆゆ絵文字、人間は Discord アバター（無ければデフォルトアバター）
+function slotIcon(slot) {
+  if (!slot) return null;
+  if (slot.bot) return slot.icon || null;
+  const u = slot.user || {};
+  if (u.avatar && u.id) return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64`;
+  if (u.id && /^\d+$/.test(String(u.id))) {
+    const idx = Number((BigInt(u.id) >> 22n) % 6n);
+    return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+  }
+  return null;
 }
 
 function filledSeats(room) {
@@ -160,9 +177,9 @@ function attach(server, { verifyToken = null } = {}) {
   function resolveUser(msg) {
     if (msg && typeof msg.token === 'string' && verifyToken) {
       const user = verifyToken(msg.token);
-      if (user) return { id: String(user.id), name: sanitizeName(user.name), guest: false };
+      if (user) return { id: String(user.id), name: sanitizeName(user.name), guest: false, avatar: user.avatar || null };
     }
-    return { id: null, name: sanitizeName(msg && msg.name), guest: true };
+    return { id: null, name: sanitizeName(msg && msg.name), guest: true, avatar: null };
   }
 
   function broadcast(room, obj, exceptSeat = -1) {
@@ -175,7 +192,7 @@ function attach(server, { verifyToken = null } = {}) {
   function broadcastLobby(room) {
     const players = filledSeats(room).map((seat) => {
       const slot = room.slots[seat];
-      return { seat, name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws), isHost: seat === room.hostSeat };
+      return { seat, name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws), isHost: seat === room.hostSeat, icon: slotIcon(slot) };
     });
     room.slots.forEach((slot, seat) => {
       if (!slot || slot.bot || !slot.ws) return;
@@ -192,7 +209,7 @@ function attach(server, { verifyToken = null } = {}) {
     if (!room.match) return;
     const players = room.playerSeats.map((seat) => {
       const slot = room.slots[seat];
-      return { name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws) };
+      return { name: slot.user.name, bot: slot.bot, connected: Boolean(slot.ws), icon: slotIcon(slot) };
     });
     room.playerSeats.forEach((seat) => {
       const slot = room.slots[seat];
