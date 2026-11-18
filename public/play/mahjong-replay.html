@@ -1318,6 +1318,9 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .result-card h2 { margin: 0 0 6px; font-size: 21px; }
 .yaku-list { margin: 8px 0; font-size: 15px; line-height: 1.7; }
 .yaku-list .dora { color: var(--gold); }
+.dora-indicators { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; margin: 6px 0 2px; }
+.dora-indicators .dora-label { font-size: 13px; color: var(--muted); }
+.dora-indicators .dora-label.ura { margin-left: 12px; }
 .pay-line { font-family: var(--font-num); font-size: 14px; color: var(--muted); line-height: 1.8; }
 .result-hand { display: flex; gap: 3px; flex-wrap: wrap; margin: 10px 0; align-items: flex-end; }
 .result-hand .meld { margin-left: 10px; }
@@ -2067,6 +2070,20 @@ function renderResultCard(step) {
         + `<div style="margin-top:4px"><span class="big-score">${w.han}翻 ${w.fu}符</span></div>`;
     }
     frag.appendChild(yl);
+    // ドラ表示牌（表・裏）を役の下に出す
+    const dr = document.createElement('div');
+    dr.className = 'dora-indicators';
+    const addInds = (label, inds, extra) => {
+      if (!inds || !inds.length) return;
+      const lab = document.createElement('span');
+      lab.className = 'dora-label' + (extra ? ' ' + extra : '');
+      lab.textContent = label;
+      dr.appendChild(lab);
+      for (const t of inds) dr.appendChild(tileEl(t, { cqw: 2.6 }));
+    };
+    addInds('ドラ表示', step.doraIndicators);
+    if (w.uraIndicators) addInds('裏ドラ表示', w.uraIndicators, 'ura');
+    if (dr.childNodes.length) frag.appendChild(dr);
     const pl = document.createElement('div');
     pl.className = 'pay-line';
     pl.innerHTML = (w.payments || []).map((pay) => `${names(pay.from)} → ${names(pay.to)}: ${pay.amount}点`).join('<br>')
