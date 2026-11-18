@@ -1676,7 +1676,7 @@ const PIN = {
   5: [[0, 0, 'b'], [2, 0, 'b'], [1, 1, 'r'], [0, 2, 'b'], [2, 2, 'b']],
   6: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
   7: [[0, 0, 'g'], [1, 0, 'r'], [2, 0, 'g'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b']],
-  8: [[0, 0, 'b'], [2, 0, 'b'], [0, 1, 'b'], [2, 1, 'b'], [0, 2, 'b'], [2, 2, 'b'], [0, 3, 'b'], [2, 3, 'b']],
+  8: [[0, 0, 'b'], [1, 0, 'b'], [2, 0, 'b'], [3, 0, 'b'], [0, 1, 'b'], [1, 1, 'b'], [2, 1, 'b'], [3, 1, 'b']],
   9: [[0, 0, 'b'], [1, 0, 'b'], [2, 0, 'b'], [0, 1, 'r'], [1, 1, 'r'], [2, 1, 'r'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
 };
 const SOU = {
@@ -1684,7 +1684,7 @@ const SOU = {
   3: [[1, 0, 'b'], [0, 2, 'g'], [2, 2, 'g']],
   4: [[0, 0, 'g'], [2, 0, 'b'], [0, 2, 'b'], [2, 2, 'g']],
   5: [[0, 0, 'g'], [2, 0, 'g'], [1, 1, 'r'], [0, 2, 'g'], [2, 2, 'g']],
-  6: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g']],
+  6: [[0, 0, 'g'], [1, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [1, 1, 'g'], [2, 1, 'g']],
   7: [[1, 0, 'r'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
   8: [[0, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [2, 2, 'g'], [0, 3, 'g'], [2, 3, 'g']],
   9: [[0, 0, 'g'], [1, 0, 'g'], [2, 0, 'g'], [0, 1, 'g'], [1, 1, 'g'], [2, 1, 'g'], [0, 2, 'g'], [1, 2, 'g'], [2, 2, 'g']],
@@ -1756,14 +1756,21 @@ function tileEl(raw, size, opts = {}) {
         d.style.cssText = `left:${x}%;top:${y}%;width:22%;height:${22 * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
         host.appendChild(d);
       }
-    } else {
-      const rows = rank === 8 ? 4 : 3;
+    } else if (rank === 8) {
+      // 8筒は横4×縦2
       for (const [cx, cy, c] of PIN[rank]) {
         const d = document.createElement('div');
         d.className = 'dot';
         const col = COLOR[red ? 'r' : c];
-        const size = rows === 4 ? 20 : 22;
-        d.style.cssText = `left:${27 + cx * 23}%;top:${rows === 4 ? 15 + cy * 23.3 : 24 + cy * 26}%;width:${size}%;height:${size * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        d.style.cssText = `left:${17 + cx * 22}%;top:${24 + cy * 36}%;width:21%;height:${21 * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
+        host.appendChild(d);
+      }
+    } else {
+      for (const [cx, cy, c] of PIN[rank]) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const col = COLOR[red ? 'r' : c];
+        d.style.cssText = `left:${27 + cx * 23}%;top:${24 + cy * 26}%;width:22%;height:${22 * 0.74}%;background:radial-gradient(circle,${col} 0 24%,#fffdf4 25% 52%,${col} 53% 100%)`;
         host.appendChild(d);
       }
     }
@@ -1775,12 +1782,31 @@ function tileEl(raw, size, opts = {}) {
       for (let i = -2; i <= 2; i++) feathers += `<div class="feather" style="transform:translateX(-50%) rotate(${i * 17}deg);background:${i % 2 === 0 ? '#2a8a4a' : '#1f7a58'}"></div>`;
       b.innerHTML = feathers + '<div class="body"></div><div class="head"></div>';
       host.appendChild(b);
+    } else if (rank === 8) {
+      // 8索は竹を斜めに組んだ「M」の形が2段
+      const col = COLOR[red ? 'r' : 'g'];
+      for (const topPct of [4, 52]) {
+        const h = document.createElement('div');
+        h.style.cssText = `position:absolute;left:4%;top:${topPct}%;width:92%;height:44%;`;
+        [26, -26, 26, -26].forEach((deg, i) => {
+          const d = document.createElement('div');
+          d.className = 'bar';
+          d.style.cssText = `left:${14 + i * 24}%;top:8%;width:17%;height:84%;background:${col};transform:translateX(-50%) rotate(${deg}deg);`;
+          h.appendChild(d);
+        });
+        host.appendChild(h);
+      }
     } else {
-      const rows = rank === 7 || rank === 8 ? 4 : 3;
-      for (const [cx, cy, c] of SOU[rank]) {
+      const pat = SOU[rank];
+      const rows = Math.max(...pat.map((p) => p[1])) + 1;
+      for (const [cx, cy, c] of pat) {
         const d = document.createElement('div');
         d.className = 'bar';
-        d.style.cssText = `left:${24 + cx * 26}%;top:${rows === 4 ? 7 + cy * 23.5 : 9 + cy * 28.5}%;width:17%;height:${rows === 4 ? 18.5 : 25}%;background:${COLOR[red ? 'r' : c]}`;
+        let pos;
+        if (rows === 2) pos = `left:${26 + cx * 24}%;top:${12 + cy * 42}%;width:16%;height:32%;`;
+        else if (rows === 4) pos = `left:${24 + cx * 26}%;top:${7 + cy * 23.5}%;width:17%;height:18.5%;`;
+        else pos = `left:${24 + cx * 26}%;top:${9 + cy * 28.5}%;width:17%;height:25%;`;
+        d.style.cssText = pos + `background:${COLOR[red ? 'r' : c]}`;
         host.appendChild(d);
       }
     }
