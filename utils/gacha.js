@@ -81,34 +81,23 @@ function hashSeed(str) {
   return h >>> 0;
 }
 
-// mulberry32: シード付き疑似乱数
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// お休み対象（SSR を除く通常プール = SR/R/N の13種）
+// お休み対象（SSR を除く通常プール = SR/R/N）
 const REST_ELIGIBLE = GACHA_POOL.filter((e) => e.rarity !== 'SSR');
 
 /**
  * その週のお休み絵文字（名前の配列、REST_COUNT 種）。
  * 週が同じなら誰がいつ計算しても同じ組み合わせになる。
+ * 選出は「週キー＋名前」のハッシュ順：各絵文字の順位がプールの顔ぶれに
+ * 依存しないため、週の途中で絵文字が増えても既存のお休みは入れ替わらない
+ * （新顔が上位に入った場合だけ、その分が差し替わる）。
  */
 function getRestingNames(date = new Date()) {
-  const rng = mulberry32(hashSeed(`uyuyu-gacha-rest:${isoWeekKey(date)}`));
-  const names = REST_ELIGIBLE.map((e) => e.name);
-  // Fisher-Yates で決定的にシャッフルして先頭 REST_COUNT 件
-  for (let i = names.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [names[i], names[j]] = [names[j], names[i]];
-  }
-  return names.slice(0, REST_COUNT);
+  const week = isoWeekKey(date);
+  return REST_ELIGIBLE
+    .map((e) => ({ name: e.name, score: hashSeed(`uyuyu-gacha-rest:${week}:${e.name}`) }))
+    .sort((a, b) => a.score - b.score || (a.name < b.name ? -1 : 1))
+    .slice(0, REST_COUNT)
+    .map((x) => x.name);
 }
 
 /**
