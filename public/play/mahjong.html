@@ -1776,30 +1776,22 @@ function tileEl(raw, size, opts = {}) {
       b.innerHTML = feathers + '<div class="body"></div><div class="head"></div>';
       host.appendChild(b);
     } else if (rank === 8) {
-      // 8索は「縦2本＋中央の山＋横2本」で組んだ M の形が上下2段（下段は上下反転）
+      // 8索： |/ \| が上段、|\ /| が下段（縦棒＋山＋横棒の編み目）を SVG の線で描く
       const col = COLOR[red ? 'r' : 'g'];
-      const mkBar = (css) => {
-        const d = document.createElement('div');
-        d.className = 'bar';
-        d.style.cssText = css + `background:${col};`;
-        return d;
-      };
-      const buildHalf = (flip) => {
-        const h = document.createElement('div');
-        h.style.cssText = `position:absolute;left:5%;width:90%;height:45%;top:${flip ? 51 : 4}%;` + (flip ? 'transform:scaleY(-1);' : '');
-        // 左右の縦棒
-        h.appendChild(mkBar('left:9%;top:3%;width:13%;height:94%;'));
-        h.appendChild(mkBar('left:91%;top:3%;width:13%;height:94%;'));
-        // 中央の山（斜め2本）
-        h.appendChild(mkBar('left:41%;top:0%;width:13%;height:52%;transform:translateX(-50%) rotate(30deg);'));
-        h.appendChild(mkBar('left:59%;top:0%;width:13%;height:52%;transform:translateX(-50%) rotate(-30deg);'));
-        // 横棒2本
-        h.appendChild(mkBar('left:30%;top:47%;width:12%;height:58%;transform:translateX(-50%) rotate(90deg);'));
-        h.appendChild(mkBar('left:70%;top:47%;width:12%;height:58%;transform:translateX(-50%) rotate(90deg);'));
-        return h;
-      };
-      host.appendChild(buildHalf(false));
-      host.appendChild(buildHalf(true));
+      const half = `
+        <line x1="15" y1="10" x2="15" y2="58"/>
+        <line x1="85" y1="10" x2="85" y2="58"/>
+        <line x1="31" y1="56" x2="50" y2="15"/>
+        <line x1="69" y1="56" x2="50" y2="15"/>
+        <line x1="15" y1="40" x2="41" y2="40"/>
+        <line x1="59" y1="40" x2="85" y2="40"/>`;
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:absolute;inset:4% 6%;';
+      wrap.innerHTML = `<svg viewBox="0 0 100 135" width="100%" height="100%" preserveAspectRatio="none">
+        <g stroke="${col}" stroke-width="10.5" stroke-linecap="round">${half}</g>
+        <g stroke="${col}" stroke-width="10.5" stroke-linecap="round" transform="translate(0 135) scale(1 -1)">${half}</g>
+      </svg>`;
+      host.appendChild(wrap);
     } else {
       const pat = SOU[rank];
       const rows = Math.max(...pat.map((p) => p[1])) + 1;
