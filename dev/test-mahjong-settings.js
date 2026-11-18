@@ -20,6 +20,7 @@ const JUNK13 = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 12];
 function baseMatch(rules = {}) {
   const m = game.createMatch({ rules });
   game.startRound(m);
+  m.uraIndicators = [0]; // 裏ドラは規定ONなので、専用テスト以外は0枚に固定して決定的にする
   return m;
 }
 
@@ -71,6 +72,7 @@ function baseMatch(rules = {}) {
     m.players[0].hand = [...RIICHI_HAND, 24];
     m.players[0].riichi = true;
     m.doraIndicators = [0];
+    m.uraIndicators = [0];
     m.turn = 0;
     return game.evalWin(m, 0, 24, 'tsumo');
   };
