@@ -2048,11 +2048,19 @@ function show(id) {
   if (id === 'game-screen') fitStage();
 }
 // ステージ（1280×800固定レイアウト）を画面に合わせて拡縮。縦画面では全体を90°回転させる
+let lastFit = null;
 function fitStage() {
   const stage = $('stage');
   if (!stage) return;
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const wrap = stage.parentElement;
+  const vw = wrap ? wrap.clientWidth : window.innerWidth;
+  const vh = wrap ? wrap.clientHeight : window.innerHeight;
+  if (!vw || !vh) return;
   const portrait = vh > vw;
+  // Android Chrome はアドレスバーの開閉で高さだけが小刻みに変わり resize が連発する。
+  // 向きと幅が同じで高さの変化がバー分（約140px以下）なら再フィットしない（画面のチカチカ防止）
+  if (lastFit && lastFit.portrait === portrait && lastFit.vw === vw && Math.abs(vh - lastFit.vh) <= 140) return;
+  lastFit = { portrait, vw, vh };
   const s = portrait ? Math.min(vw / 800, vh / 1280) : Math.min(vw / 1280, vh / 800);
   stage.style.transform = (portrait ? 'rotate(90deg) ' : '') + `scale(${s})`;
 }
@@ -3109,10 +3117,14 @@ $('btn-settings').onclick = () => toast('設定は準備中です');
 $('btn-leave-lobby').onclick = () => { send({ type: 'leave' }); backToMenu(); };
 $('btn-leave-game').onclick = () => { send({ type: 'leave' }); backToMenu(); };
 $('btn-back-menu').onclick = () => { send({ type: 'leave' }); backToMenu(); };
+// リサイズでは再描画しない（ステージは固定サイズで、拡縮は transform だけで足りる）。
+// 全面再描画は Android で画面がチカチカする主因になるため、rAF で間引いて fitStage のみ行う
+let fitRaf = 0;
 window.addEventListener('resize', () => {
-  fitStage();
-  if (lastView && !$('game-screen').hidden) renderState(lastView);
+  if (fitRaf) return;
+  fitRaf = requestAnimationFrame(() => { fitRaf = 0; fitStage(); });
 });
+window.addEventListener('orientationchange', () => setTimeout(fitStage, 80));
 
 (async () => {
   // 壁牌の初期描画（接続前でも卓の見た目を出す）

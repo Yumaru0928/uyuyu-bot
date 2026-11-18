@@ -2500,13 +2500,18 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ===== ステージのフィット（対局画面と同じ方式） ===== */
+let lastFit = null;
 function fitStage() {
   const stage = $('stage');
   if (!stage) return;
   const wrap = stage.parentElement;
   const vw = wrap.clientWidth || window.innerWidth;
   const vh = wrap.clientHeight || window.innerHeight;
-  const portrait = window.innerHeight > window.innerWidth;
+  if (!vw || !vh) return;
+  const portrait = vh > vw;
+  // Android のアドレスバー開閉による高さだけの小変化では再フィットしない（チカチカ防止）
+  if (lastFit && lastFit.portrait === portrait && lastFit.vw === vw && Math.abs(vh - lastFit.vh) <= 140) return;
+  lastFit = { portrait, vw, vh };
   const s = portrait ? Math.min(vw / 800, vh / 1280) : Math.min(vw / 1280, vh / 800);
   stage.style.transform = (portrait ? 'rotate(90deg) ' : '') + `scale(${s})`;
 }
