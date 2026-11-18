@@ -390,6 +390,90 @@ app.post('/api/kifu/favorite', express.json({ limit: '16kb' }), remember.restore
     res.json({ ok: true, favorite: Boolean(fav), name: fav?.name ?? null });
 });
 
+// 5.7 麻雀の対戦履歴（/play/mahjong/replay/:code）
+//    終局時に utils/mahjong-history-store.js へ保存された対局を、卓の上で再生できる。
+//    一覧とお気に入りは Discord ログイン必須、コードでの閲覧はログイン不要（棋譜と同じ）。
+const mahjongHistoryStore = require('./utils/mahjong-history-store');
+const mahjongReplay = require('./utils/mahjong-replay');
+
+app.get('/play/mahjong/replay/:code', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'play', 'mahjong-replay.html'));
+});
+
+function mahjongHistorySummary(record, userId) {
+    const fav = userId ? mahjongHistoryStore.getFavorite(userId, record.id) : null;
+    const mySeat = userId ? record.players.findIndex(p => p.id === userId && !p.bot) : -1;
+    return {
+        code: record.code,
+        length: record.length,
+        players: record.players.map(p => ({ name: p.name, bot: p.bot })),
+        myPlacement: mySeat >= 0 && record.placements ? record.placements[mySeat] : null,
+        placements: record.placements,
+        finalScores: record.finalScores,
+        scores: record.scores,
+        rounds: record.rounds.length,
+        createdAt: record.createdAt,
+        favorite: Boolean(fav),
+        name: fav?.name ?? null
+    };
+}
+
+// 自分が参加した対局の一覧（新しい順）
+app.get('/api/mahjong-history/list', remember.restoreLogin, (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'ログインが必要です' });
+    }
+    const userId = String(req.user.id);
+    res.json({ items: mahjongHistoryStore.listForUser(userId).map(r => mahjongHistorySummary(r, userId)) });
+});
+
+// 再生データ（ステップ列）は不変なので、作ったものをメモリにキャッシュする
+const mahjongReplayCache = new Map();
+app.get('/api/mahjong-history/view/:code', remember.restoreLogin, (req, res) => {
+    const record = mahjongHistoryStore.getByCode(req.params.code);
+    if (!record) return res.status(404).json({ error: '対戦履歴が見つかりません（削除された可能性があります）' });
+    const userId = req.isAuthenticated() && req.user ? String(req.user.id) : null;
+    const fav = userId ? mahjongHistoryStore.getFavorite(userId, record.id) : null;
+    let built = mahjongReplayCache.get(record.id);
+    if (!built) {
+        try {
+            built = mahjongReplay.buildReplay(record);
+        } catch (error) {
+            console.error('[Web] 麻雀リプレイの再現に失敗しました:', error);
+            return res.status(500).json({ error: '対戦履歴を再生できませんでした' });
+        }
+        if (mahjongReplayCache.size > 20) mahjongReplayCache.clear();
+        mahjongReplayCache.set(record.id, built);
+    }
+    res.json({
+        code: record.code,
+        length: record.length,
+        players: record.players.map(p => ({ name: p.name, bot: p.bot })),
+        mySeat: userId ? record.players.findIndex(p => p.id === userId && !p.bot) : -1,
+        createdAt: record.createdAt,
+        rounds: built.rounds,
+        steps: built.steps,
+        loggedIn: Boolean(userId),
+        favorite: Boolean(fav),
+        name: fav?.name ?? null
+    });
+});
+
+// お気に入りと名前の更新（自分の分だけ）
+app.post('/api/mahjong-history/favorite', express.json({ limit: '16kb' }), remember.restoreLogin, (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'ログインが必要です' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const record = mahjongHistoryStore.getByCode(typeof body.code === 'string' ? body.code : '');
+    if (!record) return res.status(404).json({ error: '対戦履歴が見つかりません（削除された可能性があります）' });
+    const userId = String(req.user.id);
+    const name = typeof body.name === 'string' ? body.name : undefined;
+    mahjongHistoryStore.setFavorite(userId, record.id, Boolean(body.favorite), name);
+    const fav = mahjongHistoryStore.getFavorite(userId, record.id);
+    res.json({ ok: true, favorite: Boolean(fav), name: fav?.name ?? null });
+});
+
 // 6. ダッシュボード（管理できるサーバー一覧画面）
 app.get('/dashboard', remember.restoreLogin, (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
