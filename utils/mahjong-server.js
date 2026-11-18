@@ -198,7 +198,9 @@ function attach(server, { verifyToken = null } = {}) {
       const user = verifyToken(msg.token);
       if (user) return { id: String(user.id), name: sanitizeName(user.name), guest: false, avatar: user.avatar || null };
     }
-    return { id: null, name: sanitizeName(msg && msg.name), guest: true, avatar: null };
+    // ゲストは端末に保存したIDで識別する（再読み込み・再接続で自分の席に戻れるように）
+    const gid = msg && typeof msg.guestId === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(msg.guestId) ? msg.guestId : null;
+    return { id: gid ? 'guest:' + gid : null, name: sanitizeName(msg && msg.name), guest: true, avatar: null };
   }
 
   function broadcast(room, obj, exceptSeat = -1) {
@@ -251,7 +253,7 @@ function attach(server, { verifyToken = null } = {}) {
         time = { base, bank: Math.ceil((room.timeBank[matchSeat] || 0) / 1000), deadline: room.callStart + base * 1000 + (room.timeBank[matchSeat] || 0) };
       }
       if (time) view.time = time;
-      send(slot.ws, { type: 'state', seat: matchSeat, players, view });
+      send(slot.ws, { type: 'state', seat: matchSeat, players, view, mode: room.mode });
     });
   }
 
@@ -631,12 +633,8 @@ function attach(server, { verifyToken = null } = {}) {
         if (ws.mahjong && ws.mahjong.code !== code) {
           return send(ws, { type: 'error', message: 'すでに別のルームに入っています' });
         }
-        if (room.mode !== 'human' && !(room.hostId && !user.guest && user.id === room.hostId)) {
-          return send(ws, { type: 'error', message: 'そのルームには参加できません' });
-        }
-        if (user.guest) return send(ws, { type: 'error', message: '人間同士の対戦には Discord ログインが必要です' });
-
-        const mySeat = room.slots.findIndex((s) => s && !s.bot && s.user.id === user.id);
+        // 自分の席が残っていれば復帰する（Bot戦のゲスト含む。再読み込み・再接続用）
+        const mySeat = user.id ? room.slots.findIndex((s) => s && !s.bot && s.user.id === user.id) : -1;
         if (mySeat >= 0) {
           const slot = room.slots[mySeat];
           if (slot.ws && slot.ws !== ws && slot.ws.readyState === 1) {
@@ -657,6 +655,9 @@ function attach(server, { verifyToken = null } = {}) {
           return;
         }
 
+        // ここからは新規参加。Bot ルームはメンバーの席だけ、友人戦はログイン必須
+        if (room.mode !== 'human') return send(ws, { type: 'error', message: 'そのルームには参加できません' });
+        if (user.guest) return send(ws, { type: 'error', message: '人間同士の対戦には Discord ログインが必要です' });
         if (ws.mahjong) return send(ws, { type: 'error', message: 'すでにルームに入っています' });
         if (room.phase !== 'lobby') return send(ws, { type: 'error', message: 'そのルームは対局中です' });
         const emptySeat = room.slots.findIndex((s) => !s);

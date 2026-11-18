@@ -2056,7 +2056,7 @@ function connect(onOpen) {
       clearTimeout(reconnectTimer);
       reconnectTimer = setTimeout(() => {
         connect(() => {
-          send({ type: 'join', code: roomCode, token: me.token, name: me.name });
+          send({ type: 'join', code: roomCode, token: me.token, name: me.name, guestId });
         });
       }, 2500);
     }
@@ -2071,7 +2071,7 @@ document.addEventListener('visibilitychange', () => {
   if (!ws || ws.readyState >= 2) {
     clearTimeout(reconnectTimer);
     connect(() => {
-      send({ type: 'join', code: roomCode, token: me.token, name: me.name });
+      send({ type: 'join', code: roomCode, token: me.token, name: me.name, guestId });
     });
   }
 });
@@ -2088,12 +2088,14 @@ function handle(msg) {
     case 'lobby':
       roomCode = msg.code;
       saveRoomCode();
+      if (msg.mode) roomMode = msg.mode;
       mySeat = msg.youSeat;
       renderLobby(msg);
       show('lobby-screen');
       break;
     case 'state':
       mySeat = msg.seat;
+      if (msg.mode) roomMode = msg.mode;
       playersMeta = msg.players;
       renderState(msg.view);
       if (msg.view.phase === 'gameEnd') showEnd(msg.view);
@@ -2991,7 +2993,7 @@ function startBotGame(length) {
   matchLength = length;
   tryLockLandscape();
   connect(() => {
-    send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name });
+    send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name, guestId });
   });
 }
 function createHumanRoom() {
@@ -2999,9 +3001,19 @@ function createHumanRoom() {
   roomMode = 'human';
   tryLockLandscape();
   connect(() => {
-    send({ type: 'create', mode: 'human', token: me.token, name: me.name });
+    send({ type: 'create', mode: 'human', token: me.token, name: me.name, guestId });
   });
 }
+// ゲスト用の端末ID（再読み込みしても同じ席に戻れるよう端末に保存する）
+const GUEST_KEY = 'mj-guest-id';
+let guestId = null;
+try {
+  guestId = localStorage.getItem(GUEST_KEY);
+  if (!guestId) {
+    guestId = 'g' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    localStorage.setItem(GUEST_KEY, guestId);
+  }
+} catch { guestId = 'g' + Math.random().toString(36).slice(2, 12); }
 // 対局の再開用にルームコードを端末に残す（退出ボタンを押すまで消さない）
 const ROOM_SAVE_KEY = 'mj-room-code';
 function saveRoomCode() {
@@ -3017,7 +3029,16 @@ function joinRoom(code) {
   saveRoomCode();
   tryLockLandscape();
   connect(() => {
-    send({ type: 'join', code, token: me.token, name: me.name });
+    send({ type: 'join', code, token: me.token, name: me.name, guestId });
+  });
+}
+// 保存済みルームへの復帰（ログイン・ゲスト共通。再読み込み時にも使う）
+function rejoinRoom(code) {
+  roomCode = code;
+  saveRoomCode();
+  tryLockLandscape();
+  connect(() => {
+    send({ type: 'join', code, token: me.token, name: me.name, guestId });
   });
 }
 
@@ -3080,11 +3101,11 @@ window.addEventListener('resize', () => {
     $('join-code').value = roomParam.toUpperCase();
     if (me.loggedIn) joinRoom(roomParam.toUpperCase());
     else toast('参加するには Discord ログインが必要です（ログイン後に自動で参加します）');
-  } else if (me.loggedIn) {
-    // 前回の対局が残っていたら自動で戻る（退出ボタンを押した場合だけ保存が消える）
+  } else {
+    // 前回の対局が残っていたら自動で戻る（ログイン・ゲスト共通。退出ボタンを押した場合だけ保存が消える）
     let saved = null;
     try { saved = localStorage.getItem(ROOM_SAVE_KEY); } catch { /* noop */ }
-    if (saved) joinRoom(saved);
+    if (saved) rejoinRoom(saved);
   }
 })();
 </script>
