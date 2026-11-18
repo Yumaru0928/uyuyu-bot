@@ -665,6 +665,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   pointer-events: none;
 }
 .hand-bar > * { pointer-events: auto; }
+.kita-box { display: inline-flex; gap: 0.25cqw; margin-left: 0.7cqw; align-items: flex-end; }
 .my-melds {
   display: flex;
   gap: 1.2cqw;
@@ -1711,6 +1712,13 @@ function tileEl(raw, size, opts = {}) {
   return el;
 }
 
+// 抜いた北の並び（副露の横に置く）
+function kitaEl(count, cqw) {
+  const box = document.createElement('div');
+  box.className = 'kita-box';
+  for (let i = 0; i < count; i++) box.appendChild(tileEl(30, { cqw }, { solid: true }));
+  return box;
+}
 function meldEl(meld, size, solid) {
   const wrap = document.createElement('div');
   wrap.className = 'meld';
@@ -2053,12 +2061,14 @@ function renderState(view) {
         const seq = order.filter((i) => i < p.melds.length);
         for (let i = 0; i < p.melds.length; i++) if (!seq.includes(i)) seq.push(i);
         seq.forEach((i) => mb.appendChild(meldEl(p.melds[i], { cqw: 3.3 }, true)));
+        if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
       } else {
         const mb = meldEls[slot];
         mb.innerHTML = '';
         p.melds.forEach((m) => {
           mb.appendChild(meldEl(m, { cqw: 3.3 }, true));
         });
+        if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
       }
     }
   }
@@ -2117,11 +2127,12 @@ function renderState(view) {
   const meldsBox = $('my-melds');
   meldsBox.innerHTML = '';
   for (const m of myP.melds) meldsBox.appendChild(meldEl(m, { cqw: 4.6 }));
+  if (myP.kita > 0) meldsBox.appendChild(kitaEl(myP.kita, 4.6));
   let aka = 0;
   for (const raw of myP.hand || []) if (isRedTile(raw)) aka++;
   for (const m of myP.melds) for (const raw of m.tiles) if (isRedTile(raw)) aka++;
   $('counter-aka').textContent = `赤 ×${aka}`;
-  $('counter-kita').textContent = '北 ×0';
+  $('counter-kita').textContent = `北 ×${myP.kita || 0}`;
   $('counter-wall').textContent = `山 ${view.wallCount}`;
 
   renderHand(view);
@@ -2223,7 +2234,7 @@ function maybeAutoAct(view) {
 // ===== 鳴き・和了演出（状態の変化から検出して出す） =====
 let fxPrevView = null;
 function showCallFx(slot, kind) {
-  const labels = { pon: 'ポン', kan: 'カン', riichi: 'リーチ' };
+  const labels = { pon: 'ポン', kan: 'カン', riichi: 'リーチ', nuki: '北抜き' };
   if (!labels[kind]) return;
   const el = document.createElement('div');
   el.className = 'call-fx' + (kind === 'riichi' ? ' call-fx--riichi' : '');
@@ -2289,6 +2300,10 @@ function detectFx(view) {
     // リーチ宣言（同じ局の中で false→true になった時だけ）
     if (p.riichi && !before.riichi && prev.roundLabel === view.roundLabel) {
       showCallFx(slotOf(p.seat, view), 'riichi');
+    }
+    // 北抜き
+    if ((p.kita || 0) > (before.kita || 0)) {
+      showCallFx(slotOf(p.seat, view), 'nuki');
     }
   }
 }
@@ -2380,6 +2395,7 @@ function renderActions(view) {
   };
   if (a.type === 'play') {
     if (a.tsumo) add('ツモ', 'ron', () => send({ type: 'tsumo' }));
+    if (a.nuki) add('北抜き', 'secondary', () => send({ type: 'nuki' }));
     for (const k of a.kan || []) {
       const name = k.kind === 'ankan' ? '暗槓' : '加槓';
       add(`${name}（${tileName(k.tile)}）`, 'secondary', () => send({ type: 'kan', tile: k.tile, kanKind: k.kind }));
