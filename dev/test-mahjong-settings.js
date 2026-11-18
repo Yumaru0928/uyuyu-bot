@@ -58,6 +58,7 @@ function baseMatch(rules = {}) {
     m.players[0].hand = [...RIICHI_HAND];
     m.players[0].riichi = true;
     m.doraIndicators = [0]; // ドラは1萬（手に無い）でドラ0に固定
+    m.uraIndicators = [0]; // 裏ドラも同じく0に固定（規定ON化で混ざらないように）
     return game.evalWin(m, 0, 24, 'ron');
   };
   const r0 = mk(0);

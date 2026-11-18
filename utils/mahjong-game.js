@@ -40,7 +40,7 @@ const DEFAULT_RULES = {
   honbaRon: 200, // 積み棒: ロン1本場あたりの点数（ツモは各100）
   openRiichi: false, // オープンリーチ可
   shibari: 0, // はんしばり: 0=なし / 1〜4=翻縛り（ドラ抜き） / 5=満貫縛り
-  uraDora: false, // 裏ドラ
+  uraDora: true, // 裏ドラ（2026-11-18 本人希望で規定ONに変更）
   abortiveDraws: false, // 途中流局（九種九牌・四風連打・四槓散了）
   openHands: false, // 手牌公開（対局中に全員の手牌が見える）
 };
