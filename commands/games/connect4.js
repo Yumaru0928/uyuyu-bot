@@ -268,7 +268,7 @@ level: game.ranked? null: game.level,
 });
 if (rec) {
 const base = process.env.PUBLIC_BASE_URL || 'https://uyuyu-bot.onrender.com';
-text += `\n📜 棋譜コード: **${rec.code}**（${base}/play/kifu/${rec.code}）`;
+text += `\n📜 対戦履歴コード: **${rec.code}** ・ [対戦履歴を見る](${base}/play/kifu/${rec.code})`;
 }
 } catch (err) {
 console.error('[connect4] 棋譜の保存エラー:', err);
