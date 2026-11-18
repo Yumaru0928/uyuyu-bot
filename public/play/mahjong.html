@@ -701,6 +701,11 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .sbtn b { font-size: 2.4cqw; line-height: 1; }
 .sbtn small { font-size: 1.1cqw; font-weight: 700; opacity: 0.85; line-height: 1; }
 .sbtn.sort { background: #1f7a45; color: #fff; }
+.sbtn.on {
+  background: #8a6d1f;
+  color: #fff8e1;
+  border-color: var(--gold);
+}
 .sbtn:disabled { background: #232f49; opacity: 0.45; }
 .sbtn.ready {
   background: #b03a2e;
@@ -1564,6 +1569,9 @@ let timerDeadline = 0;
 let timerInterval = null;
 let selectedIdx = null;
 let autoSort = true;
+let autoWin = true;   // 和ボタン：自動和了（ツモ・ロンを自動で上がる）
+let noCall = true;    // 鳴ボタン：鳴きなし（ポン・カンを聞かずに自動でパス）
+let lastAutoTsumoKey = null;
 
 const screens = ['menu-screen', 'lobby-screen', 'game-screen', 'end-screen'];
 function show(id) {
@@ -1892,8 +1900,14 @@ function renderState(view) {
   $('counter-kita').textContent = '北 ×0';
 
   renderHand(view);
-  renderActions(view);
+  // 鳴きなしONでロンだけ手動判断のときは、ポン・カンをパネルに出さない
+  let actView = view;
+  if (noCall && !autoWin && view.actions && view.actions.type === 'call' && view.actions.ron) {
+    actView = Object.assign({}, view, { actions: Object.assign({}, view.actions, { pon: false, kan: false }) });
+  }
+  renderActions(actView);
   updateSideButtons(view);
+  maybeAutoAct(view);
   updateTimer(view);
   renderStatus(view);
   renderResult(view);
@@ -1903,15 +1917,51 @@ function renderState(view) {
 function updateSideButtons(view) {
   const a = view.actions;
   const win = $('btn-win'), call = $('btn-call'), giri = $('btn-giri');
+  // 和・鳴はモード切替ボタン（自動和了／鳴きなし）。常に押せて、ON/OFF を色と小ラベルで出す
+  win.disabled = false;
+  call.disabled = false;
+  win.classList.toggle('on', autoWin);
+  call.classList.toggle('on', noCall);
+  win.querySelector('small').textContent = autoWin ? '自動和了' : '和了';
+  call.querySelector('small').textContent = noCall ? '鳴きなし' : '鳴き';
   const canWin = !!a && ((a.type === 'play' && a.tsumo) || (a.type === 'call' && a.ron));
-  const canCall = !!a && a.type === 'call' && (a.pon || a.kan);
-  win.disabled = !canWin;
   win.classList.toggle('ready', canWin);
-  call.disabled = !canCall;
-  call.classList.toggle('ready', canCall);
   const myP = view.players[mySeat];
   const canGiri = !!a && a.type === 'play' && myP && myP.drawnTile !== null && myP.drawnTile !== undefined;
   giri.disabled = !canGiri;
+}
+
+// 自動和了（和）・鳴きなし（鳴）の自動応答。少し間を置いて送る（盤面を見せてから）
+function maybeAutoAct(view) {
+  const a = view && view.actions;
+  if (!a) return;
+  if (a.type === 'play') {
+    if (!autoWin || !a.tsumo) return;
+    const key = `tsumo:${view.roundLabel}:${view.honba}:${view.wallCount}:${(view.players[mySeat] || {}).handCount}`;
+    if (lastAutoTsumoKey === key) return;
+    lastAutoTsumoKey = key;
+    setTimeout(() => {
+      const v = lastView;
+      if (!v || !v.actions || v.actions.type !== 'play' || !v.actions.tsumo) return;
+      const k2 = `tsumo:${v.roundLabel}:${v.honba}:${v.wallCount}:${(v.players[mySeat] || {}).handCount}`;
+      if (k2 === key) send({ type: 'tsumo' });
+    }, 450);
+  } else if (a.type === 'call') {
+    const key = `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`;
+    if (respondedCallKey === key) return;
+    let action = null;
+    if (autoWin && a.ron) action = 'ron';
+    else if (noCall && !a.ron && (a.pon || a.kan)) action = 'pass';
+    if (!action) return;
+    respondedCallKey = key;
+    const sentAction = action;
+    setTimeout(() => {
+      const v = lastView;
+      if (v && v.actions && v.actions.type === 'call') send({ type: 'call_response', action: sentAction });
+    }, 450);
+    const bar = $('action-bar');
+    if (bar) bar.innerHTML = '';
+  }
 }
 
 // 鳴き応答ウィンドウの残り時間表示（右下）
@@ -2225,21 +2275,14 @@ $('btn-len-east').onclick = () => send({ type: 'set_length', length: 'east' });
 $('btn-len-south').onclick = () => send({ type: 'set_length', length: 'south' });
 $('btn-sort').onclick = () => { autoSort = !autoSort; toast(autoSort ? '理牌：ON（自動で並べ替え）' : '理牌：OFF（配牌順）'); if (lastView) renderState(lastView); };
 $('btn-win').onclick = () => {
-  const a = lastView && lastView.actions;
-  if (!a) return;
-  if (a.type === 'play' && a.tsumo) send({ type: 'tsumo' });
-  else if (a.type === 'call' && a.ron) {
-    respondedCallKey = `${lastView.roundLabel}:${lastView.honba}:${a.from}:${a.tile}:${lastView.players[a.from].discards.length}`;
-    send({ type: 'call_response', action: 'ron' });
-  }
+  autoWin = !autoWin;
+  toast(autoWin ? '自動和了：ON（上がれる時は自動で上がります）' : '自動和了：OFF（自分で選びます）');
+  if (lastView) { updateSideButtons(lastView); maybeAutoAct(lastView); }
 };
 $('btn-call').onclick = () => {
-  const a = lastView && lastView.actions;
-  if (!a || a.type !== 'call') return;
-  const action = a.pon ? 'pon' : a.kan ? 'kan' : null;
-  if (!action) return;
-  respondedCallKey = `${lastView.roundLabel}:${lastView.honba}:${a.from}:${a.tile}:${lastView.players[a.from].discards.length}`;
-  send({ type: 'call_response', action });
+  noCall = !noCall;
+  toast(noCall ? '鳴きなし：ON（ポン・カンは自動で見送ります）' : '鳴きなし：OFF（鳴くかどうか聞きます）');
+  if (lastView) renderState(lastView);
 };
 $('btn-giri').onclick = () => {
   const v = lastView;
@@ -2282,7 +2325,7 @@ window.addEventListener('resize', () => {
 
 
 <script>
-[['btn-sort','理牌（並べ替え）'],['btn-win','和了（ツモ・ロン）'],['btn-call','鳴き（ポン・カン）'],['btn-giri','ツモ切り'],['btn-stamp','スタンプ'],['btn-settings','設定'],['btn-leave-game','対局から退出']].forEach(([id,l])=>{const e=document.getElementById(id);if(e){e.title=l;e.setAttribute('aria-label',l);}});
+[['btn-sort','理牌（並べ替え）'],['btn-win','自動和了（ON/OFF）'],['btn-call','鳴きなし（ON/OFF）'],['btn-giri','ツモ切り'],['btn-stamp','スタンプ'],['btn-settings','設定'],['btn-leave-game','対局から退出']].forEach(([id,l])=>{const e=document.getElementById(id);if(e){e.title=l;e.setAttribute('aria-label',l);}});
 </script>
 
 </body>
