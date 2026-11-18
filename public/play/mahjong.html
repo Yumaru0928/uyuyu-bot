@@ -713,7 +713,9 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   pointer-events: none;
 }
 .hand-bar > * { pointer-events: auto; }
-.kita-box { display: inline-flex; gap: 0.25cqw; margin-left: 0.7cqw; align-items: flex-end; }
+.kita-box { display: inline-flex; gap: 0.25cqw; margin-left: 0.7cqw; align-items: flex-end; transform-style: preserve-3d; }
+/* 手牌公開・オープンリーチ時：他家の手牌は立てずに寝かせて表向きで見せる */
+.side-hand.open .tile.solid, .far-hand.open .tile.solid { transform: none; }
 .my-melds {
   display: flex;
   gap: 1.2cqw;
@@ -2182,10 +2184,12 @@ function buildSideHands(view) {
       const key = slot + ':o' + tiles.join(',');
       if (el.dataset.count === key) continue;
       el.dataset.count = key;
+      el.classList.add('open');
       el.innerHTML = '';
       for (const raw of tiles) el.appendChild(tileEl(raw, { cqw: 2.7 }, { solid: true }));
       continue;
     }
+    el.classList.remove('open');
     const drawn = view.phase === 'play' && view.turn === p.seat && p.handCount >= 2;
     const key = slot + ':' + String(p.handCount) + (drawn ? 'd' : '');
     if (el.dataset.count === key) continue;
