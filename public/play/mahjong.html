@@ -1652,6 +1652,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
           <button class="sbtn sort" id="btn-sort"><b>理</b><small>理牌</small></button>
           <button class="sbtn" id="btn-win"><b>和</b><small>和了</small></button>
           <button class="sbtn" id="btn-call"><b>鳴</b><small>鳴き</small></button>
+          <button class="sbtn" id="btn-auto"><b>代</b><small>代走</small></button>
           <button class="sbtn" id="btn-giri"><b>切</b><small>ツモ切り</small></button>
           </div>
         <button class="stamp-btn" id="btn-stamp">☺</button>
@@ -2040,6 +2041,7 @@ let autoSort = true;
 let autoWin = false;  // 和ボタン：自動和了（ツモ・ロンを自動で上がる）。既定はOFF
 let noCall = false;   // 鳴ボタン：鳴きなし（ポン・カンを聞かずに自動でパス）。既定はOFF
 let giriOn = false;   // 切ボタン：ツモ切り（自分の番に自動でツモ切りする）。手動でOFFにするまで維持
+let autoOn = false;   // 代ボタン：代走（サーバー側の Bot 代行に打たせる）。状態はサーバーの state.auto と同期する
 let lastAutoTsumoKey = null;
 let lastAutoGiriKey = null;
 
@@ -2132,6 +2134,7 @@ function handle(msg) {
     case 'state':
       mySeat = msg.seat;
       if (msg.mode) roomMode = msg.mode;
+      if (typeof msg.auto === 'boolean') autoOn = msg.auto;
       playersMeta = msg.players;
       renderState(msg.view);
       if (msg.view.phase === 'gameEnd') showEnd(msg.view);
@@ -2531,7 +2534,10 @@ function renderState(view) {
 // 左端の縦ボタン列（理・和・鳴・切）の状態と動作
 function updateSideButtons(view) {
   const a = view.actions;
-  const win = $('btn-win'), call = $('btn-call'), giri = $('btn-giri');
+  const win = $('btn-win'), call = $('btn-call'), giri = $('btn-giri'), abtn = $('btn-auto');
+  // 代（代走）もモード切替ボタン。ON の間はサーバーの代行が打つ
+  abtn.disabled = false;
+  abtn.classList.toggle('on', autoOn);
   // 和・鳴はモード切替ボタン（自動和了／鳴きなし）。常に押せて、ON/OFF を色と小ラベルで出す
   win.disabled = false;
   call.disabled = false;
@@ -2548,6 +2554,7 @@ function updateSideButtons(view) {
 
 // 自動和了（和）・鳴きなし（鳴）の自動応答。少し間を置いて送る（盤面を見せてから）
 function maybeAutoAct(view) {
+  if (autoOn) return; // 代走中はクライアント側の自動応答を止める（サーバーの代行に任せる）
   const a = view && view.actions;
   if (!a) return;
   if (a.type === 'play') {
@@ -2772,6 +2779,7 @@ function renderHand(view) {
       el.onpointerdown = (e) => {
         if (e.button !== undefined && e.button !== 0) return;
         e.preventDefault();
+        if (autoOn) return; // 代走中は手牌タップを受け付けない
         if (selectedIdx !== i) {
           // 選択だけなら手牌を作り直さない（作り直すとツモ牌のアニメーションが再生されて動く）
           selectedIdx = i;
@@ -2806,6 +2814,7 @@ function renderActions(view) {
     openArmed = false;
     return;
   }
+  if (autoOn) return; // 代走中はアクションボタンを出さない（代行が打つ）
   const add = (label, cls, fn) => {
     const b = document.createElement('button');
     b.textContent = label;
@@ -3134,6 +3143,12 @@ $('btn-call').onclick = () => {
   toast(noCall ? '鳴きなし：ON（ポン・カンは自動で見送ります）' : '鳴きなし：OFF（鳴くかどうか聞きます）');
   if (lastView) renderState(lastView);
 };
+$('btn-auto').onclick = () => {
+  autoOn = !autoOn;
+  send({ type: 'autopilot', on: autoOn });
+  toast(autoOn ? '代走：ON（Bot が代わりに打ちます）' : '代走：OFF（自分で打ちます）');
+  if (lastView) renderState(lastView);
+};
 $('btn-giri').onclick = () => {
   giriOn = !giriOn;
   toast(giriOn ? 'ツモ切り：ON（自分の番は自動でツモ切りします）' : 'ツモ切り：OFF（自分で選びます）');
@@ -3182,7 +3197,7 @@ window.addEventListener('orientationchange', () => setTimeout(fitStage, 80));
 
 
 <script>
-[['btn-sort','理牌（並べ替え）'],['btn-win','自動和了（ON/OFF）'],['btn-call','鳴きなし（ON/OFF）'],['btn-giri','ツモ切り'],['btn-stamp','スタンプ'],['btn-settings','設定'],['btn-leave-game','対局から退出']].forEach(([id,l])=>{const e=document.getElementById(id);if(e){e.title=l;e.setAttribute('aria-label',l);}});
+[['btn-sort','理牌（並べ替え）'],['btn-win','自動和了（ON/OFF）'],['btn-call','鳴きなし（ON/OFF）'],['btn-auto','代走（ON/OFF）'],['btn-giri','ツモ切り'],['btn-stamp','スタンプ'],['btn-settings','設定'],['btn-leave-game','対局から退出']].forEach(([id,l])=>{const e=document.getElementById(id);if(e){e.title=l;e.setAttribute('aria-label',l);}});
 </script>
 
 </body>
