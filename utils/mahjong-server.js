@@ -382,6 +382,11 @@ function attach(server, { verifyToken = null } = {}) {
           room.roundTimer = null;
           if (!rooms.has(room.code) || room.phase !== 'playing' || !room.match) return;
           game.startNextRound(room.match);
+          // 秒読みバンクは1局ごとにリセットする（2026-11-19 本人希望）
+          const { bank } = parseTimePreset(room.timePreset);
+          room.timeBank = [bank * 1000, bank * 1000, bank * 1000];
+          clearPlayClock(room);
+          room.callStart = 0;
           broadcastState(room);
           pump(room);
         }, ROUND_NEXT_MS);
