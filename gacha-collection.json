@@ -207,6 +207,16 @@
       },
       "total": 50,
       "updatedAt": 1794986491566
+    },
+    "1457936943517012011": {
+      "items": {
+        "uyuyu": 4,
+        "uyuyu_sweating": 3,
+        "uyuyu_crashed": 2,
+        "uyuyu_null": 1
+      },
+      "total": 10,
+      "updatedAt": 1794986522967
     }
   },
   "wins": {
