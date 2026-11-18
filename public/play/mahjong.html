@@ -1217,6 +1217,15 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   overflow-y: auto;
   animation: pop 0.25s ease;
 }
+/* 携帯の縦持ちでも結果カードは横画面のまま出す（ステージの回転と合わせる） */
+@media (orientation: portrait) {
+  .result-card {
+    rotate: -90deg;
+    flex: none;
+    width: min(560px, 88vh);
+    max-height: 92vw;
+  }
+}
 @keyframes pop {
   from { transform: scale(0.92); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -1752,9 +1761,11 @@ let timerDeadline = 0;
 let timerInterval = null;
 let selectedIdx = null;
 let autoSort = true;
-let autoWin = true;   // 和ボタン：自動和了（ツモ・ロンを自動で上がる）
-let noCall = true;    // 鳴ボタン：鳴きなし（ポン・カンを聞かずに自動でパス）
+let autoWin = false;  // 和ボタン：自動和了（ツモ・ロンを自動で上がる）。既定はOFF
+let noCall = false;   // 鳴ボタン：鳴きなし（ポン・カンを聞かずに自動でパス）。既定はOFF
+let giriOn = false;   // 切ボタン：ツモ切り（自分の番に自動でツモ切りする）。手動でOFFにするまで維持
 let lastAutoTsumoKey = null;
+let lastAutoGiriKey = null;
 
 const screens = ['menu-screen', 'lobby-screen', 'game-screen', 'end-screen'];
 function show(id) {
@@ -2141,9 +2152,9 @@ function updateSideButtons(view) {
   call.querySelector('small').textContent = noCall ? '鳴きなし' : '鳴き';
   const canWin = !!a && ((a.type === 'play' && a.tsumo) || (a.type === 'call' && a.ron));
   win.classList.toggle('ready', canWin);
-  const myP = view.players[mySeat];
-  const canGiri = !!a && a.type === 'play' && myP && myP.drawnTile !== null && myP.drawnTile !== undefined;
-  giri.disabled = !canGiri;
+  // 切もモード切替ボタン（ツモ切り）。常に押せて、ON の間は自分の番に自動でツモ切りする
+  giri.disabled = false;
+  giri.classList.toggle('on', giriOn);
 }
 
 // 自動和了（和）・鳴きなし（鳴）の自動応答。少し間を置いて送る（盤面を見せてから）
@@ -2151,15 +2162,45 @@ function maybeAutoAct(view) {
   const a = view && view.actions;
   if (!a) return;
   if (a.type === 'play') {
-    if (!autoWin || !a.tsumo) return;
-    const key = `tsumo:${view.roundLabel}:${view.honba}:${view.wallCount}:${(view.players[mySeat] || {}).handCount}`;
-    if (lastAutoTsumoKey === key) return;
-    lastAutoTsumoKey = key;
+    // 自動和了（ツモ）
+    if (autoWin && a.tsumo) {
+      const key = `tsumo:${view.roundLabel}:${view.honba}:${view.wallCount}:${(view.players[mySeat] || {}).handCount}`;
+      if (lastAutoTsumoKey === key) return;
+      lastAutoTsumoKey = key;
+      setTimeout(() => {
+        const v = lastView;
+        if (!v || !v.actions || v.actions.type !== 'play' || !v.actions.tsumo) return;
+        const k2 = `tsumo:${v.roundLabel}:${v.honba}:${v.wallCount}:${(v.players[mySeat] || {}).handCount}`;
+        if (k2 === key) send({ type: 'tsumo' });
+      }, 450);
+      return;
+    }
+    // ツモ切り：リーチ後はトグル無関係に固定／それ以外は 切 トグルが ON の時だけ
+    // 上がり牌（ツモ可）は自動で切らない。リーチ宣言できる牌がツモ牌以外にある時も自動で切らない
+    const myP = view.players[mySeat];
+    if (!myP || myP.drawnTile === null || myP.drawnTile === undefined) return;
+    if (a.tsumo) return;
+    const drawn = myP.drawnTile;
+    const riichiList = Array.isArray(a.riichi) ? a.riichi : [];
+    let riichiFlag = false;
+    if (myP.riichi) {
+      // リーチ後：ツモ切り固定
+    } else if (giriOn) {
+      if (riichiList.length && !riichiList.includes(drawn)) return;
+      riichiFlag = riichiList.includes(drawn);
+    } else {
+      return;
+    }
+    const gkey = `giri:${view.roundLabel}:${view.honba}:${view.wallCount}:${myP.handCount}`;
+    if (lastAutoGiriKey === gkey) return;
+    lastAutoGiriKey = gkey;
     setTimeout(() => {
       const v = lastView;
-      if (!v || !v.actions || v.actions.type !== 'play' || !v.actions.tsumo) return;
-      const k2 = `tsumo:${v.roundLabel}:${v.honba}:${v.wallCount}:${(v.players[mySeat] || {}).handCount}`;
-      if (k2 === key) send({ type: 'tsumo' });
+      if (!v || !v.actions || v.actions.type !== 'play' || v.actions.tsumo) return;
+      const p2 = v.players[mySeat];
+      if (!p2 || p2.drawnTile === null || p2.drawnTile === undefined) return;
+      const k2 = `giri:${v.roundLabel}:${v.honba}:${v.wallCount}:${p2.handCount}`;
+      if (k2 === gkey) send({ type: 'discard', tile: p2.drawnTile, riichi: riichiFlag });
     }, 450);
   } else if (a.type === 'call') {
     const key = `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`;
@@ -2585,11 +2626,9 @@ $('btn-call').onclick = () => {
   if (lastView) renderState(lastView);
 };
 $('btn-giri').onclick = () => {
-  const v = lastView;
-  if (!v || !v.actions || v.actions.type !== 'play') return;
-  const myP = v.players[mySeat];
-  if (!myP || !myP.hand || myP.drawnTile === null || myP.drawnTile === undefined) return;
-  send({ type: 'discard', tile: myP.hand[myP.hand.length - 1] });
+  giriOn = !giriOn;
+  toast(giriOn ? 'ツモ切り：ON（自分の番は自動でツモ切りします）' : 'ツモ切り：OFF（自分で選びます）');
+  if (lastView) { updateSideButtons(lastView); maybeAutoAct(lastView); }
 };
 $('btn-stamp').onclick = () => toast('スタンプは準備中です');
 $('btn-settings').onclick = () => toast('設定は準備中です');
