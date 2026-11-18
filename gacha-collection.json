@@ -249,18 +249,20 @@
     },
     "1367830228621332503": {
       "items": {
-        "uyuyu_uhe": 1,
-        "uyuyu_sweating": 1,
-        "uyuyu_WT": 1,
-        "uyuyu": 1,
-        "uyuyu_null": 1,
-        "uyuyu_fucking": 1,
-        "uyuyu_crying": 2,
+        "uyuyu_uhe": 8,
+        "uyuyu_sweating": 2,
+        "uyuyu_WT": 2,
+        "uyuyu": 2,
+        "uyuyu_null": 2,
+        "uyuyu_fucking": 5,
+        "uyuyu_crying": 4,
         "uyuyu_space": 1,
-        "uyuyu_peace_sign": 1
+        "uyuyu_peace_sign": 1,
+        "uyuyu_dango": 1,
+        "uyuyu_crashed": 2
       },
-      "total": 10,
-      "updatedAt": 1794991320632
+      "total": 30,
+      "updatedAt": 1794991351243
     }
   },
   "wins": {
