@@ -275,6 +275,7 @@ function attach(server, { verifyToken = null } = {}) {
     const m = room.match;
     const act = game.botChoosePlay(m, seat);
     if (act.type === 'tsumo') game.applyTsumo(m, seat);
+    else if (act.type === 'nuki') game.applyNuki(m, seat);
     else if (act.type === 'kan') game.applyKan(m, seat, act.tile, act.kanKind);
     else game.applyDiscard(m, seat, act.tile, { riichi: act.riichi });
   }
@@ -604,6 +605,14 @@ function attach(server, { verifyToken = null } = {}) {
       if (msg.type === 'kan') {
         if (!m || room.phase !== 'playing') return;
         const r = game.applyKan(m, seat, msg.tile, msg.kanKind);
+        if (!r.ok) return send(ws, { type: 'error', message: r.reason });
+        afterAction(room);
+        return;
+      }
+
+      if (msg.type === 'nuki') {
+        if (!m || room.phase !== 'playing') return;
+        const r = game.applyNuki(m, seat);
         if (!r.ok) return send(ws, { type: 'error', message: r.reason });
         afterAction(room);
         return;

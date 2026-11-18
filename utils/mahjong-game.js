@@ -4,9 +4,11 @@
 //
 // ・牌・役・点数の計算は utils/mahjong-core.js に委譲し、ここは「進行」だけを持つ:
 //   配牌→ツモ→打牌→鳴き応答ウィンドウ→和了/流局→次局→終局。
-// ・フェーズ2の範囲: 表ドラ＋赤ドラのみ（裏ドラ・北抜きはフェーズ3）。
-//   リーチ後の槓は不可（簡略化）。流局は通常流局のみ（途中流局なし）。
-// ・三麻の開始点は 35000 点（標準）。北は誰にとっても役牌にならない客風牌。
+// ・フェーズ3で北抜きとリーチ後の暗槓を追加（裏ドラは未実装）。
+//   リーチ後の暗槓は「待ちが変わらず、手牌の3枚が順子として読めない」場合だけ可。
+//   流局は通常流局のみ（途中流局なし）。
+// ・三麻の開始点は 35000 点（標準）。北は誰にとっても役牌にならない客風牌で、
+//   抜くとドラとして数える（北抜き）。普通に切った北は他家がポン・カンできる。
 //
 // 牌の表現は core と同じ: 種類 0..33、赤5筒=34 / 赤5索=35（手牌・河はこの生値を保持し、
 // 数えるときだけ normalizeTile する）。
@@ -18,6 +20,7 @@ const { normalizeTile, isRed } = core;
 const START_SCORE = 35000;
 const SEATS = 3;
 const WINDS = [27, 28, 29]; // 東・南・西（自風はこの順で回る）
+const NORTH = 30; // 北（抜きドラ）
 
 function nextDoraKind(indicatorRaw) {
   const t = normalizeTile(indicatorRaw);
@@ -108,9 +111,9 @@ function evalWin(match, seat, winRaw, winType, extra = {}) {
     honba: match.honba,
     isDealer: seat === match.dealer,
   };
-  // ドラは勝ち手全体（手牌＋副露＋和了牌）で数える
+  // ドラは勝ち手全体（手牌＋副露＋和了牌）で数える。抜いた北も1枚=ドラ1
   const fakePlayer = { hand: winType === 'ron' ? [...p.hand, winRaw] : [...p.hand], melds: p.melds };
-  ctx.doraCount = countDora(fakePlayer, match.doraIndicators);
+  ctx.doraCount = countDora(fakePlayer, match.doraIndicators) + (p.kita || 0);
   const result = core.evaluateWin(counts, melds, ctx);
   if (!result) return null;
   const settlement = core.sanmaSettlement(result.score, { winType, isDealer: ctx.isDealer });
@@ -123,7 +126,7 @@ function createMatch({ length = 'east' } = {}) {
   return {
     length: length === 'south' ? 'south' : 'east',
     players: Array.from({ length: SEATS }, () => ({
-      hand: [], melds: [], discards: [],
+      hand: [], melds: [], discards: [], kita: 0,
       riichi: false, doubleRiichi: false, ippatsu: false, riichiDiscardIndex: -1,
       score: START_SCORE,
     })),
@@ -180,6 +183,7 @@ function startRound(match) {
     p.hand = [];
     p.melds = [];
     p.discards = [];
+    p.kita = 0;
     p.riichi = false;
     p.doubleRiichi = false;
     p.ippatsu = false;
@@ -211,6 +215,7 @@ function doDraw(match, rinshan = false) {
   p.hand.push(tile);
   match.lastDrawn = tile;
   match.drawnFromRinshan = rinshan;
+  if (rinshan) p.ippatsu = false; // 嶺上開花と一発は複合しない
   match.tempFuriten[match.turn] = false; // 自分のツモで見逃しフリテン解除
   return tile;
 }
@@ -223,7 +228,7 @@ function liveWallCount(match) {
 
 function kanOptionsOf(match, seat) {
   const p = match.players[seat];
-  if (p.riichi) return []; // フェーズ2: リーチ後の槓は不可
+  if (p.riichi) return []; // リーチ後は riichiKanOptionsOf で別途判定する
   const out = [];
   const counts = countsOf(p.hand);
   for (let t = 0; t < 34; t++) {
@@ -233,6 +238,77 @@ function kanOptionsOf(match, seat) {
     if (m.type === 'pon' && counts[m.tile] > 0) out.push({ kind: 'shouminkan', tile: m.tile });
   }
   return out;
+}
+
+// 北抜きできるか（ツモ後に手牌に北がある。リーチ後でも可）
+function canNuki(match, seat) {
+  const p = match.players[seat];
+  return match.lastDrawn !== null && p.hand.some((t) => normalizeTile(t) === NORTH);
+}
+
+// 手牌（13枚形）の読み方を列挙し、種類 kind が順子の一部として使われる読み方が
+// あるかを返す。リーチ後暗槓の可否判定用（刻子としてしか読めない場合だけ槓できる）
+function hasSequenceReading(counts13, meldCount, kind) {
+  const c = counts13.slice();
+  const unitsNeeded = 4 - meldCount;
+  let found = false;
+  function rec(units, headUsed, seqHasKind) {
+    if (found) return;
+    let i = 0;
+    while (i < 34 && c[i] === 0) i++;
+    if (i === 34) {
+      if (units === unitsNeeded && headUsed) found = seqHasKind;
+      return;
+    }
+    if (units > unitsNeeded) return;
+    if (c[i] >= 3) { // 刻子
+      c[i] -= 3; rec(units + 1, headUsed, seqHasKind); c[i] += 3;
+    }
+    if (i < 27) {
+      const r = i % 9;
+      if (r <= 6 && c[i + 1] > 0 && c[i + 2] > 0) { // 順子
+        const has = seqHasKind || kind === i || kind === i + 1 || kind === i + 2;
+        c[i]--; c[i + 1]--; c[i + 2]--;
+        rec(units + 1, headUsed, has);
+        c[i]++; c[i + 1]++; c[i + 2]++;
+      }
+      if (r <= 7 && c[i + 1] > 0) { // 搭子（両面・辺張）
+        c[i]--; c[i + 1]--; rec(units + 1, headUsed, seqHasKind); c[i]++; c[i + 1]++;
+      }
+      if (r <= 6 && c[i + 2] > 0) { // 搭子（嵌張）
+        c[i]--; c[i + 2]--; rec(units + 1, headUsed, seqHasKind); c[i]++; c[i + 2]++;
+      }
+    }
+    if (!headUsed && c[i] >= 2) { // 雀頭
+      c[i] -= 2; rec(units, true, seqHasKind); c[i] += 2;
+    }
+    if (!headUsed) { // 単騎
+      c[i] -= 1; rec(units, true, seqHasKind); c[i] += 1;
+    }
+  }
+  rec(0, false, false);
+  return found;
+}
+
+// リーチ後の暗槓候補。ツモ牌と同種が手牌に3枚あり、槓の前後で待ちが変わらず、
+// かつ手牌の3枚が順子の一部として読める読み方が存在しない場合だけ許可する
+// （例: 222333444 に 3 が来た場合は 234 の読み方が壊れるので不可）
+function riichiKanOptionsOf(match, seat) {
+  const p = match.players[seat];
+  if (!p.riichi || match.lastDrawn === null) return [];
+  const kind = normalizeTile(match.lastDrawn);
+  if (countsOf(p.hand)[kind] !== 4) return []; // 手牌3枚＋ツモ牌で4枚
+  const hand13 = [...p.hand];
+  removeOne(hand13, match.lastDrawn);
+  const counts13 = countsOf(hand13);
+  const waitsBefore = core.waitingTiles(counts13, p.melds.length);
+  if (waitsBefore.length === 0) return [];
+  const countsAfter = counts13.slice();
+  countsAfter[kind] -= 3;
+  const waitsAfter = core.waitingTiles(countsAfter, p.melds.length + 1);
+  if (waitsAfter.length !== waitsBefore.length || waitsAfter.some((w, i) => w !== waitsBefore[i])) return [];
+  if (hasSequenceReading(counts13, p.melds.length, kind)) return [];
+  return [{ kind: 'ankan', tile: kind }];
 }
 
 // リーチ可能になる切り牌（生値の一覧）
@@ -252,16 +328,17 @@ function riichiOptionsOf(match, seat) {
 }
 
 function legalPlay(match, seat) {
-  const none = { discards: [], riichi: [], tsumo: false, kan: [] };
+  const none = { discards: [], riichi: [], tsumo: false, kan: [], nuki: false };
   if (match.phase !== 'play' || match.turn !== seat) return none;
   const p = match.players[seat];
   if (p.riichi) {
-    // リーチ後はツモ切り固定（ツモ和了だけ選べる）
+    // リーチ後はツモ切り固定。ただし条件を満たす暗槓と北抜きは選べる
     return {
       discards: match.lastDrawn !== null ? [match.lastDrawn] : [],
       riichi: [],
       tsumo: Boolean(evalWin(match, seat, match.lastDrawn, 'tsumo', tsumoExtra(match, seat))),
-      kan: [],
+      kan: riichiKanOptionsOf(match, seat),
+      nuki: canNuki(match, seat),
     };
   }
   const tsumo = match.lastDrawn !== null &&
@@ -271,6 +348,7 @@ function legalPlay(match, seat) {
     riichi: riichiOptionsOf(match, seat),
     tsumo,
     kan: match.lastDrawn === null ? [] : kanOptionsOf(match, seat), // ポン直後は槓できない
+    nuki: canNuki(match, seat),
   };
 }
 
@@ -528,6 +606,20 @@ function completeKan(match, seat, meld) {
   doDraw(match, true);
 }
 
+// 北抜き: 手牌の北を1枚抜いて公開し（抜いた北はドラとして数える）、嶺上から1枚補充する。
+// 手牌の構成は変わらないのでリーチ後でもできる。補充で引いた牌が北なら続けて抜ける
+function applyNuki(match, seat) {
+  if (match.phase !== 'play' || match.turn !== seat) return { ok: false, reason: 'あなたの番ではありません' };
+  if (match.lastDrawn === null) return { ok: false, reason: 'ツモした後だけ抜けます' };
+  const p = match.players[seat];
+  const idx = p.hand.findIndex((t) => normalizeTile(t) === NORTH);
+  if (idx < 0) return { ok: false, reason: '北を持っていません' };
+  p.hand.splice(idx, 1);
+  p.kita += 1;
+  doDraw(match, true); // 嶺上から補充
+  return { ok: true };
+}
+
 // ツモ和了
 function applyTsumo(match, seat) {
   if (match.phase !== 'play' || match.turn !== seat) return { ok: false, reason: 'あなたの番ではありません' };
@@ -674,6 +766,7 @@ function publicView(match, seat) {
     seat: s,
     score: p.score,
     riichi: p.riichi,
+    kita: p.kita || 0,
     melds: p.melds,
     discards: p.discards,
     handCount: p.hand.length,
@@ -800,10 +893,11 @@ function botChooseCall(match, seat) {
   return 'pass';
 }
 
-// Bot の手番アクション全体: { type:'tsumo' } | { type:'kan', ... } | { type:'discard', tile, riichi }
+// Bot の手番アクション全体: { type:'tsumo' } | { type:'nuki' } | { type:'kan', ... } | { type:'discard', tile, riichi }
 function botChoosePlay(match, seat) {
   const legal = legalPlay(match, seat);
   if (legal.tsumo) return { type: 'tsumo' };
+  if (legal.nuki) return { type: 'nuki' }; // 北は持ったら抜く（リーチ後も）
   const p = match.players[seat];
   if (!p.riichi && legal.kan.length > 0) {
     const ankan = legal.kan.find((k) => k.kind === 'ankan');
@@ -824,7 +918,7 @@ function botChoosePlay(match, seat) {
 module.exports = {
   START_SCORE, SEATS,
   createMatch, startRound, startNextRound,
-  legalPlay, applyDiscard, applyTsumo, applyKan,
+  legalPlay, applyDiscard, applyTsumo, applyKan, applyNuki,
   applyCallResponse, callSettled, resolveCall,
   publicView, botChoosePlay, botChooseCall,
   evalWin, waitsOf, isFuriten, countDora, nextDoraKind,

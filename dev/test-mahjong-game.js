@@ -33,6 +33,9 @@ function playMatch(length, seedLabel) {
     if (act.type === 'tsumo') {
       const r = game.applyTsumo(match, seat);
       assert(r.ok, `${seedLabel}: ツモ和了が失敗: ${r.reason}`);
+    } else if (act.type === 'nuki') {
+      const r = game.applyNuki(match, seat);
+      assert(r.ok, `${seedLabel}: 北抜きが失敗: ${r.reason}`);
     } else if (act.type === 'kan') {
       const r = game.applyKan(match, seat, act.tile, act.kanKind);
       assert(r.ok, `${seedLabel}: 槓が失敗: ${r.reason}`);
