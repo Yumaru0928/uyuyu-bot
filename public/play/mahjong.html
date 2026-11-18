@@ -928,6 +928,21 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   border: 1.5px solid rgba(255, 255, 255, 0.16);
   border-radius: 8%;
 }
+/* 立体牌の「裏面」（暗槓の両端用）。顔の位置（translateZ）に裏柄を描いて表牌と揃える */
+.tile.solid .face.back-face {
+  background: linear-gradient(150deg, #f8b45e 0%, #f09a3e 45%, #e8892b 80%, #d97c1e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.4),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.25);
+}
+.tile.solid .face.back-face::after {
+  content: "";
+  position: absolute;
+  inset: 16% 16% 22%;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8%;
+}
 
 /* 二層構造の立体牌（layered） */
 .tile.layered {
@@ -1727,6 +1742,11 @@ function tileEl(raw, size, opts = {}) {
     host.className = 'face';
     el.appendChild(host);
   }
+  // 立体牌の裏面（暗槓の両端）：構造は立体のまま、顔に裏柄だけ描く
+  if (opts.solidBack) {
+    host.classList.add('back-face');
+    return el;
+  }
   const t = norm(raw);
   const red = isRedTile(raw);
   const suit = t < 9 ? 0 : t < 18 ? 1 : t < 27 ? 2 : 3;
@@ -1823,7 +1843,7 @@ function meldEl(meld, size, solid) {
     // 横向きにするのは「鳴いた牌」そのもの（位置は鳴いた相手の方向で決まる）
     const isCalled = meld.open && i === (meld.calledIndex !== undefined ? meld.calledIndex : tiles.length - 1);
     const isAnkanEnd = !meld.open && meld.type === 'kan' && (i === 0 || i === tiles.length - 1);
-    const el = tileEl(raw, size, isAnkanEnd ? { back: true } : (solid ? { solid: true } : { layered: isCalled ? 'xr' : 'b' }));
+    const el = tileEl(raw, size, isAnkanEnd ? (solid ? { solid: true, solidBack: true } : { back: true }) : (solid ? { solid: true } : { layered: isCalled ? 'xr' : 'b' }));
     if (isCalled) {
       // 横向き牌は「幅=牌の高さ・高さ=牌の幅」の箱に中央配置して回す（レイアウト上の占有と見た目を一致させる）
       const box = document.createElement('div');
