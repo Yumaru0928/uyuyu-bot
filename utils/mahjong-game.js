@@ -517,6 +517,13 @@ function markCalledDiscard(match, seat) {
   match.pristine = false;
 }
 
+// 鳴いた牌の置き位置: 下家（右）から鳴いたら一番右、上家（左）から鳴いたら一番左に横向きで置く
+function arrangeCalledTiles(handTiles, raw, seat, fromSeat) {
+  const fromRight = fromSeat === (seat + 1) % SEATS;
+  const tiles = fromRight ? [...handTiles, raw] : [raw, ...handTiles];
+  return { tiles, calledIndex: fromRight ? tiles.length - 1 : 0 };
+}
+
 function applyPon(match, seat, fromSeat, raw) {
   const p = match.players[seat];
   const kind = normalizeTile(raw);
@@ -527,7 +534,8 @@ function applyPon(match, seat, fromSeat, raw) {
   }
   const tiles = used.map((j) => p.hand[j]).sort((a, b) => a - b);
   for (const j of used.sort((a, b) => b - a)) p.hand.splice(j, 1);
-  p.melds.push({ type: 'pon', tile: kind, tiles: [...tiles, raw], open: true, from: fromSeat });
+  const arranged = arrangeCalledTiles(tiles, raw, seat, fromSeat);
+  p.melds.push({ type: 'pon', tile: kind, tiles: arranged.tiles, open: true, from: fromSeat, calledIndex: arranged.calledIndex });
   markCalledDiscard(match, fromSeat);
   match.turn = seat;
   match.phase = 'play';
@@ -542,7 +550,8 @@ function applyDaiminkan(match, seat, fromSeat, raw) {
   p.hand.forEach((t, j) => { if (normalizeTile(t) === kind) idxs.push(j); });
   const tiles = idxs.map((j) => p.hand[j]);
   for (const j of idxs.sort((a, b) => b - a)) p.hand.splice(j, 1);
-  const meld = { type: 'kan', tile: kind, tiles: [...tiles, raw], open: true, from: fromSeat };
+  const arranged = arrangeCalledTiles(tiles, raw, seat, fromSeat);
+  const meld = { type: 'kan', tile: kind, tiles: arranged.tiles, open: true, from: fromSeat, calledIndex: arranged.calledIndex };
   p.melds.push(meld);
   markCalledDiscard(match, fromSeat);
   match.turn = seat;

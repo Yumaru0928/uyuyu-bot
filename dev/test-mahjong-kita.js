@@ -137,4 +137,70 @@ function ok(name, cond) {
   ok('リーチ前なら同じ形でも暗槓できる', game.legalPlay(m, 0).kan.some((k) => k.kind === 'ankan' && k.tile === 20));
 }
 
+// ---- 鳴いた牌の向き（ポン・大明槓） ----
+// discarder が seat0 に鳴かせる形を作り、応答をそろえて解決する
+function craftCall({ myHand, discarder, discardRaw, discarderHand }) {
+  const m = game.createMatch({});
+  game.startRound(m);
+  m.players[0].hand = myHand;
+  m.players[discarder].hand = discarderHand;
+  m.turn = discarder;
+  m.phase = 'play';
+  m.lastDrawn = discarderHand[discarderHand.length - 1];
+  const r = game.applyDiscard(m, discarder, discardRaw);
+  assert(r.ok, '切りが失敗: ' + r.reason);
+  return m;
+}
+function settleCall(m, myAction) {
+  for (const seat of Object.keys(m.call.options).map(Number)) {
+    game.applyCallResponse(m, seat, seat === 0 ? myAction : 'pass');
+  }
+  assert(game.callSettled(m), '応答がそろわない');
+  game.resolveCall(m);
+}
+{
+  // 下家（右 = seat1）から赤5筒をポン → 鳴いた牌が一番右
+  const m = craftCall({
+    myHand: [13, 13, 9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25],
+    discarder: 1, discardRaw: 34,
+    discarderHand: [9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25, 26, 33, 34],
+  });
+  settleCall(m, 'pon');
+  const meld = m.players[0].melds[0];
+  ok('ポン（右から）: 鳴いた牌が一番右', meld.tiles[2] === 34 && meld.calledIndex === 2);
+}
+{
+  // 上家（左 = seat2）から赤5筒をポン → 鳴いた牌が一番左
+  const m = craftCall({
+    myHand: [13, 13, 9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25],
+    discarder: 2, discardRaw: 34,
+    discarderHand: [9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25, 26, 33, 34],
+  });
+  settleCall(m, 'pon');
+  const meld = m.players[0].melds[0];
+  ok('ポン（左から）: 鳴いた牌が一番左', meld.tiles[0] === 34 && meld.calledIndex === 0);
+}
+{
+  // 上家から大明槓 → 鳴いた牌が一番左
+  const m = craftCall({
+    myHand: [13, 13, 13, 9, 10, 11, 15, 16, 17, 20, 21, 22, 24],
+    discarder: 2, discardRaw: 34,
+    discarderHand: [9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25, 26, 33, 34],
+  });
+  settleCall(m, 'kan');
+  const meld = m.players[0].melds[0];
+  ok('大明槓（左から）: 鳴いた牌が一番左', meld.type === 'kan' && meld.tiles[0] === 34 && meld.calledIndex === 0);
+}
+{
+  // 下家から大明槓 → 鳴いた牌が一番右
+  const m = craftCall({
+    myHand: [13, 13, 13, 9, 10, 11, 15, 16, 17, 20, 21, 22, 24],
+    discarder: 1, discardRaw: 34,
+    discarderHand: [9, 10, 11, 15, 16, 17, 20, 21, 22, 24, 25, 26, 33, 34],
+  });
+  settleCall(m, 'kan');
+  const meld = m.players[0].melds[0];
+  ok('大明槓（右から）: 鳴いた牌が一番右', meld.type === 'kan' && meld.tiles[3] === 34 && meld.calledIndex === 3);
+}
+
 console.log(`test-mahjong-kita: ${passed} 件すべて成功`);
