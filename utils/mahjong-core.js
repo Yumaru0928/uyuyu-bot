@@ -40,14 +40,15 @@ function countsFromTiles(tiles) {
 }
 function totalTiles(counts) { return counts.reduce((a, b) => a + b, 0); }
 
-/** 三麻の牌山（108枚、赤5筒・赤5索つき）をシャッフルして返す。rng はテスト用に差し替え可能。 */
-function buildWall(rng = Math.random) {
+/** 三麻の牌山（108枚、赤5筒・赤5索つき）をシャッフルして返す。rng はテスト用に差し替え可能。
+ *  { red:false } で赤ドラなし（通常の5として4枚入る）。 */
+function buildWall(rng = Math.random, { red = true } = {}) {
   const wall = [];
   const push4 = (t) => { for (let i = 0; i < 4; i++) wall.push(t); };
   push4(0); push4(8); // 萬子は1と9のみ
   for (let t = 9; t <= 26; t++) {
-    if (t === 13) { wall.push(RED_5P, 13, 13, 13); }
-    else if (t === 22) { wall.push(RED_5S, 22, 22, 22); }
+    if (red && t === 13) { wall.push(RED_5P, 13, 13, 13); }
+    else if (red && t === 22) { wall.push(RED_5S, 22, 22, 22); }
     else push4(t);
   }
   for (let t = 27; t <= 33; t++) push4(t);
@@ -219,13 +220,15 @@ function basePoints(han, fu) {
 }
 function ceil100(n) { return Math.ceil(n / 100) * 100; }
 
-function scoreFromHanFu(han, fu, isDealer, honba) {
+// honbaRon: ロン和了で1本場あたりに上乗せする点数（標準300。三麻の積み棒200ルールでは200）
+// ツモの本場は1人100点で固定（受け取る合計は人数で変わる）
+function scoreFromHanFu(han, fu, isDealer, honba, honbaRon = 300) {
   const base = basePoints(han, fu);
   if (han >= 5 || base >= 2000) {
     // 満貫以上
     const ron = isDealer ? base * 6 : base * 4;
     return {
-      ron: ron + honba * 300,
+      ron: ron + honba * honbaRon,
       tsumoEach: isDealer ? base * 2 : null, // 親ツモは全員同額
       tsumoChild: isDealer ? null : base,
       tsumoDealer: isDealer ? null : base * 2,
@@ -233,7 +236,7 @@ function scoreFromHanFu(han, fu, isDealer, honba) {
       isDealer,
     };
   }
-  const ron = ceil100(base * (isDealer ? 6 : 4)) + honba * 300;
+  const ron = ceil100(base * (isDealer ? 6 : 4)) + honba * honbaRon;
   const tsumoChild = ceil100(base) + honba * 100;
   const tsumoDealer = ceil100(base * 2) + honba * 100;
   const tsumoAll = ceil100(base * 2) + honba * 100; // 親ツモ
@@ -242,7 +245,7 @@ function scoreFromHanFu(han, fu, isDealer, honba) {
     tsumoEach: isDealer ? tsumoAll : null,
     tsumoChild: isDealer ? null : tsumoChild,
     tsumoDealer: isDealer ? null : tsumoDealer,
-    total: ron - honba * 300,
+    total: ron - honba * honbaRon,
     isDealer,
   };
 }
@@ -311,7 +314,8 @@ function evaluateDecomp(sets, pair, ctx, winComp, wait) {
   }
 
   // 通常役
-  if (ctx.riichi === 2) add('ダブルリーチ', 2);
+  if (ctx.openRiichi) add('オープンリーチ', ctx.riichi === 2 ? 3 : 2);
+  else if (ctx.riichi === 2) add('ダブルリーチ', 2);
   else if (ctx.riichi === 1) add('リーチ', 1);
   if (ctx.riichi > 0 && ctx.ippatsu) add('一発', 1);
   if (ctx.haitei && ctx.winType === 'tsumo') add('海底撈月', 1);
@@ -411,7 +415,8 @@ function calcFu(sets, pair, ctx, winComp, wait, isPinfuShape, isMenzen) {
 function evaluateWin(counts, melds = [], ctx = {}) {
   const c = {
     riichi: 0, ippatsu: false, rinshan: false, haitei: false, houtei: false,
-    chankan: false, tenhou: false, doraCount: 0, honba: 0,
+    chankan: false, tenhou: false, doraCount: 0, honba: 0, honbaRon: 300,
+    kuitan: true, openRiichi: false,
     seatWind: WINDS.east, roundWind: WINDS.east, isDealer: false, ...ctx,
   };
   const meldCount = melds.length;
@@ -431,7 +436,8 @@ function evaluateWin(counts, melds = [], ctx = {}) {
     if (tiles.every((t) => isHonor(t))) {
       candidates.push({ yakumans: [{ name: '字一色', mult: 1 }], yaku: [], fu: 25 });
     } else {
-      if (c.riichi === 2) yaku.push({ name: 'ダブルリーチ', han: 2 });
+      if (c.openRiichi) yaku.push({ name: 'オープンリーチ', han: c.riichi === 2 ? 3 : 2 });
+      else if (c.riichi === 2) yaku.push({ name: 'ダブルリーチ', han: 2 });
       else if (c.riichi === 1) yaku.push({ name: 'リーチ', han: 1 });
       if (c.riichi > 0 && c.ippatsu) yaku.push({ name: '一発', han: 1 });
       if (c.winType === 'tsumo') yaku.push({ name: '門前清自摸和', han: 1 });
@@ -481,6 +487,8 @@ function evaluateWin(counts, melds = [], ctx = {}) {
         continue;
       }
       if (ev.yaku.length === 0) continue;
+      // 喰いタンなし: 開いた手は断ヤオ九だけでは和了できない
+      if (c.kuitan === false && melds.some((m) => m.open) && ev.yaku.every((y) => y.name === '断ヤオ九')) continue;
       const isMenzen = !sets.some((s) => s.fromMeld && s.closed === false);
       const fu = calcFu(sets, decomp.pair, c, comp, wait, ev.isPinfuShape && isMenzen, isMenzen);
       candidates.push({ yakumans: [], yaku: ev.yaku, fu });
@@ -497,7 +505,7 @@ function evaluateWin(counts, melds = [], ctx = {}) {
       yakuman = mult;
       const unit = c.isDealer ? 48000 : 32000;
       score = {
-        ron: unit * mult + c.honba * 300,
+        ron: unit * mult + c.honba * c.honbaRon,
         tsumoEach: c.isDealer ? 16000 * mult + c.honba * 100 : null,
         tsumoChild: c.isDealer ? null : 8000 * mult + c.honba * 100,
         tsumoDealer: c.isDealer ? null : 16000 * mult + c.honba * 100,
@@ -511,7 +519,7 @@ function evaluateWin(counts, melds = [], ctx = {}) {
     } else {
       han = cand.yaku.reduce((a, y) => a + y.han, 0) + c.doraCount;
       if (han === c.doraCount) continue; // 役なし（ドラだけ）は和了不可
-      score = scoreFromHanFu(han, cand.fu, c.isDealer, c.honba);
+      score = scoreFromHanFu(han, cand.fu, c.isDealer, c.honba, c.honbaRon);
     }
     const value = c.winType === 'tsumo'
       ? (score.tsumoEach ? score.tsumoEach * 3 : (score.tsumoChild ?? 0) + (score.tsumoDealer ?? 0))

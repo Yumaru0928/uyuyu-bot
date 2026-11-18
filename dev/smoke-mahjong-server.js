@@ -30,6 +30,11 @@ httpServer.listen(0, async () => {
       console.error('[smoke] エラー:', msg.message);
       process.exit(1);
     }
+    if (msg.type === 'lobby') {
+      // Bot戦も待機ルーム経由になったので、ホストとして開始を送る
+      ws.send(JSON.stringify({ type: 'start' }));
+      return;
+    }
     if (msg.type !== 'state') return;
     mySeat = msg.seat;
     const view = msg.view;

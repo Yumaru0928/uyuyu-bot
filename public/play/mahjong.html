@@ -66,6 +66,52 @@ main { width: 100%; max-width: 760px; padding: 0 12px 32px; }
   margin-bottom: 16px;
 }
 .muted { color: var(--muted); font-size: 14px; }
+.settings-title { font-size: 14px; margin: 0 0 4px; }
+/* 対局設定パネル（Claude/Gemini のデザイン案を統合：グループ見出し＋ステッパー＋セグメント＋トグルタイル） */
+.rs-wrap { display: grid; gap: 10px; margin-top: 8px; }
+.rs-group { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.rs-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--gold); letter-spacing: .05em; }
+.rs-title::before { content: ""; width: 4px; height: 15px; border-radius: 2px; background: var(--gold); flex: none; }
+.rs-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+.rs-lock-badge { font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; letter-spacing: 0; }
+.rs-label { display: block; font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+.rs-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.rs-num { background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(0, 0, 0, .18)); border: 1px solid var(--line); border-radius: 12px; padding: 9px 8px 8px; text-align: center; }
+.rs-num .rs-label { margin: 0 0 2px; }
+.rs-num-val { display: flex; align-items: baseline; justify-content: center; gap: 2px; }
+.rs-num input { width: 100%; min-width: 0; background: none; border: 0; border-bottom: 1px dashed transparent; color: var(--gold); font-family: var(--font-num); font-size: 24px; font-weight: 800; line-height: 1.15; text-align: center; font-variant-numeric: tabular-nums; padding: 2px 0; }
+.rs-num input:focus { outline: 0; border-bottom-color: var(--gold); }
+.rs-num input::-webkit-outer-spin-button, .rs-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rs-num input { -moz-appearance: textfield; appearance: textfield; }
+.rs-num-unit { font-size: 12px; color: var(--muted); font-weight: 700; flex: none; }
+.rs-num-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.rs-num-btns button { height: 32px; border-radius: 8px; border: 1px solid var(--line); background: rgba(74, 163, 224, .14); color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; padding: 0; }
+.rs-num-btns button:active { background: var(--accent); }
+@media (max-width: 520px) { .rs-nums { grid-template-columns: 1fr; } .rs-num { display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; gap: 0 10px; } .rs-num .rs-label { grid-column: 1 / -1; } .rs-num-btns { margin: 0; width: 116px; } }
+.rs-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-seg label { flex: 1 1 auto; position: relative; }
+.rs-seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-seg span { display: block; text-align: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.rs-seg input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rs-seg-block { margin-bottom: 12px; }
+.rs-seg-block:last-child { margin-bottom: 0; }
+.rs-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 560px) { .rs-tiles { grid-template-columns: repeat(3, 1fr); } }
+.rs-tile { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; }
+.rs-tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-sw { flex: none; width: 36px; height: 20px; border-radius: 99px; background: #2a3558; position: relative; transition: background .15s; }
+.rs-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #aab4d4; transition: transform .15s, background .15s; }
+.rs-tile:has(input:checked) { border-color: rgba(242, 199, 107, .55); background: rgba(242, 199, 107, .08); }
+.rs-tile input:checked ~ .rs-sw { background: var(--accent); }
+.rs-tile input:checked ~ .rs-sw::after { transform: translateX(16px); background: #fff; }
+.rs-wrap.locked .rs-num input { color: #cdb877; }
+.rs-wrap.locked .rs-num-btns, .rs-wrap.locked .rs-seg span { opacity: .55; }
+.rs-wrap.locked .rs-seg input:checked + span { background: #2b3a66; border-color: #3b4d80; opacity: 1; }
+.rs-wrap.locked .rs-tile { background: transparent; }
+.rs-wrap.locked .rs-tile:has(input:checked) { border-color: var(--line); background: rgba(255, 255, 255, .03); }
+.rs-wrap.locked .rs-tile input:checked ~ .rs-sw { background: #3b4d80; }
+.rs-wrap.locked .rs-tile, .rs-wrap.locked .rs-seg input, .rs-wrap.locked .rs-num input { cursor: not-allowed; }
+.final-pt { display: block; font-size: 13px; color: var(--gold); font-family: var(--font-num); }
 
 button {
   background: var(--accent);
@@ -1465,7 +1511,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
         <button id="btn-bot-east">Bot戦（東風）</button>
         <button id="btn-bot-south" class="secondary">Bot戦（半荘）</button>
       </div>
-      <p class="muted">Bot 2人と対戦します。ログイン不要です。</p>
+      <p class="muted">Bot 2人と対戦します。ログイン不要です。待機ルームでルール設定をしてから開始します。</p>
     </div>
     <div class="panel">
       <h2 style="margin-top:0;font-size:17px">人間同士で対戦</h2>
@@ -1484,7 +1530,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   <section id="lobby-screen" hidden>
     <div class="panel">
       <h2 style="margin-top:0;font-size:17px">待機ルーム <span id="lobby-code" style="font-family:var(--font-num)"></span></h2>
-      <p class="muted">招待リンク: <a id="lobby-link" href="#" style="color:var(--accent2)"></a>
+      <p class="muted" id="lobby-invite-row">招待リンク: <a id="lobby-link" href="#" style="color:var(--accent2)"></a>
       <button id="btn-copy" class="small secondary">コピー</button></p>
       <div id="lobby-players"></div>
       <div id="lobby-host-controls" hidden style="margin-top:12px">
@@ -1496,6 +1542,8 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
         <button id="btn-add-bot" class="secondary">Bot を追加</button>
         <button id="btn-start">対局開始</button>
       </div>
+      <h3 class="settings-title" style="margin-top:14px">対局設定</h3>
+      <div id="lobby-settings"></div>
       <p class="muted" id="lobby-hint">3人そろうとホストが対局を開始できます。</p>
       <button id="btn-leave-lobby" class="secondary">退出する</button>
     </div>
@@ -1564,7 +1612,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
           <button id="btn-settings">⚙</button>
           <button id="btn-leave-game">⎋</button>
         </div>
-        <div class="turn-timer" id="turn-timer" hidden><span class="tnum" id="timer-num">20</span><span class="plus">+20</span></div>
+        <div class="turn-timer" id="turn-timer" hidden><span class="tnum" id="timer-num">20</span><span class="plus" id="timer-plus">+20</span></div>
         <div class="action-bar" id="action-bar"></div>
       </div>
     </div>
@@ -1772,6 +1820,148 @@ let matchLength = 'east';
 let timerKey = null;
 let timerDeadline = 0;
 let timerInterval = null;
+let timerBank = 0;
+let openArmed = false;
+
+// ===== 対局前設定（待機ルームでのみ変更する） =====
+let lobbyDraft = null;
+
+function umaPresetOf(uma) {
+  if (Array.isArray(uma)) {
+    const key = { '0,0,0': 'none', '10,0,-10': '10', '20,0,-20': '20', '30,0,-30': '30' }[uma.join(',')];
+    return key || '20';
+  }
+  return typeof uma === 'string' ? uma : '20';
+}
+
+// 設定パネルを組み立てる（グループ見出し＋ステッパー＋セグメント＋トグルタイル）。
+// settings は { rules, time }、変更のたびに onChange(settings) を呼ぶ
+let settingsPanelSeq = 0;
+function buildSettingsPanel(container, settings, editable, onChange) {
+  if (!container) return;
+  container.innerHTML = '';
+  const uid = `rs${++settingsPanelSeq}`;
+  const rules = settings.rules;
+  const wrap = document.createElement('div');
+  wrap.className = 'rs-wrap' + (editable ? '' : ' locked');
+  const clampScore = (v) => Math.min(200000, Math.max(0, Math.round((Number(v) || 0) / 100) * 100));
+
+  const group = (title, withLock) => {
+    const g = document.createElement('div');
+    g.className = 'rs-group';
+    const h = document.createElement('h4');
+    h.className = 'rs-title';
+    h.appendChild(document.createTextNode(title));
+    if (withLock && !editable) {
+      const b = document.createElement('span');
+      b.className = 'rs-lock-badge';
+      b.textContent = 'ホストのみ変更可';
+      h.appendChild(b);
+    }
+    g.appendChild(h);
+    wrap.appendChild(g);
+    return g;
+  };
+  const numCard = (label, key) => {
+    const card = document.createElement('div');
+    card.className = 'rs-num';
+    const lb = document.createElement('span');
+    lb.className = 'rs-label';
+    lb.textContent = label;
+    const valRow = document.createElement('div');
+    valRow.className = 'rs-num-val';
+    const i = document.createElement('input');
+    i.type = 'number'; i.step = 100; i.min = 0; i.max = 200000; i.inputMode = 'numeric';
+    i.value = rules[key];
+    i.disabled = !editable;
+    i.onchange = () => { i.value = clampScore(i.value); rules[key] = Number(i.value); onChange(settings); };
+    const unit = document.createElement('span');
+    unit.className = 'rs-num-unit';
+    unit.textContent = '点';
+    valRow.append(i, unit);
+    const btns = document.createElement('div');
+    btns.className = 'rs-num-btns';
+    for (const d of [-1000, 1000]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = d < 0 ? '−' : '＋';
+      b.disabled = !editable;
+      b.onclick = () => { i.value = clampScore((Number(i.value) || 0) + d); rules[key] = Number(i.value); onChange(settings); };
+      btns.appendChild(b);
+    }
+    card.append(lb, valRow, btns);
+    return card;
+  };
+  const seg = (label, options, current, apply) => {
+    const block = document.createElement('div');
+    block.className = 'rs-seg-block';
+    const lb = document.createElement('span');
+    lb.className = 'rs-label';
+    lb.textContent = label;
+    const segEl = document.createElement('div');
+    segEl.className = 'rs-seg';
+    const name = `${uid}-${label}`;
+    for (const [v, t] of options) {
+      const l = document.createElement('label');
+      const i = document.createElement('input');
+      i.type = 'radio';
+      i.name = name;
+      i.value = v;
+      i.checked = String(current) === String(v);
+      i.disabled = !editable;
+      i.onchange = () => { if (i.checked) { apply(v); onChange(settings); } };
+      const s = document.createElement('span');
+      s.textContent = t;
+      l.append(i, s);
+      segEl.appendChild(l);
+    }
+    block.append(lb, segEl);
+    return block;
+  };
+  const tiles = (items) => {
+    const t = document.createElement('div');
+    t.className = 'rs-tiles';
+    for (const [label, key] of items) {
+      const l = document.createElement('label');
+      l.className = 'rs-tile';
+      const txt = document.createElement('span');
+      txt.textContent = label;
+      const i = document.createElement('input');
+      i.type = 'checkbox';
+      i.checked = Boolean(rules[key]);
+      i.disabled = !editable;
+      i.onchange = () => { rules[key] = i.checked; onChange(settings); };
+      const sw = document.createElement('i');
+      sw.className = 'rs-sw';
+      l.append(txt, i, sw);
+      t.appendChild(l);
+    }
+    return t;
+  };
+
+  const g1 = group('点数・順位', true);
+  const nums = document.createElement('div');
+  nums.className = 'rs-nums';
+  nums.append(numCard('持ち点', 'startScore'), numCard('返し点', 'returnScore'), numCard('一位必要点数', 'requiredScore'));
+  g1.appendChild(nums);
+  g1.appendChild(seg('ウマ', [['none', 'なし'], ['10', '10'], ['20', '20'], ['30', '30']], umaPresetOf(rules.uma), (v) => { rules.uma = v; }));
+  g1.appendChild(tiles([['トップ賞', 'topAward']]));
+
+  const g2 = group('役・ドラ');
+  // 1翻縛りは「なし」と実質同一（和了には最低1翻の役が要る）ため選択肢に入れない
+  g2.appendChild(seg('はんしばり', [['0', 'なし'], ['2', '2翻'], ['3', '3翻'], ['4', '4翻'], ['5', '満貫']], (rules.shibari ?? 0) <= 1 ? 0 : rules.shibari, (v) => { rules.shibari = Number(v); }));
+  g2.appendChild(tiles([['赤ドラ', 'redDora'], ['裏ドラ', 'uraDora'], ['北抜き', 'kita'], ['喰いタン', 'kuitan']]));
+
+  const g3 = group('進行・終了');
+  g3.appendChild(seg('持ち時間', [['3+5', '3+5秒'], ['5+10', '5+10秒'], ['5+20', '5+20秒'], ['60+0', '60秒'], ['300+0', '300秒']], settings.time, (v) => { settings.time = v; }));
+  g3.appendChild(tiles([['あがりやめ', 'agariYame'], ['上がり連荘', 'agariRenchan'], ['聴牌連荘', 'tenpaiRenchan'], ['飛び終了', 'tobi'], ['途中流局', 'abortiveDraws']]));
+
+  const g4 = group('特殊ルール');
+  g4.appendChild(tiles([['ダブルロン', 'doubleRon'], ['オープンリーチ', 'openRiichi'], ['手牌公開', 'openHands']]));
+
+  container.appendChild(wrap);
+}
+
 let selectedIdx = null;
 let lastDrawnAnimKey = null; // ツモ牌の出現アニメーションを再生済みのツモ（再描画で再生しない）
 let autoSort = true;
@@ -1893,6 +2083,7 @@ function backToMenu() {
 function renderLobby(msg) {
   if (msg.length) matchLength = msg.length;
   $('lobby-code').textContent = msg.code;
+  $('lobby-invite-row').hidden = msg.mode === 'bot';
   const link = location.origin + '/play/mahjong?room=' + msg.code;
   const a = $('lobby-link');
   a.href = link; a.textContent = link;
@@ -1928,6 +2119,12 @@ function renderLobby(msg) {
     box.appendChild(row);
   }
   $('lobby-host-controls').hidden = !msg.isHost;
+  if (msg.rules) {
+    lobbyDraft = { rules: { ...msg.rules, uma: umaPresetOf(msg.rules.uma) }, time: msg.time || '5+20' };
+    buildSettingsPanel($('lobby-settings'), lobbyDraft, msg.isHost, (s) => {
+      send({ type: 'set_rules', rules: s.rules, time: s.time });
+    });
+  }
   $('btn-len-east').className = 'small' + (msg.length === 'east' ? '' : ' secondary');
   $('btn-len-south').className = 'small' + (msg.length === 'south' ? '' : ' secondary');
   $('btn-start').disabled = !msg.canStart;
@@ -1978,9 +2175,20 @@ function buildSideHands(view) {
     const slot = slotOf(p.seat, view);
     if (slot === 'me') continue;
     const el = els[slot];
+    if (!el) continue;
+    // 手牌が見えている席（手牌公開・オープンリーチ・終局など）は表向きで並べる
+    if (Array.isArray(p.hand)) {
+      const tiles = [...p.hand].sort((a, b) => norm(a) - norm(b) || a - b);
+      const key = slot + ':o' + tiles.join(',');
+      if (el.dataset.count === key) continue;
+      el.dataset.count = key;
+      el.innerHTML = '';
+      for (const raw of tiles) el.appendChild(tileEl(raw, { cqw: 2.7 }, { solid: true }));
+      continue;
+    }
     const drawn = view.phase === 'play' && view.turn === p.seat && p.handCount >= 2;
     const key = slot + ':' + String(p.handCount) + (drawn ? 'd' : '');
-    if (!el || el.dataset.count === key) continue;
+    if (el.dataset.count === key) continue;
     el.dataset.count = key;
     el.innerHTML = '';
     const n = drawn ? p.handCount - 1 : p.handCount;
@@ -2319,27 +2527,44 @@ function detectFx(view) {
 function updateTimer(view) {
   const box = $('turn-timer');
   const a = view.actions;
-  const key = a && a.type === 'call'
-    ? `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`
-    : null;
-  if (!key || respondedCallKey === key) {
+  const t = view.time;
+  let show = Boolean(t && a);
+  if (show && a.type === 'call') {
+    const key = `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`;
+    if (respondedCallKey === key) show = false;
+  }
+  if (!show) {
     box.hidden = true;
-    timerKey = null;
+    timerDeadline = 0;
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     return;
   }
-  if (timerKey !== key) {
-    timerKey = key;
-    timerDeadline = Date.now() + 20000;
+  if (timerDeadline !== t.deadline) {
+    timerDeadline = t.deadline;
+    timerBank = t.bank || 0;
     if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      const left = Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000));
-      $('timer-num').textContent = left;
-      if (left <= 0) { clearInterval(timerInterval); timerInterval = null; box.hidden = true; }
-    }, 250);
+    timerInterval = setInterval(updateTimerDisplay, 250);
   }
   box.hidden = false;
-  $('timer-num').textContent = Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000));
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const box = $('turn-timer');
+  if (!timerDeadline) { box.hidden = true; return; }
+  const left = Math.max(0, timerDeadline - Date.now());
+  const bankMs = timerBank * 1000;
+  if (left > bankMs) {
+    $('timer-num').textContent = Math.ceil((left - bankMs) / 1000);
+    $('timer-plus').textContent = timerBank > 0 ? `+${timerBank}` : '';
+  } else {
+    $('timer-num').textContent = Math.ceil(left / 1000);
+    $('timer-plus').textContent = timerBank > 0 ? '秒読み' : '';
+  }
+  if (left <= 0) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    box.hidden = true;
+  }
 }
 
 function renderHand(view) {
@@ -2394,8 +2619,9 @@ function renderHand(view) {
         }
         selectedIdx = null;
         if (riichiArmed) {
-          send({ type: 'discard', tile: raw, riichi: true });
+          send({ type: 'discard', tile: raw, riichi: true, ...(openArmed ? { open: true } : {}) });
           riichiArmed = false;
+          openArmed = false;
         } else {
           send({ type: 'discard', tile: raw });
         }
@@ -2409,7 +2635,11 @@ function renderActions(view) {
   const bar = $('action-bar');
   bar.innerHTML = '';
   const a = view.actions;
-  if (!a || view.phase === 'roundEnd' || view.phase === 'gameEnd') return;
+  if (!a || view.phase === 'roundEnd' || view.phase === 'gameEnd') {
+    riichiArmed = false;
+    openArmed = false;
+    return;
+  }
   const add = (label, cls, fn) => {
     const b = document.createElement('button');
     b.textContent = label;
@@ -2420,15 +2650,24 @@ function renderActions(view) {
   if (a.type === 'play') {
     if (a.tsumo) add('ツモ', 'ron', () => send({ type: 'tsumo' }));
     if (a.nuki) add('北抜き', 'secondary', () => send({ type: 'nuki' }));
+    if (a.kyuushu) add('流局（九種九牌）', 'pass', () => send({ type: 'kyuushu' }));
     for (const k of a.kan || []) {
       const name = k.kind === 'ankan' ? '暗槓' : '加槓';
       add(`${name}（${tileName(k.tile)}）`, 'secondary', () => send({ type: 'kan', tile: k.tile, kanKind: k.kind }));
     }
     if (a.riichi && a.riichi.length > 0) {
-      add(riichiArmed ? 'リーチ取消' : 'リーチ', 'riichi', () => {
+      add(riichiArmed && !openArmed ? 'リーチ取消' : 'リーチ', 'riichi', () => {
         riichiArmed = !riichiArmed;
+        openArmed = false;
         renderState(lastView);
       });
+      if (a.openRiichi) {
+        add(openArmed ? 'オープン取消' : 'オープン', 'riichi', () => {
+          openArmed = !openArmed;
+          riichiArmed = openArmed;
+          renderState(lastView);
+        });
+      }
     }
   } else if (a.type === 'call') {
     const key = `${view.roundLabel}:${view.honba}:${a.from}:${a.tile}:${view.players[a.from].discards.length}`;
@@ -2468,7 +2707,7 @@ function renderStatus(view) {
     return;
   }
   if (view.turn === mySeat) {
-    st.textContent = riichiArmed ? 'リーチする牌を選んでください' : (selectedIdx !== null ? 'もう一度タップで打牌します' : 'あなたの番です ― 牌をタップして選択');
+    st.textContent = riichiArmed ? (openArmed ? 'オープンリーチする牌を選んでください' : 'リーチする牌を選んでください') : (selectedIdx !== null ? 'もう一度タップで打牌します' : 'あなたの番です ― 牌をタップして選択');
     st.classList.add('mine');
   } else {
     const meta = playersMeta[view.turn];
@@ -2476,14 +2715,14 @@ function renderStatus(view) {
   }
 }
 
-function resultHandHtml(view, winnerSeat) {
+function resultHandHtml(view, winnerSeat, handOverride, meldsOverride) {
   const p = view.players[winnerSeat];
   const wrap = document.createElement('div');
   wrap.className = 'result-hand';
   const w = 34;
-  const hand = [...(p.hand || [])];
+  const hand = [...(handOverride || p.hand || [])];
   for (const raw of hand) wrap.appendChild(tileEl(raw, w));
-  for (const m of p.melds) wrap.appendChild(meldEl(m, w));
+  for (const m of meldsOverride || p.melds) wrap.appendChild(meldEl(m, w));
   return wrap;
 }
 
@@ -2498,38 +2737,51 @@ function renderResult(view) {
   const card = $('result-card');
   card.innerHTML = '';
   const names = (s) => seatName(s);
-  if (r.type === 'ron' || r.type === 'tsumo') {
+  const winSection = (w, type) => {
+    const frag = document.createDocumentFragment();
     const h = document.createElement('h2');
-    h.textContent = r.type === 'ron' ? `${names(r.winner)} のロン！` : `${names(r.winner)} のツモ！`;
-    card.appendChild(h);
-    card.appendChild(resultHandHtml(view, r.winner));
+    h.textContent = type === 'ron' ? `${names(w.winner)} のロン！` : `${names(w.winner)} のツモ！`;
+    frag.appendChild(h);
+    frag.appendChild(resultHandHtml(view, w.winner, w.hand, w.melds));
     const yl = document.createElement('div');
     yl.className = 'yaku-list';
-    if (r.yakumans && r.yakumans.length > 0) {
-      yl.innerHTML = r.yakumans.map((y) => `<div>✦ ${y.name}${y.mult > 1 ? ` ×${y.mult}` : ''}</div>`).join('') + '<div>役満！</div>';
+    if (w.yakumans && w.yakumans.length > 0) {
+      yl.innerHTML = w.yakumans.map((y) => `<div>✦ ${y.name}${y.mult > 1 ? ` ×${y.mult}` : ''}</div>`).join('') + '<div>役満！</div>';
     } else {
-      yl.innerHTML = (r.yaku || []).map((y) => `<div>${y.name} <span class="dora">${y.han}翻</span></div>`).join('')
-        + (r.doraCount > 0 ? `<div>ドラ <span class="dora">${r.doraCount}</span></div>` : '')
-        + `<div style="margin-top:4px"><span class="big-score">${r.han}翻 ${r.fu}符</span></div>`;
+      yl.innerHTML = (w.yaku || []).map((y) => `<div>${y.name} <span class="dora">${y.han}翻</span></div>`).join('')
+        + (w.doraCount > 0 ? `<div>ドラ <span class="dora">${w.doraCount}</span></div>` : '')
+        + (w.uraDoraCount > 0 ? `<div>裏ドラ <span class="dora">${w.uraDoraCount}</span></div>` : '')
+        + `<div style="margin-top:4px"><span class="big-score">${w.han}翻 ${w.fu}符</span></div>`;
     }
-    card.appendChild(yl);
+    frag.appendChild(yl);
     const pl = document.createElement('div');
     pl.className = 'pay-line';
-    pl.innerHTML = r.payments.map((pay) => `${names(pay.from)} → ${names(pay.to)}: ${pay.amount}点`).join('<br>')
-      + (r.riichiSticks > 0 ? `<br>供託 ${r.riichiSticks} 本を獲得` : '');
-    card.appendChild(pl);
+    pl.innerHTML = (w.payments || []).map((pay) => `${names(pay.from)} → ${names(pay.to)}: ${pay.amount}点`).join('<br>')
+      + (w.riichiSticks > 0 ? `<br>供託 ${w.riichiSticks} 本を獲得` : '');
+    frag.appendChild(pl);
+    return frag;
+  };
+  if (r.type === 'ron' || r.type === 'tsumo') {
+    if (r.wins && r.wins.length > 1) {
+      for (const w of r.wins) card.appendChild(winSection(w, 'ron'));
+    } else {
+      card.appendChild(winSection(r, r.type));
+    }
   } else if (r.type === 'draw') {
     const h = document.createElement('h2');
-    h.textContent = '流局';
+    const drawNames = { kyuushu: '九種九牌', suufon: '四風連打', suukan: '四槓散了' };
+    h.textContent = r.drawKind ? `${drawNames[r.drawKind] || '途中流局'}（途中流局）` : '流局';
     card.appendChild(h);
-    const d = document.createElement('div');
-    d.className = 'yaku-list';
-    d.innerHTML = r.tenpai.map((t, s) => `<div>${names(s)}: ${t ? 'テンパイ' : 'ノーテン'}</div>`).join('');
-    card.appendChild(d);
-    const pl = document.createElement('div');
-    pl.className = 'pay-line';
-    pl.innerHTML = (r.payments || []).map((pay) => `${names(pay.seat)}: ${pay.amount > 0 ? '+' : ''}${pay.amount}`).join('<br>');
-    card.appendChild(pl);
+    if (!r.drawKind) {
+      const d = document.createElement('div');
+      d.className = 'yaku-list';
+      d.innerHTML = r.tenpai.map((t, s) => `<div>${names(s)}: ${t ? 'テンパイ' : 'ノーテン'}</div>`).join('');
+      card.appendChild(d);
+      const pl = document.createElement('div');
+      pl.className = 'pay-line';
+      pl.innerHTML = (r.payments || []).map((pay) => `${names(pay.seat)}: ${pay.amount > 0 ? '+' : ''}${pay.amount}`).join('<br>');
+      card.appendChild(pl);
+    }
   }
   const note = document.createElement('p');
   note.className = 'muted';
@@ -2549,6 +2801,14 @@ function showEnd(view) {
     const row = document.createElement('div');
     row.className = 'seat-row';
     row.innerHTML = `<span><strong>${view.placements[seat]}位</strong>　<span class="pname"></span></span><span style="font-family:var(--font-num)">${p.score}点</span>`;
+    const fs = (view.finalScores || []).find((f) => f.seat === seat);
+    if (fs) {
+      const fmt = (x) => (x > 0 ? `+${x}` : `${x}`);
+      const pt = document.createElement('span');
+      pt.className = 'final-pt';
+      pt.textContent = `${fmt(fs.total)} pt（素点 ${fmt(fs.base)} / ウマ ${fmt(fs.uma)}${fs.oka ? ` / オカ ${fmt(fs.oka)}` : ''}）`;
+      row.appendChild(pt);
+    }
     row.querySelector('.pname').textContent = seatName(seat) + (seat === mySeat ? '（あなた）' : '');
     const meta = playersMeta[seat];
     if (meta && meta.icon) {

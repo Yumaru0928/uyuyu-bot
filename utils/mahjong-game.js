@@ -22,6 +22,54 @@ const SEATS = 3;
 const WINDS = [27, 28, 29]; // 東・南・西（自風はこの順で回る）
 const NORTH = 30; // 北（抜きドラ）
 
+// 対局前設定（ルール）。createMatch の rules に渡された分だけ上書きされる
+const DEFAULT_RULES = {
+  startScore: 35000, // 持ち点
+  returnScore: 40000, // 返し点（素点計算の基準）
+  requiredScore: 40000, // 一位必要点数（届かなければ延長1周）
+  uma: [20, 0, -20], // ウマ（pt、順位順）
+  topAward: true, // トップ賞（オカ）
+  agariYame: true, // あがりやめ
+  redDora: true, // 赤ドラ
+  kita: true, // 北抜き
+  kuitan: true, // 喰いタン
+  doubleRon: false, // ダブルロン（false は頭ハネ）
+  tobi: true, // 飛び終了
+  agariRenchan: true, // 上がり連荘
+  tenpaiRenchan: true, // 聴牌連荘
+  honbaRon: 200, // 積み棒: ロン1本場あたりの点数（ツモは各100）
+  openRiichi: false, // オープンリーチ可
+  shibari: 0, // はんしばり: 0=なし / 1〜4=翻縛り（ドラ抜き） / 5=満貫縛り
+  uraDora: false, // 裏ドラ
+  abortiveDraws: false, // 途中流局（九種九牌・四風連打・四槓散了）
+  openHands: false, // 手牌公開（対局中に全員の手牌が見える）
+};
+
+const RULE_BOOLS = ['topAward', 'agariYame', 'redDora', 'kita', 'kuitan', 'doubleRon', 'tobi',
+  'agariRenchan', 'tenpaiRenchan', 'openRiichi', 'uraDora', 'abortiveDraws', 'openHands'];
+const UMA_PRESETS = { none: [0, 0, 0], '10': [10, 0, -10], '20': [20, 0, -20], '30': [30, 0, -30] };
+
+// 設定入力を検証して安全な rules にする（サーバー経由の入力はここを通す）
+function normalizeRules(input = {}) {
+  const r = { ...DEFAULT_RULES };
+  if (!input || typeof input !== 'object') return r;
+  const scoreKeys = ['startScore', 'returnScore', 'requiredScore'];
+  for (const k of scoreKeys) {
+    const v = Number(input[k]);
+    if (Number.isFinite(v)) r[k] = Math.min(200000, Math.max(0, Math.round(v / 100) * 100));
+  }
+  for (const k of RULE_BOOLS) {
+    if (typeof input[k] === 'boolean') r[k] = input[k];
+  }
+  if (typeof input.uma === 'string' && UMA_PRESETS[input.uma]) r.uma = [...UMA_PRESETS[input.uma]];
+  if (Array.isArray(input.uma) && input.uma.length === 3 && input.uma.every((n) => Number.isFinite(Number(n)))) {
+    r.uma = input.uma.map(Number);
+  }
+  const shibari = Number(input.shibari);
+  if (Number.isInteger(shibari) && shibari >= 0 && shibari <= 5) r.shibari = shibari;
+  return r;
+}
+
 function nextDoraKind(indicatorRaw) {
   const t = normalizeTile(indicatorRaw);
   if (t < 27) {
@@ -73,6 +121,16 @@ function countDora(player, indicators) {
   return n;
 }
 
+// 裏ドラ用：表示牌の種類に合う牌だけを数える（赤の+1は表ドラ側で数えるため含めない）
+function countDoraKindsOnly(player, indicators) {
+  const doraKinds = indicators.map(nextDoraKind);
+  let n = 0;
+  const add = (raw) => { if (doraKinds.includes(normalizeTile(raw))) n++; };
+  player.hand.forEach(add);
+  for (const m of player.melds) m.tiles.forEach(add);
+  return n;
+}
+
 // 現在の待ち（種類の一覧）。フリテン判定・Bot 用
 function waitsOf(player) {
   const counts = countsOf(player.hand);
@@ -109,26 +167,47 @@ function evalWin(match, seat, winRaw, winType, extra = {}) {
     tenhou: Boolean(extra.tenhou),
     doraCount: 0, // ドラは和了形が確定してから数える（下で加算し直す）
     honba: match.honba,
+    honbaRon: match.rules.honbaRon,
+    kuitan: match.rules.kuitan,
+    openRiichi: Boolean(p.openRiichi),
     isDealer: seat === match.dealer,
   };
   // ドラは勝ち手全体（手牌＋副露＋和了牌）で数える。抜いた北も1枚=ドラ1
   const fakePlayer = { hand: winType === 'ron' ? [...p.hand, winRaw] : [...p.hand], melds: p.melds };
   ctx.doraCount = countDora(fakePlayer, match.doraIndicators) + (p.kita || 0);
+  // 裏ドラ（リーチ和了のときだけ）
+  let uraDoraCount = 0;
+  if (match.rules.uraDora && p.riichi) {
+    uraDoraCount = countDoraKindsOnly(fakePlayer, match.uraIndicators);
+    ctx.doraCount += uraDoraCount;
+  }
   const result = core.evaluateWin(counts, melds, ctx);
   if (!result) return null;
+  // はんしばり（役満は常に可。翻縛りはドラ抜きの役の翻数、満貫縛りは合計翻数で判定）
+  const shibari = match.rules.shibari;
+  if (shibari > 0 && !(result.yakuman > 0)) {
+    if (shibari >= 5) {
+      if (result.han < 5) return null;
+    } else if (result.han - ctx.doraCount < shibari) {
+      return null;
+    }
+  }
   const settlement = core.sanmaSettlement(result.score, { winType, isDealer: ctx.isDealer });
-  return { ...result, settlement, doraCount: ctx.doraCount };
+  return { ...result, settlement, doraCount: ctx.doraCount, uraDoraCount };
 }
 
 // ---- 対局（マッチ）の生成と局の開始 ----
 
-function createMatch({ length = 'east' } = {}) {
+function createMatch({ length = 'east', rules = null } = {}) {
+  const r = normalizeRules(rules || {});
   return {
     length: length === 'south' ? 'south' : 'east',
+    rules: r,
     players: Array.from({ length: SEATS }, () => ({
       hand: [], melds: [], discards: [], kita: 0,
       riichi: false, doubleRiichi: false, ippatsu: false, riichiDiscardIndex: -1,
-      score: START_SCORE,
+      openRiichi: false, acted: false,
+      score: r.startScore,
     })),
     dealer: 0,
     firstDealer: 0,
@@ -139,6 +218,11 @@ function createMatch({ length = 'east' } = {}) {
     wall: [],
     deadWall: [],
     doraIndicators: [],
+    uraIndicators: [],
+    extended: false, // 一位必要点数に届かず延長周回に入ったか
+    callMade: false, // 誰かが鳴いたか（途中流局の判定用）
+    suukanPending: false, // 四槓散了が成立間近（次の打牌が切られたら流局）
+    finalScores: null,
     turn: 0,
     phase: 'idle', // 'play' | 'call' | 'roundEnd' | 'gameEnd'
     call: null,
@@ -156,24 +240,37 @@ function totalRounds(match) {
   return (match.length === 'south' ? 2 : 1) * SEATS;
 }
 
+// 予定された最後の風（東風=東、半荘=南）。延長時はその次の風が最終になる
+function finalWindOf(match) {
+  const scheduled = match.length === 'south' ? 28 : 27;
+  return match.extended ? scheduled + 1 : scheduled;
+}
+
+function isFinalRound(match) {
+  return match.roundWind === finalWindOf(match) && match.roundNum === SEATS;
+}
+
 // 現在の局が全体の何局目か（0始まり）
 function roundIndex(match) {
-  const windIdx = match.roundWind === 27 ? 0 : 1;
+  const windIdx = match.roundWind - 27;
   return windIdx * SEATS + (match.roundNum - 1);
 }
 
 function roundLabel(match) {
-  const windName = match.roundWind === 27 ? '東' : '南';
+  const windName = match.roundWind === 27 ? '東' : match.roundWind === 28 ? '南' : '西';
   return `${windName}${match.roundNum}局`;
 }
 
 function startRound(match) {
-  const wall = core.buildWall();
+  const wall = core.buildWall(Math.random, { red: match.rules.redDora });
   match.deadWall = wall.splice(wall.length - 14, 14);
   match.wall = wall;
   match.doraIndicators = [match.deadWall[4]];
+  match.uraIndicators = [match.deadWall[9]];
   match.kanCount = 0;
   match.pristine = true;
+  match.callMade = false;
+  match.suukanPending = false;
   match.tempFuriten = [false, false, false];
   match.lastDrawn = null;
   match.drawnFromRinshan = false;
@@ -188,6 +285,8 @@ function startRound(match) {
     p.doubleRiichi = false;
     p.ippatsu = false;
     p.riichiDiscardIndex = -1;
+    p.openRiichi = false;
+    p.acted = false;
   }
   for (let i = 0; i < 13; i++) {
     for (let s = 0; s < SEATS; s++) {
@@ -242,8 +341,22 @@ function kanOptionsOf(match, seat) {
 
 // 北抜きできるか（ツモ後に手牌に北がある。リーチ後でも可）
 function canNuki(match, seat) {
+  if (!match.rules.kita) return false;
   const p = match.players[seat];
   return match.lastDrawn !== null && p.hand.some((t) => normalizeTile(t) === NORTH);
+}
+
+// 九種九牌できるか（途中流局ありのとき、自分の最初のツモで么九牌が9種以上）
+function canKyuushu(match, seat) {
+  if (!match.rules.abortiveDraws) return false;
+  const p = match.players[seat];
+  if (match.lastDrawn === null || match.callMade || p.acted || p.discards.length > 0) return false;
+  const kinds = new Set();
+  for (const t of p.hand) {
+    const k = normalizeTile(t);
+    if (core.isTerminalOrHonor(k)) kinds.add(k);
+  }
+  return kinds.size >= 9;
 }
 
 // 手牌（13枚形）の読み方を列挙し、種類 kind が順子の一部として使われる読み方が
@@ -328,7 +441,7 @@ function riichiOptionsOf(match, seat) {
 }
 
 function legalPlay(match, seat) {
-  const none = { discards: [], riichi: [], tsumo: false, kan: [], nuki: false };
+  const none = { discards: [], riichi: [], tsumo: false, kan: [], nuki: false, kyuushu: false, openRiichi: false };
   if (match.phase !== 'play' || match.turn !== seat) return none;
   const p = match.players[seat];
   if (p.riichi) {
@@ -339,16 +452,21 @@ function legalPlay(match, seat) {
       tsumo: Boolean(evalWin(match, seat, match.lastDrawn, 'tsumo', tsumoExtra(match, seat))),
       kan: riichiKanOptionsOf(match, seat),
       nuki: canNuki(match, seat),
+      kyuushu: false,
+      openRiichi: false,
     };
   }
   const tsumo = match.lastDrawn !== null &&
     Boolean(evalWin(match, seat, match.lastDrawn, 'tsumo', tsumoExtra(match, seat)));
+  const riichiOpts = riichiOptionsOf(match, seat);
   return {
     discards: [...new Set(p.hand)],
-    riichi: riichiOptionsOf(match, seat),
+    riichi: riichiOpts,
     tsumo,
     kan: match.lastDrawn === null ? [] : kanOptionsOf(match, seat), // ポン直後は槓できない
     nuki: canNuki(match, seat),
+    kyuushu: canKyuushu(match, seat),
+    openRiichi: match.rules.openRiichi && riichiOpts.length > 0,
   };
 }
 
@@ -362,9 +480,9 @@ function tsumoExtra(match, seat) {
 
 // ---- 打牌と鳴き応答ウィンドウ ----
 
-// 打牌する。riichi=true ならリーチ宣言牌として切る。
+// 打牌する。riichi=true ならリーチ宣言牌として切る。openRiichi=true でオープンリーチ宣言。
 // 戻り値: { ok } / { ok:false, reason }
-function applyDiscard(match, seat, raw, { riichi = false } = {}) {
+function applyDiscard(match, seat, raw, { riichi = false, openRiichi = false } = {}) {
   if (match.phase !== 'play' || match.turn !== seat) return { ok: false, reason: 'あなたの番ではありません' };
   const p = match.players[seat];
   const legal = legalPlay(match, seat);
@@ -385,6 +503,7 @@ function applyDiscard(match, seat, raw, { riichi = false } = {}) {
     p.riichi = true;
     p.doubleRiichi = isFirst;
     p.ippatsu = true;
+    if (openRiichi && match.rules.openRiichi) p.openRiichi = true;
     p.score -= 1000;
     match.kyotaku += 1;
     p.riichiDiscardIndex = p.discards.length;
@@ -465,9 +584,14 @@ function resolveCall(match) {
   const call = match.call;
   match.call = null;
   if (call.kind === 'chankan') {
-    const ronner = [0, 1, 2].find((s) => call.responses[s] === 'ron');
-    if (ronner !== undefined) {
-      applyRon(match, ronner, call.discarder, call.tile, { chankan: true });
+    const ronners = [0, 1, 2].filter((s) => call.responses[s] === 'ron');
+    ronners.sort((a, b) => ((a - call.discarder + SEATS) % SEATS) - ((b - call.discarder + SEATS) % SEATS));
+    if (ronners.length > 0) {
+      if (match.rules.doubleRon && ronners.length > 1) {
+        applyDoubleRon(match, ronners, call.discarder, call.tile, { chankan: true });
+      } else {
+        applyRon(match, ronners[0], call.discarder, call.tile, { chankan: true });
+      }
       return;
     }
     // 搶槓されなかった: 槓を確定させて嶺上ツモへ
@@ -475,13 +599,20 @@ function resolveCall(match) {
     return;
   }
   const { discarder, tile } = call;
-  // ロン（頭ハネ: 放銃者に近い順）
+  // ロン（頭ハネ: 放銃者に近い順。ダブルロン設定時は全員）
+  const ronners = [];
   for (let i = 1; i < SEATS; i++) {
     const s = (discarder + i) % SEATS;
-    if (call.responses[s] === 'ron') {
-      applyRon(match, s, discarder, tile, { houtei: liveWallCount(match) === 0 });
-      return;
+    if (call.responses[s] === 'ron') ronners.push(s);
+  }
+  if (ronners.length > 0) {
+    const extra = { houtei: liveWallCount(match) === 0 };
+    if (match.rules.doubleRon && ronners.length > 1) {
+      applyDoubleRon(match, ronners, discarder, tile, extra);
+    } else {
+      applyRon(match, ronners[0], discarder, tile, extra);
     }
+    return;
   }
   // 見逃したロン候補は見逃しフリテン
   for (const s of Object.keys(call.options).map(Number)) {
@@ -499,6 +630,18 @@ function resolveCall(match) {
 
 // 誰も鳴かなかった場合の次手番処理（山が尽きていれば流局）
 function advanceAfterDiscard(match, discarder) {
+  if (match.rules.abortiveDraws) {
+    // 四槓散了: 保留中の打牌が誰にも鳴かれなかったら流局
+    if (match.suukanPending) { applyAbortiveDraw(match, 'suukan'); return; }
+    // 四風連打: 全員の第一打が同じ風牌だったら流局
+    if (!match.callMade && match.players.every((p) => p.discards.length === 1)) {
+      const kinds = match.players.map((p) => normalizeTile(p.discards[0].tile));
+      if (kinds[0] >= 27 && kinds[0] <= 30 && kinds.every((k) => k === kinds[0])) {
+        applyAbortiveDraw(match, 'suufon');
+        return;
+      }
+    }
+  }
   if (liveWallCount(match) === 0) {
     applyExhaustiveDraw(match);
     return;
@@ -508,6 +651,28 @@ function advanceAfterDiscard(match, discarder) {
   doDraw(match);
 }
 
+// 途中流局（九種九牌・四風連打・四槓散了）: 点数移動なし、親は残って本場が増える
+function applyAbortiveDraw(match, reason) {
+  match.lastResult = {
+    type: 'draw',
+    drawKind: reason,
+    tenpai: [false, false, false],
+    payments: [],
+    scores: match.players.map((pl) => pl.score),
+    hands: match.players.map((p) => [...p.hand]),
+  };
+  match.phase = 'roundEnd';
+  afterRound(match, { abortive: true });
+}
+
+// 九種九牌の宣言
+function applyKyuushu(match, seat) {
+  if (match.phase !== 'play' || match.turn !== seat) return { ok: false, reason: 'あなたの番ではありません' };
+  if (!canKyuushu(match, seat)) return { ok: false, reason: '九種九牌できません' };
+  applyAbortiveDraw(match, 'kyuushu');
+  return { ok: true };
+}
+
 function markCalledDiscard(match, seat) {
   const p = match.players[seat];
   const d = p.discards[p.discards.length - 1];
@@ -515,6 +680,8 @@ function markCalledDiscard(match, seat) {
   // 鳴かれたら全員の一発は消える
   for (const pl of match.players) pl.ippatsu = false;
   match.pristine = false;
+  match.callMade = true;
+  match.suukanPending = false; // 鳴かれたら四槓散了は流れる
 }
 
 // 鳴いた牌の置き位置: 下家（右）から鳴いたら一番右、上家（左）から鳴いたら一番左に横向きで置く
@@ -563,6 +730,15 @@ function applyDaiminkan(match, seat, fromSeat, raw) {
 function flipKanDora(match) {
   match.kanCount += 1;
   match.doraIndicators.push(match.deadWall[4 + match.kanCount]);
+  match.uraIndicators.push(match.deadWall[9 + match.kanCount]);
+  checkSuukan(match);
+}
+
+// 四槓散了の保留判定: 合計4槓が1人に集中していない場合、次の打牌が切られたら流局
+function checkSuukan(match) {
+  if (!match.rules.abortiveDraws || match.kanCount < 4) return;
+  const perSeat = match.players.map((p) => p.melds.filter((m) => m.type === 'kan').length);
+  if (Math.max(...perSeat) < 4) match.suukanPending = true;
 }
 
 // 自分の手番での槓（暗槓/小明槓）。小明槓は搶槓ウィンドウを開く
@@ -572,6 +748,8 @@ function applyKan(match, seat, kanTile, kanKind) {
   const opt = legal.kan.find((k) => k.tile === kanTile && k.kind === kanKind);
   if (!opt) return { ok: false, reason: 'その槓はできません' };
   const p = match.players[seat];
+  p.acted = true;
+  match.callMade = true;
   if (kanKind === 'ankan') {
     const idxs = [];
     p.hand.forEach((t, j) => { if (normalizeTile(t) === kanTile) idxs.push(j); });
@@ -625,6 +803,7 @@ function applyNuki(match, seat) {
   if (idx < 0) return { ok: false, reason: '北を持っていません' };
   p.hand.splice(idx, 1);
   p.kita += 1;
+  p.acted = true;
   doDraw(match, true); // 嶺上から補充
   return { ok: true };
 }
@@ -642,6 +821,55 @@ function applyRon(match, winner, fromSeat, raw, extra = {}) {
   const result = evalWin(match, winner, raw, 'ron', extra);
   if (!result) return;
   settleWin(match, winner, fromSeat, raw, 'ron', result);
+}
+
+// ダブルロン: 放銃者は両方の和了者にそれぞれ支払う。供託は放銃者に近い和了者が取る
+function applyDoubleRon(match, winners, fromSeat, raw, extra = {}) {
+  const wins = [];
+  for (const winner of winners) {
+    const result = evalWin(match, winner, raw, 'ron', extra);
+    if (!result) continue;
+    const p = match.players[winner];
+    const amount = result.settlement.total;
+    match.players[fromSeat].score -= amount;
+    p.score += amount;
+    let sticks = 0;
+    if (match.kyotaku > 0) {
+      sticks = match.kyotaku;
+      p.score += sticks * 1000;
+      match.kyotaku = 0;
+    }
+    wins.push({
+      winner, from: fromSeat, winTile: raw,
+      hand: [...p.hand], melds: p.melds,
+      yaku: result.yaku, yakumans: result.yakumans,
+      han: result.han, fu: result.fu, doraCount: result.doraCount,
+      uraDoraCount: result.uraDoraCount || 0,
+      uraIndicators: match.rules.uraDora && p.riichi ? [...match.uraIndicators] : null,
+      payments: [{ from: fromSeat, to: winner, amount }],
+      riichiSticks: sticks,
+    });
+  }
+  if (wins.length === 0) return;
+  match.lastResult = {
+    type: 'ron',
+    winner: wins[0].winner,
+    from: fromSeat,
+    winTile: raw,
+    wins,
+    hand: wins[0].hand,
+    melds: wins[0].melds,
+    yaku: wins[0].yaku,
+    yakumans: wins[0].yakumans,
+    han: wins[0].han,
+    fu: wins[0].fu,
+    doraCount: wins[0].doraCount,
+    payments: wins.flatMap((w) => w.payments),
+    riichiSticks: wins.reduce((a, w) => a + w.riichiSticks, 0),
+    scores: match.players.map((pl) => pl.score),
+  };
+  match.phase = 'roundEnd';
+  afterRound(match, { winners: wins.map((w) => w.winner) });
 }
 
 // 点数移動と局の終了処理
@@ -680,6 +908,8 @@ function settleWin(match, winner, fromSeat, winRaw, winType, result) {
     han: result.han,
     fu: result.fu,
     doraCount: result.doraCount,
+    uraDoraCount: result.uraDoraCount || 0,
+    uraIndicators: match.rules.uraDora && p.riichi ? [...match.uraIndicators] : null,
     payments,
     riichiSticks: sticks,
     scores: match.players.map((pl) => pl.score),
@@ -710,20 +940,60 @@ function applyExhaustiveDraw(match) {
   afterRound(match, { winner: null, dealerTenpai: tenpai[match.dealer] });
 }
 
-// 局終了後の進行（連荘・次局・終局）。サーバーが roundEnd を見てから呼ぶのではなく、
-// 結果を保持したまま「次の局の準備ができたか」を nextRoundReady で表す。
+// 同点は起家に近い順でトップを決める
+function topSeatOf(match) {
+  let best = 0;
+  for (let s = 1; s < SEATS; s++) {
+    if (match.players[s].score > match.players[best].score) best = s;
+    else if (match.players[s].score === match.players[best].score) {
+      const dS = (s - match.firstDealer + SEATS) % SEATS;
+      const dB = (best - match.firstDealer + SEATS) % SEATS;
+      if (dS < dB) best = s;
+    }
+  }
+  return best;
+}
+
+// 局終了後の進行（連荘・次局・終局・延長）。サーバーが roundEnd を見てから呼ぶのではなく、
 // ここでは進行先（dealer/honba/round）を先に確定させておき、サーバーが
 // 表示時間をおいて startNextRound() を呼ぶ。
-function afterRound(match, { winner = null, dealerTenpai = false } = {}) {
-  const busted = match.players.some((p) => p.score < 0);
-  const dealerKept = winner === match.dealer || (winner === null && dealerTenpai);
+// 終了条件: 飛び（設定オン時）／最終局が流れてトップが必要点数以上／
+// 延長中は「トップが必要点数到達」か「延長の最終局終了」。届かなければ延長1周に入る。
+function afterRound(match, { winner = null, winners = null, dealerTenpai = false, abortive = false } = {}) {
+  const rules = match.rules;
+  const winSeats = winners || (winner === null ? [] : [winner]);
+  let dealerKept;
+  if (abortive) dealerKept = true; // 途中流局は常に親が残る
+  else if (winSeats.length > 0) dealerKept = winSeats.includes(match.dealer) && rules.agariRenchan;
+  else dealerKept = dealerTenpai && rules.tenpaiRenchan;
   match.nextDealer = dealerKept ? match.dealer : (match.dealer + 1) % SEATS;
   match.nextHonba = dealerKept ? match.honba + 1 : 0;
   match.nextIsLast = false;
-  if (busted) { match.nextIsLast = true; return; }
-  if (!dealerKept && roundIndex(match) === totalRounds(match) - 1) {
+  const busted = match.players.some((p) => p.score < 0);
+  if (busted && rules.tobi) { match.nextIsLast = true; return; }
+  const topSeat = topSeatOf(match);
+  const topScore = match.players[topSeat].score;
+  // あがりやめ: 最終局で親が和了してトップ（必要点数以上）なら連荘せず終了
+  if (isFinalRound(match) && winSeats.includes(match.dealer) && rules.agariYame &&
+      topSeat === match.dealer && topScore >= rules.requiredScore) {
     match.nextIsLast = true;
+    return;
   }
+  if (match.extended) {
+    if (dealerKept) {
+      // 延長中の連荘: 親が和了してトップで必要点数に届いたら終了
+      if (winSeats.includes(match.dealer) && topSeat === match.dealer && topScore >= rules.requiredScore) {
+        match.nextIsLast = true;
+      }
+      return;
+    }
+    if (topScore >= rules.requiredScore || isFinalRound(match)) match.nextIsLast = true;
+    return;
+  }
+  if (dealerKept) return;
+  if (!isFinalRound(match)) return;
+  if (topScore >= rules.requiredScore) { match.nextIsLast = true; return; }
+  match.extended = true; // 一位必要点数に届いていないので延長周回へ
 }
 
 function startNextRound(match) {
@@ -740,7 +1010,7 @@ function startNextRound(match) {
     match.roundNum += 1;
     if (match.roundNum > SEATS) {
       match.roundNum = 1;
-      match.roundWind = 28; // 東→南
+      match.roundWind += 1; // 東→南→西（延長時）
     }
   }
   startRound(match);
@@ -760,11 +1030,25 @@ function finishMatch(match) {
   }
   match.placements = [0, 0, 0];
   order.forEach((seat, i) => { match.placements[seat] = i + 1; });
+  // 最終スコア（pt）= 素点 + ウマ + オカ（トップ賞）。全員分の合計は 0 になる
+  const rules = match.rules;
+  const round1 = (x) => Math.round(x * 10) / 10;
+  const okaPt = rules.topAward ? ((rules.returnScore - rules.startScore) * SEATS) / 1000 : 0;
+  match.finalScores = order.map((seat, idx) => {
+    const base = (match.players[seat].score - rules.returnScore) / 1000;
+    const uma = rules.uma[idx] || 0;
+    const oka = idx === 0 ? okaPt : 0;
+    return {
+      seat, placement: idx + 1, score: match.players[seat].score,
+      base: round1(base), uma, oka: round1(oka), total: round1(base + uma + oka),
+    };
+  });
   match.lastResult = {
     ...(match.lastResult || {}),
     type: 'gameEnd',
     placements: match.placements,
     scores: match.players.map((p) => p.score),
+    finalScores: match.finalScores,
   };
 }
 
@@ -775,13 +1059,14 @@ function publicView(match, seat) {
     seat: s,
     score: p.score,
     riichi: p.riichi,
+    openRiichi: p.openRiichi,
     kita: p.kita || 0,
     melds: p.melds,
     discards: p.discards,
     handCount: p.hand.length,
     isDealer: s === match.dealer,
     wind: seatWindOf(match, s),
-    hand: s === seat || match.phase === 'gameEnd' || (match.phase === 'roundEnd' && match.lastResult && match.lastResult.winner === s)
+    hand: s === seat || match.rules.openHands || p.openRiichi || match.phase === 'gameEnd' || (match.phase === 'roundEnd' && match.lastResult && match.lastResult.winner === s)
       ? [...p.hand]
       : null,
     drawnTile: s === match.turn && match.phase === 'play' ? match.lastDrawn : null,
@@ -811,6 +1096,8 @@ function publicView(match, seat) {
     actions,
     lastResult: match.phase === 'roundEnd' || match.phase === 'gameEnd' ? match.lastResult : null,
     placements: match.placements,
+    finalScores: match.finalScores,
+    extended: match.extended,
   };
 }
 
@@ -902,10 +1189,11 @@ function botChooseCall(match, seat) {
   return 'pass';
 }
 
-// Bot の手番アクション全体: { type:'tsumo' } | { type:'nuki' } | { type:'kan', ... } | { type:'discard', tile, riichi }
+// Bot の手番アクション全体: { type:'tsumo' } | { type:'kyuushu' } | { type:'nuki' } | { type:'kan', ... } | { type:'discard', tile, riichi }
 function botChoosePlay(match, seat) {
   const legal = legalPlay(match, seat);
   if (legal.tsumo) return { type: 'tsumo' };
+  if (legal.kyuushu) return { type: 'kyuushu' }; // 九種九牌は倒す
   if (legal.nuki) return { type: 'nuki' }; // 北は持ったら抜く（リーチ後も）
   const p = match.players[seat];
   if (!p.riichi && legal.kan.length > 0) {
@@ -925,9 +1213,9 @@ function botChoosePlay(match, seat) {
 }
 
 module.exports = {
-  START_SCORE, SEATS,
+  START_SCORE, SEATS, DEFAULT_RULES, normalizeRules, UMA_PRESETS,
   createMatch, startRound, startNextRound,
-  legalPlay, applyDiscard, applyTsumo, applyKan, applyNuki,
+  legalPlay, applyDiscard, applyTsumo, applyKan, applyNuki, applyKyuushu,
   applyCallResponse, callSettled, resolveCall,
   publicView, botChoosePlay, botChooseCall,
   evalWin, waitsOf, isFuriten, countDora, nextDoraKind,
