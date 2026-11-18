@@ -244,8 +244,33 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   position: absolute;
   inset: 0;
   border-radius: 12%;
-  background: linear-gradient(165deg, #fbd07e 0%, #f59c33 55%, #ec8f27 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  background:
+    radial-gradient(120% 90% at 25% 15%, rgba(255, 226, 170, .5), transparent 55%),
+    linear-gradient(158deg, #fec96b 0%, #f8ab3d 42%, #f09a3e 68%, #e8892b 88%, #d97c1e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.55),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.30),
+    inset 0 -0.45em 0.65em rgba(120, 55, 8, 0.28),
+    inset 0 0.3em 0.5em rgba(255, 255, 255, 0.22);
+}
+/* 背面中央の彫り込み（牌背の窪み）と斜めの艶で立体感を足す */
+.tile.solid .s-end::before {
+  content: "";
+  position: absolute;
+  inset: 15% 17%;
+  border-radius: 10%;
+  background: linear-gradient(160deg, #d9731a, #f0993a);
+  box-shadow:
+    inset 0.06em 0.06em 0.1em rgba(90, 35, 0, 0.45),
+    inset -0.05em -0.05em 0.08em rgba(255, 220, 160, 0.5);
+}
+.tile.solid .s-end::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.16) 46%, transparent 54%);
 }
 .side-hand .tile.solid {
   transform: rotateX(-90deg);
@@ -286,10 +311,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .pond .cell .tile {
   position: absolute;
   inset: 0;
-}
-.pond .cell.last .tile {
-  outline: 0.45cqw solid var(--gold);
-  outline-offset: -0.15cqw;
 }
 .pond .cell.called .tile { opacity: 0.45; }
 .pond .cell.riichi-cell .tile { transform: rotate(-90deg) scale(0.98); }
@@ -540,6 +561,23 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   z-index: 2;
 }
 .plate .pemoji { font-size: 2.6cqw; }
+.plate .picon {
+  width: 3.2cqw;
+  height: 3.2cqw;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: #22355c;
+}
+.seat-row .picon {
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: -0.35em;
+  margin-right: 0.35em;
+  background: #22355c;
+}
 .plate .psub { display: block; font-size: 1.35cqw; color: var(--muted); font-weight: 500; }
 .plate .off { color: var(--danger); }
 .plate.turn {
@@ -794,9 +832,11 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 }
 
 .tile.back {
-  background: linear-gradient(135deg, #f09a3e, #e8892b);
+  background: linear-gradient(150deg, #f8b45e 0%, #f09a3e 45%, #e8892b 80%, #d97c1e 100%);
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 0.16em rgba(255, 236, 196, 0.4),
+    inset 0 0 0 0.34em rgba(166, 90, 22, 0.25),
     0 0.12em 0 #d77f25,
     0 0.24em 0 #b5651d,
     0 0.5em 0.5em rgba(0, 0, 0, 0.45);
@@ -804,8 +844,8 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .tile.back::after {
   content: "";
   position: absolute;
-  inset: 14% 14% 20%;
-  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  inset: 16% 16% 22%;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
   border-radius: 8%;
 }
 
@@ -1005,7 +1045,8 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .pond .cell.last .tile.solid { outline: none; }
 .pond .cell.last .tile.solid .face {
   box-shadow:
-    inset 0 0 0 0.3em var(--gold),
+    inset 0 0 0 0.12em var(--gold),
+    inset 0 0 0.9em rgba(255, 196, 64, 0.35),
     inset 0 0 0 1px rgba(0, 0, 0, 0.16);
 }
 .pond .cell.called .tile.solid { opacity: 1; }
@@ -1244,6 +1285,134 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   font-size: 1.05cqw;
   color: #a9c3ea;
   margin-top: 0.35cqw;
+}
+
+/* ===== 鳴き・和了演出（Claude 案） ===== */
+.call-fx {
+  position: absolute;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 45;
+}
+.call-fx[data-slot="me"] { left: 50%; top: 64%; }
+.call-fx[data-slot="right"] { left: 79%; top: 42%; }
+.call-fx[data-slot="far"] { left: 50%; top: 24%; }
+.call-fx[data-slot="left"] { left: 21%; top: 42%; }
+.call-fx__text {
+  position: absolute; left: 0; top: 0;
+  translate: -50% -50%;
+  font-size: 11cqw;
+  font-weight: 900;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  background: linear-gradient(#fff6d8 20%, #d9b25a 70%, #a8802f);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #fff3cf;
+  filter: drop-shadow(0 .3cqw 0 #5b3f0c) drop-shadow(0 0 1.6cqw rgba(217, 178, 90, .7));
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: call-pop 1s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.call-fx__ring {
+  position: absolute; left: 0; top: 0;
+  width: 14cqw; height: 14cqw;
+  translate: -50% -50%;
+  border-radius: 50%;
+  border: .5cqw solid rgba(217, 178, 90, .9);
+  opacity: 0;
+  animation: call-ring .6s ease-out .08s forwards;
+}
+@keyframes call-pop {
+  0%   { transform: scale(2.6); opacity: 0; }
+  14%  { transform: scale(.94); opacity: 1; }
+  24%  { transform: scale(1.04); }
+  34%  { transform: scale(1);    opacity: 1; }
+  78%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+@keyframes call-ring {
+  0%   { transform: scale(.3); opacity: .9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.win-fx {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.win-fx__flash {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 240, 190, .9), rgba(217, 178, 90, .35) 40%, transparent 70%);
+  opacity: 0;
+  animation: win-flash .5s ease-out forwards;
+}
+@keyframes win-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.win-fx__rays {
+  position: absolute; left: 50%; top: 50%;
+  width: 90cqw; height: 90cqw;
+  margin: -45cqw 0 0 -45cqw;
+  background: repeating-conic-gradient(from 0deg, rgba(217, 178, 90, .38) 0 6deg, transparent 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0 18%, transparent 62%);
+  mask-image: radial-gradient(circle, #000 0 18%, transparent 62%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-rays 1.8s ease-out forwards;
+}
+@keyframes win-rays {
+  0%   { transform: scale(.4) rotate(0deg); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: scale(1.15) rotate(40deg); opacity: 0; }
+}
+.win-fx__text {
+  position: relative;
+  font-size: 22cqw;
+  font-weight: 900;
+  letter-spacing: .06em;
+  background: linear-gradient(#fffbe8 15%, #f3d27a 55%, #b88a2e);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #fffbe8;
+  filter: drop-shadow(0 .6cqw 0 #4a3308) drop-shadow(0 0 3cqw rgba(217, 178, 90, .8));
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-text 2s cubic-bezier(.2, .9, .2, 1) forwards;
+}
+@keyframes win-text {
+  0%   { transform: scale(3) rotate(-3deg); opacity: 0; }
+  12%  { transform: scale(.92) rotate(0);   opacity: 1; }
+  20%  { transform: scale(1.06); }
+  28%  { transform: scale(1); }
+  72%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(.7) translateY(-14cqw); opacity: 0; }
+}
+.win-fx__spark {
+  position: absolute; left: 50%; top: 50%;
+  width: 1.1cqw; height: 1.1cqw;
+  margin: -.55cqw 0 0 -.55cqw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6d0 0 35%, #d9b25a 70%, transparent 72%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: win-spark 1.3s cubic-bezier(.1, .7, .3, 1) var(--delay, 0s) forwards;
+}
+@keyframes win-spark {
+  0%   { transform: translate(0, 0) scale(.4); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--tx), calc(var(--ty) + 4cqw)) scale(.1); opacity: 0; }
+}
+.result-panel--enter {
+  animation: panel-in .45s ease-out 1.5s both;
+}
+@keyframes panel-in {
+  from { transform: translateY(3cqw); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 </style>
@@ -1561,6 +1730,7 @@ let riichiArmed = false;
 let respondedCallKey = null;
 let prevPondCounts = [0, 0, 0];
 let lastDiscardSeat = -1;
+let prevTotalDiscards = 0;
 let reconnectTimer = null;
 let intentionalClose = false;
 let matchLength = 'east';
@@ -1675,6 +1845,8 @@ function backToMenu() {
   if (ws) { try { ws.close(); } catch { /* noop */ } }
   roomCode = null; lastView = null; mySeat = -1;
   prevPondCounts = [0, 0, 0];
+  prevTotalDiscards = 0;
+  lastDiscardSeat = -1;
   show('menu-screen');
 }
 
@@ -1696,6 +1868,13 @@ function renderLobby(msg) {
     } else {
       row.innerHTML = `<span>席 ${seat + 1}: <strong></strong></span>`;
       row.querySelector('strong').textContent = p.name;
+      if (p.icon) {
+        const img = document.createElement('img');
+        img.className = 'picon';
+        img.src = p.icon;
+        img.alt = '';
+        row.insertBefore(img, row.firstChild);
+      }
       if (p.isHost) row.innerHTML += ' <span class="badge host">ホスト</span>';
       if (p.bot) row.innerHTML += ' <span class="badge bot">Bot</span>';
       if (!p.bot && !p.connected) row.innerHTML += ' <span class="badge">未接続</span>';
@@ -1737,6 +1916,21 @@ function emptySlot(view) {
 }
 
 const SEAT_EMOJI = { me: '🐱', right: '🐼', left: '🦊', far: '🐰' };
+// アイコン要素：サーバーから来た icon（人間=Discordアバター／Bot=うゆゆ絵文字）があれば画像、なければ席絵文字
+function iconEl(meta, slot) {
+  if (meta && meta.icon) {
+    const img = document.createElement('img');
+    img.className = 'picon';
+    img.src = meta.icon;
+    img.alt = '';
+    img.loading = 'lazy';
+    return img;
+  }
+  const em = document.createElement('span');
+  em.className = 'pemoji';
+  em.textContent = SEAT_EMOJI[slot] || SEAT_EMOJI.left;
+  return em;
+}
 function buildSideHands(view) {
   // 他家の手牌：伏せ手牌の枚数ぶん、裏向きの牌（solid）を立てて並べる（対面も含む）
   if (!view) return;
@@ -1772,16 +1966,27 @@ function renderState(view) {
   }
   $('match-title').textContent = (matchLength === 'south' ? '半荘戦' : '東風戦') + (roomMode === 'human' ? ' 友人戦' : ' 三人CPU戦');
 
+  // 局が替わって河が減っていたら、最後の捨て牌の追跡をリセットする（枠は場全体で1つだけ）
+  const totalDiscards = view.players.reduce((s, p) => s + p.discards.length, 0);
+  if (totalDiscards < prevTotalDiscards) { prevPondCounts = [0, 0, 0]; lastDiscardSeat = -1; }
+  prevTotalDiscards = totalDiscards;
+
   // 河・名札・副露
   const pondEls = { me: $('pond-me'), right: $('pond-right'), far: $('pond-far'), left: $('pond-left') };
   const plateEls = { right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
   const meldEls = { right: $('melds-right'), left: $('melds-left') };
   const empty = emptySlot(view);
+  // 最後に捨てた席を先に確定させる（ループ途中の値で枠を付けると複数付いてしまうため）
+  const grewBySeat = {};
+  for (const p of view.players) {
+    const g = p.discards.length > prevPondCounts[p.seat];
+    grewBySeat[p.seat] = g;
+    if (g) lastDiscardSeat = p.seat;
+  }
   for (const p of view.players) {
     const slot = slotOf(p.seat, view);
     const pond = pondEls[slot];
-    const grew = p.discards.length > prevPondCounts[p.seat];
-    if (grew) lastDiscardSeat = p.seat;
+    const grew = grewBySeat[p.seat];
     pond.innerHTML = '';
     p.discards.forEach((d, i) => {
       const cell = document.createElement('div');
@@ -1798,9 +2003,7 @@ function renderState(view) {
       const meta = playersMeta[p.seat] || {};
       const plate = plateEls[slot];
       plate.innerHTML = '';
-      const em = document.createElement('span');
-      em.className = 'pemoji';
-      em.textContent = SEAT_EMOJI[slot] || SEAT_EMOJI.left;
+      const em = iconEl(meta, slot);
       const tx = document.createElement('span');
       const nm = document.createElement('span');
       nm.textContent = meta.name || '';
@@ -1840,9 +2043,7 @@ function renderState(view) {
   {
     const plate = $('plate-me');
     plate.innerHTML = '';
-    const em = document.createElement('span');
-    em.className = 'pemoji';
-    em.textContent = SEAT_EMOJI.me;
+    const em = iconEl(playersMeta[mySeat], 'me');
     const tx = document.createElement('span');
     const nm = document.createElement('span');
     nm.textContent = (playersMeta[mySeat] && playersMeta[mySeat].name) || 'あなた';
@@ -1908,6 +2109,7 @@ function renderState(view) {
   renderActions(actView);
   updateSideButtons(view);
   maybeAutoAct(view);
+  detectFx(view);
   updateTimer(view);
   renderStatus(view);
   renderResult(view);
@@ -1961,6 +2163,75 @@ function maybeAutoAct(view) {
     }, 450);
     const bar = $('action-bar');
     if (bar) bar.innerHTML = '';
+  }
+}
+
+// ===== 鳴き・和了演出（状態の変化から検出して出す） =====
+let fxPrevView = null;
+function showCallFx(slot, kind) {
+  const labels = { pon: 'ポン', kan: 'カン' };
+  if (!labels[kind]) return;
+  const el = document.createElement('div');
+  el.className = 'call-fx';
+  el.dataset.slot = slot;
+  const ring = document.createElement('div');
+  ring.className = 'call-fx__ring';
+  const tx = document.createElement('div');
+  tx.className = 'call-fx__text';
+  tx.textContent = labels[kind];
+  el.appendChild(ring);
+  el.appendChild(tx);
+  $('stage').appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+function showWinFx(kind) {
+  const fx = document.createElement('div');
+  fx.className = 'win-fx';
+  const flash = document.createElement('div');
+  flash.className = 'win-fx__flash';
+  const rays = document.createElement('div');
+  rays.className = 'win-fx__rays';
+  const tx = document.createElement('div');
+  tx.className = 'win-fx__text';
+  tx.textContent = kind === 'tsumo' ? 'ツモ' : 'ロン';
+  fx.appendChild(flash);
+  fx.appendChild(rays);
+  fx.appendChild(tx);
+  const N = 18;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2 + Math.random() * 0.3;
+    const d = 22 + Math.random() * 20;
+    const s = document.createElement('i');
+    s.className = 'win-fx__spark';
+    s.style.setProperty('--tx', `${Math.cos(a) * d}cqw`);
+    s.style.setProperty('--ty', `${Math.sin(a) * d * 0.7}cqw`);
+    s.style.setProperty('--delay', `${Math.random() * 0.15}s`);
+    fx.appendChild(s);
+  }
+  $('stage').appendChild(fx);
+  const card = $('result-card');
+  card.classList.remove('result-panel--enter');
+  void card.offsetWidth;
+  card.classList.add('result-panel--enter');
+  setTimeout(() => fx.remove(), 2100);
+}
+function detectFx(view) {
+  const prev = fxPrevView;
+  fxPrevView = view;
+  if (!prev) return;
+  if (view.phase === 'roundEnd' && prev.phase !== 'roundEnd' && view.lastResult
+    && (view.lastResult.type === 'ron' || view.lastResult.type === 'tsumo')) {
+    showWinFx(view.lastResult.type);
+    return;
+  }
+  if (prev.phase === 'roundEnd' || view.phase === 'roundEnd') return;
+  for (const p of view.players) {
+    const before = prev.players[p.seat];
+    if (!before) continue;
+    if (p.melds.length > before.melds.length) {
+      const m = p.melds[p.melds.length - 1];
+      if (m && (m.type === 'pon' || m.type === 'kan')) showCallFx(slotOf(p.seat, view), m.type);
+    }
   }
 }
 
@@ -2120,7 +2391,11 @@ function resultHandHtml(view, winnerSeat) {
 
 function renderResult(view) {
   const overlay = $('result-overlay');
-  if (view.phase !== 'roundEnd' || !view.lastResult) { overlay.hidden = true; return; }
+  if (view.phase !== 'roundEnd' || !view.lastResult) {
+    overlay.hidden = true;
+    $('result-card').classList.remove('result-panel--enter');
+    return;
+  }
   const r = view.lastResult;
   const card = $('result-card');
   card.innerHTML = '';
@@ -2177,6 +2452,14 @@ function showEnd(view) {
     row.className = 'seat-row';
     row.innerHTML = `<span><strong>${view.placements[seat]}位</strong>　<span class="pname"></span></span><span style="font-family:var(--font-num)">${p.score}点</span>`;
     row.querySelector('.pname').textContent = seatName(seat) + (seat === mySeat ? '（あなた）' : '');
+    const meta = playersMeta[seat];
+    if (meta && meta.icon) {
+      const img = document.createElement('img');
+      img.className = 'picon';
+      img.src = meta.icon;
+      img.alt = '';
+      row.insertBefore(img, row.firstChild);
+    }
     box.appendChild(row);
   }
   renderRematchArea();
