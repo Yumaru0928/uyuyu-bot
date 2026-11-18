@@ -67,10 +67,50 @@ main { width: 100%; max-width: 760px; padding: 0 12px 32px; }
 }
 .muted { color: var(--muted); font-size: 14px; }
 .settings-title { font-size: 14px; margin: 0 0 4px; }
-.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 14px; margin-top: 6px; }
-.settings-grid label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.settings-grid input[type="number"] { width: 92px; }
-.settings-grid select { max-width: 140px; }
+/* 対局設定パネル（Claude/Gemini のデザイン案を統合：グループ見出し＋ステッパー＋セグメント＋トグルタイル） */
+.rs-wrap { display: grid; gap: 10px; margin-top: 8px; }
+.rs-group { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.rs-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--gold); letter-spacing: .05em; }
+.rs-title::before { content: ""; width: 4px; height: 15px; border-radius: 2px; background: var(--gold); flex: none; }
+.rs-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+.rs-lock-badge { font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; letter-spacing: 0; }
+.rs-label { display: block; font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+.rs-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.rs-num { background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(0, 0, 0, .18)); border: 1px solid var(--line); border-radius: 12px; padding: 9px 8px 8px; text-align: center; }
+.rs-num .rs-label { margin: 0 0 2px; }
+.rs-num-val { display: flex; align-items: baseline; justify-content: center; gap: 2px; }
+.rs-num input { width: 100%; min-width: 0; background: none; border: 0; border-bottom: 1px dashed transparent; color: var(--gold); font-family: var(--font-num); font-size: 24px; font-weight: 800; line-height: 1.15; text-align: center; font-variant-numeric: tabular-nums; padding: 2px 0; }
+.rs-num input:focus { outline: 0; border-bottom-color: var(--gold); }
+.rs-num input::-webkit-outer-spin-button, .rs-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rs-num input { -moz-appearance: textfield; appearance: textfield; }
+.rs-num-unit { font-size: 12px; color: var(--muted); font-weight: 700; flex: none; }
+.rs-num-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.rs-num-btns button { height: 32px; border-radius: 8px; border: 1px solid var(--line); background: rgba(74, 163, 224, .14); color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; padding: 0; }
+.rs-num-btns button:active { background: var(--accent); }
+@media (max-width: 520px) { .rs-nums { grid-template-columns: 1fr; } .rs-num { display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; gap: 0 10px; } .rs-num .rs-label { grid-column: 1 / -1; } .rs-num-btns { margin: 0; width: 116px; } }
+.rs-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-seg label { flex: 1 1 auto; position: relative; }
+.rs-seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-seg span { display: block; text-align: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.rs-seg input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rs-seg-block { margin-bottom: 12px; }
+.rs-seg-block:last-child { margin-bottom: 0; }
+.rs-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 560px) { .rs-tiles { grid-template-columns: repeat(3, 1fr); } }
+.rs-tile { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; }
+.rs-tile input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rs-sw { flex: none; width: 36px; height: 20px; border-radius: 99px; background: #2a3558; position: relative; transition: background .15s; }
+.rs-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #aab4d4; transition: transform .15s, background .15s; }
+.rs-tile:has(input:checked) { border-color: rgba(242, 199, 107, .55); background: rgba(242, 199, 107, .08); }
+.rs-tile input:checked ~ .rs-sw { background: var(--accent); }
+.rs-tile input:checked ~ .rs-sw::after { transform: translateX(16px); background: #fff; }
+.rs-wrap.locked .rs-num input { color: #cdb877; }
+.rs-wrap.locked .rs-num-btns, .rs-wrap.locked .rs-seg span { opacity: .55; }
+.rs-wrap.locked .rs-seg input:checked + span { background: #2b3a66; border-color: #3b4d80; opacity: 1; }
+.rs-wrap.locked .rs-tile { background: transparent; }
+.rs-wrap.locked .rs-tile:has(input:checked) { border-color: var(--line); background: rgba(255, 255, 255, .03); }
+.rs-wrap.locked .rs-tile input:checked ~ .rs-sw { background: #3b4d80; }
+.rs-wrap.locked .rs-tile, .rs-wrap.locked .rs-seg input, .rs-wrap.locked .rs-num input { cursor: not-allowed; }
 .final-pt { display: block; font-size: 13px; color: var(--gold); font-family: var(--font-num); }
 
 button {
@@ -1806,74 +1846,131 @@ function umaPresetOf(uma) {
   return typeof uma === 'string' ? uma : '20';
 }
 
-// 設定パネルを組み立てる。settings は { rules, time }、変更のたびに onChange(settings) を呼ぶ
+// 設定パネルを組み立てる（グループ見出し＋ステッパー＋セグメント＋トグルタイル）。
+// settings は { rules, time }、変更のたびに onChange(settings) を呼ぶ
+let settingsPanelSeq = 0;
 function buildSettingsPanel(container, settings, editable, onChange) {
   if (!container) return;
   container.innerHTML = '';
-  const grid = document.createElement('div');
-  grid.className = 'settings-grid';
+  const uid = `rs${++settingsPanelSeq}`;
   const rules = settings.rules;
-  const num = (label, key) => {
-    const l = document.createElement('label');
-    l.textContent = label;
+  const wrap = document.createElement('div');
+  wrap.className = 'rs-wrap' + (editable ? '' : ' locked');
+  const clampScore = (v) => Math.min(200000, Math.max(0, Math.round((Number(v) || 0) / 100) * 100));
+
+  const group = (title, withLock) => {
+    const g = document.createElement('div');
+    g.className = 'rs-group';
+    const h = document.createElement('h4');
+    h.className = 'rs-title';
+    h.appendChild(document.createTextNode(title));
+    if (withLock && !editable) {
+      const b = document.createElement('span');
+      b.className = 'rs-lock-badge';
+      b.textContent = 'ホストのみ変更可';
+      h.appendChild(b);
+    }
+    g.appendChild(h);
+    wrap.appendChild(g);
+    return g;
+  };
+  const numCard = (label, key) => {
+    const card = document.createElement('div');
+    card.className = 'rs-num';
+    const lb = document.createElement('span');
+    lb.className = 'rs-label';
+    lb.textContent = label;
+    const valRow = document.createElement('div');
+    valRow.className = 'rs-num-val';
     const i = document.createElement('input');
-    i.type = 'number'; i.step = 100; i.min = 0; i.max = 200000;
+    i.type = 'number'; i.step = 100; i.min = 0; i.max = 200000; i.inputMode = 'numeric';
     i.value = rules[key];
     i.disabled = !editable;
-    i.onchange = () => { rules[key] = Number(i.value); onChange(settings); };
-    l.appendChild(i);
-    grid.appendChild(l);
-  };
-  const sel = (label, key, options, isTime = false) => {
-    const l = document.createElement('label');
-    l.textContent = label;
-    const s = document.createElement('select');
-    for (const [v, t] of options) {
-      const o = document.createElement('option');
-      o.value = v; o.textContent = t;
-      s.appendChild(o);
+    i.onchange = () => { i.value = clampScore(i.value); rules[key] = Number(i.value); onChange(settings); };
+    const unit = document.createElement('span');
+    unit.className = 'rs-num-unit';
+    unit.textContent = '点';
+    valRow.append(i, unit);
+    const btns = document.createElement('div');
+    btns.className = 'rs-num-btns';
+    for (const d of [-1000, 1000]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = d < 0 ? '−' : '＋';
+      b.disabled = !editable;
+      b.onclick = () => { i.value = clampScore((Number(i.value) || 0) + d); rules[key] = Number(i.value); onChange(settings); };
+      btns.appendChild(b);
     }
-    s.value = String(isTime ? settings.time : rules[key]);
-    s.disabled = !editable;
-    s.onchange = () => {
-      if (isTime) settings.time = s.value;
-      else rules[key] = key === 'shibari' ? Number(s.value) : s.value;
-      onChange(settings);
-    };
-    l.appendChild(s);
-    grid.appendChild(l);
+    card.append(lb, valRow, btns);
+    return card;
   };
-  const chk = (label, key) => {
-    const l = document.createElement('label');
-    const i = document.createElement('input');
-    i.type = 'checkbox';
-    i.checked = Boolean(rules[key]);
-    i.disabled = !editable;
-    i.onchange = () => { rules[key] = i.checked; onChange(settings); };
-    l.appendChild(i);
-    l.appendChild(document.createTextNode(label));
-    grid.appendChild(l);
+  const seg = (label, options, current, apply) => {
+    const block = document.createElement('div');
+    block.className = 'rs-seg-block';
+    const lb = document.createElement('span');
+    lb.className = 'rs-label';
+    lb.textContent = label;
+    const segEl = document.createElement('div');
+    segEl.className = 'rs-seg';
+    const name = `${uid}-${label}`;
+    for (const [v, t] of options) {
+      const l = document.createElement('label');
+      const i = document.createElement('input');
+      i.type = 'radio';
+      i.name = name;
+      i.value = v;
+      i.checked = String(current) === String(v);
+      i.disabled = !editable;
+      i.onchange = () => { if (i.checked) { apply(v); onChange(settings); } };
+      const s = document.createElement('span');
+      s.textContent = t;
+      l.append(i, s);
+      segEl.appendChild(l);
+    }
+    block.append(lb, segEl);
+    return block;
   };
-  num('持ち点', 'startScore');
-  num('返し点', 'returnScore');
-  num('一位必要点数', 'requiredScore');
-  sel('ウマ', 'uma', [['none', 'なし'], ['10', '10・0・-10'], ['20', '20・0・-20'], ['30', '30・0・-30']]);
-  sel('はんしばり', 'shibari', [['0', 'なし'], ['1', '1翻'], ['2', '2翻'], ['3', '3翻'], ['4', '4翻'], ['5', '満貫']]);
-  sel('持ち時間', 'time', [['3+5', '3+5秒'], ['5+10', '5+10秒'], ['5+20', '5+20秒'], ['60+0', '60秒'], ['300+0', '300秒']], true);
-  chk('トップ賞', 'topAward');
-  chk('あがりやめ', 'agariYame');
-  chk('赤ドラ', 'redDora');
-  chk('北抜き', 'kita');
-  chk('喰いタン', 'kuitan');
-  chk('ダブルロン', 'doubleRon');
-  chk('飛び終了', 'tobi');
-  chk('上がり連荘', 'agariRenchan');
-  chk('聴牌連荘', 'tenpaiRenchan');
-  chk('オープンリーチ', 'openRiichi');
-  chk('裏ドラ', 'uraDora');
-  chk('途中流局', 'abortiveDraws');
-  chk('手牌公開', 'openHands');
-  container.appendChild(grid);
+  const tiles = (items) => {
+    const t = document.createElement('div');
+    t.className = 'rs-tiles';
+    for (const [label, key] of items) {
+      const l = document.createElement('label');
+      l.className = 'rs-tile';
+      const txt = document.createElement('span');
+      txt.textContent = label;
+      const i = document.createElement('input');
+      i.type = 'checkbox';
+      i.checked = Boolean(rules[key]);
+      i.disabled = !editable;
+      i.onchange = () => { rules[key] = i.checked; onChange(settings); };
+      const sw = document.createElement('i');
+      sw.className = 'rs-sw';
+      l.append(txt, i, sw);
+      t.appendChild(l);
+    }
+    return t;
+  };
+
+  const g1 = group('点数・順位', true);
+  const nums = document.createElement('div');
+  nums.className = 'rs-nums';
+  nums.append(numCard('持ち点', 'startScore'), numCard('返し点', 'returnScore'), numCard('一位必要点数', 'requiredScore'));
+  g1.appendChild(nums);
+  g1.appendChild(seg('ウマ', [['none', 'なし'], ['10', '10'], ['20', '20'], ['30', '30']], umaPresetOf(rules.uma), (v) => { rules.uma = v; }));
+  g1.appendChild(tiles([['トップ賞', 'topAward']]));
+
+  const g2 = group('役・ドラ');
+  g2.appendChild(seg('はんしばり', [['0', 'なし'], ['1', '1翻'], ['2', '2翻'], ['3', '3翻'], ['4', '4翻'], ['5', '満貫']], rules.shibari ?? 0, (v) => { rules.shibari = Number(v); }));
+  g2.appendChild(tiles([['赤ドラ', 'redDora'], ['裏ドラ', 'uraDora'], ['北抜き', 'kita'], ['喰いタン', 'kuitan']]));
+
+  const g3 = group('進行・終了');
+  g3.appendChild(seg('持ち時間', [['3+5', '3+5秒'], ['5+10', '5+10秒'], ['5+20', '5+20秒'], ['60+0', '60秒'], ['300+0', '300秒']], settings.time, (v) => { settings.time = v; }));
+  g3.appendChild(tiles([['あがりやめ', 'agariYame'], ['上がり連荘', 'agariRenchan'], ['聴牌連荘', 'tenpaiRenchan'], ['飛び終了', 'tobi'], ['途中流局', 'abortiveDraws']]));
+
+  const g4 = group('特殊ルール');
+  g4.appendChild(tiles([['ダブルロン', 'doubleRon'], ['オープンリーチ', 'openRiichi'], ['手牌公開', 'openHands']]));
+
+  container.appendChild(wrap);
 }
 
 buildSettingsPanel(document.getElementById('menu-settings'), menuSettings, true, () => {});
