@@ -1511,9 +1511,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
         <button id="btn-bot-east">Bot戦（東風）</button>
         <button id="btn-bot-south" class="secondary">Bot戦（半荘）</button>
       </div>
-      <p class="muted">Bot 2人と対戦します。ログイン不要です。</p>
-      <h3 class="settings-title" style="margin-top:14px">対局設定（Bot戦用）</h3>
-      <div id="menu-settings"></div>
+      <p class="muted">Bot 2人と対戦します。ログイン不要です。待機ルームでルール設定をしてから開始します。</p>
     </div>
     <div class="panel">
       <h2 style="margin-top:0;font-size:17px">人間同士で対戦</h2>
@@ -1532,7 +1530,7 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   <section id="lobby-screen" hidden>
     <div class="panel">
       <h2 style="margin-top:0;font-size:17px">待機ルーム <span id="lobby-code" style="font-family:var(--font-num)"></span></h2>
-      <p class="muted">招待リンク: <a id="lobby-link" href="#" style="color:var(--accent2)"></a>
+      <p class="muted" id="lobby-invite-row">招待リンク: <a id="lobby-link" href="#" style="color:var(--accent2)"></a>
       <button id="btn-copy" class="small secondary">コピー</button></p>
       <div id="lobby-players"></div>
       <div id="lobby-host-controls" hidden style="margin-top:12px">
@@ -1825,17 +1823,7 @@ let timerInterval = null;
 let timerBank = 0;
 let openArmed = false;
 
-// ===== 対局前設定 =====
-const DEFAULT_SETTINGS = {
-  rules: {
-    startScore: 35000, returnScore: 40000, requiredScore: 40000, uma: '20',
-    topAward: true, agariYame: true, redDora: true, kita: true, kuitan: true,
-    doubleRon: false, tobi: true, agariRenchan: true, tenpaiRenchan: true,
-    openRiichi: false, shibari: 0, uraDora: false, abortiveDraws: false, openHands: false,
-  },
-  time: '5+20',
-};
-let menuSettings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+// ===== 対局前設定（待機ルームでのみ変更する） =====
 let lobbyDraft = null;
 
 function umaPresetOf(uma) {
@@ -1973,7 +1961,6 @@ function buildSettingsPanel(container, settings, editable, onChange) {
   container.appendChild(wrap);
 }
 
-buildSettingsPanel(document.getElementById('menu-settings'), menuSettings, true, () => {});
 let selectedIdx = null;
 let lastDrawnAnimKey = null; // ツモ牌の出現アニメーションを再生済みのツモ（再描画で再生しない）
 let autoSort = true;
@@ -2095,6 +2082,7 @@ function backToMenu() {
 function renderLobby(msg) {
   if (msg.length) matchLength = msg.length;
   $('lobby-code').textContent = msg.code;
+  $('lobby-invite-row').hidden = msg.mode === 'bot';
   const link = location.origin + '/play/mahjong?room=' + msg.code;
   const a = $('lobby-link');
   a.href = link; a.textContent = link;
@@ -2890,7 +2878,7 @@ function startBotGame(length) {
   matchLength = length;
   tryLockLandscape();
   connect(() => {
-    send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name, settings: menuSettings });
+    send({ type: 'create', mode: 'bot', length, token: me.token, name: me.name });
   });
 }
 function createHumanRoom() {

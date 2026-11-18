@@ -216,7 +216,7 @@ function attach(server, { verifyToken = null } = {}) {
     room.slots.forEach((slot, seat) => {
       if (!slot || slot.bot || !slot.ws) return;
       send(slot.ws, {
-        type: 'lobby', code: room.code, youSeat: seat,
+        type: 'lobby', code: room.code, mode: room.mode, youSeat: seat,
         isHost: seat === room.hostSeat,
         canStart: filledSeats(room).length >= MAX_PLAYERS,
         length: room.length, players,
@@ -611,11 +611,9 @@ function attach(server, { verifyToken = null } = {}) {
         if (mode === 'bot') {
           room.slots[1] = botSlot('Bot 1');
           room.slots[2] = botSlot('Bot 2');
-          send(ws, { type: 'created', code });
-          startGame(room);
-        } else {
-          broadcastLobby(room);
         }
+        // Bot戦も待機ルームを経由する（ルール設定はロビーでホストが行う）
+        broadcastLobby(room);
         return;
       }
 
@@ -647,8 +645,6 @@ function attach(server, { verifyToken = null } = {}) {
             broadcastState(room);
             if (room.phase === 'finished') broadcastRematchStatus(room);
             pump(room);
-          } else if (room.mode === 'bot') {
-            startGame(room);
           } else {
             broadcastLobby(room);
           }
@@ -709,7 +705,7 @@ function attach(server, { verifyToken = null } = {}) {
       }
 
       if (msg.type === 'start') {
-        if (room.phase !== 'lobby' || room.mode !== 'human') return send(ws, { type: 'error', message: '今は開始できません' });
+        if (room.phase !== 'lobby') return send(ws, { type: 'error', message: '今は開始できません' });
         if (seat !== room.hostSeat) return send(ws, { type: 'error', message: '対局の開始はホストだけができます' });
         if (filledSeats(room).length < MAX_PLAYERS) {
           return send(ws, { type: 'error', message: '三麻は3席そろってから開始できます（Bot で埋めることもできます）' });
@@ -719,7 +715,7 @@ function attach(server, { verifyToken = null } = {}) {
       }
 
       if (msg.type === 'set_rules') {
-        if (room.phase !== 'lobby' || room.mode !== 'human') return send(ws, { type: 'error', message: '今は設定を変更できません' });
+        if (room.phase !== 'lobby') return send(ws, { type: 'error', message: '今は設定を変更できません' });
         if (seat !== room.hostSeat) return send(ws, { type: 'error', message: '設定の変更はホストだけができます' });
         room.rules = game.normalizeRules(msg.rules || {});
         room.timePreset = normalizeTimePreset(msg.time);
