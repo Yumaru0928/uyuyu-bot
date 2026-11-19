@@ -2,6 +2,37 @@
   "version": 1,
   "records": [
     {
+      "id": "56955c50-4355-4689-bdfe-5b9eb61d39d6",
+      "code": "Z4CBMZ",
+      "game": "connect4",
+      "players": [
+        {
+          "id": "960004867542380555",
+          "name": "ゆまる",
+          "bot": false
+        },
+        {
+          "id": "1287776137325445125",
+          "name": "ドド",
+          "bot": false
+        }
+      ],
+      "firstId": "960004867542380555",
+      "winnerId": "960004867542380555",
+      "reason": "four",
+      "moves": [
+        3,
+        6,
+        2,
+        2,
+        1,
+        3,
+        0
+      ],
+      "level": null,
+      "createdAt": 1795100086499
+    },
+    {
       "id": "e40e34c1-d178-4a47-b0a0-5f9095d9c50c",
       "code": "GJMM29",
       "game": "othello",
