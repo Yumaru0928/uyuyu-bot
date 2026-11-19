@@ -3,11 +3,11 @@
   "players": {
     "960004867542380555": {
       "name": "yumaru_00",
-      "wins": 9,
+      "wins": 10,
       "losses": 7,
       "firsts": 7,
-      "games": 16,
-      "updatedAt": 1795100582925
+      "games": 17,
+      "updatedAt": 1795100660707
     },
     "1060004038411825152": {
       "name": "y_sub928",
@@ -19,14 +19,49 @@
     },
     "1206824698269401140": {
       "name": "scarlet_solar2",
-      "wins": 1,
+      "wins": 2,
       "losses": 0,
       "firsts": 0,
-      "games": 1,
-      "updatedAt": 1795100582925
+      "games": 2,
+      "updatedAt": 1795100660707
     }
   },
   "matches": [
+    {
+      "at": 1795100660707,
+      "winnerId": "bot",
+      "winnerName": "Bot 2",
+      "loserId": "bot",
+      "loserName": "Bot",
+      "vsBot": true,
+      "playerCount": 4,
+      "players": [
+        {
+          "id": "960004867542380555",
+          "name": "yumaru_00",
+          "place": 3,
+          "bot": false
+        },
+        {
+          "id": "1206824698269401140",
+          "name": "scarlet_solar2",
+          "place": 2,
+          "bot": false
+        },
+        {
+          "id": "bot",
+          "name": "Bot",
+          "place": 4,
+          "bot": true
+        },
+        {
+          "id": "bot",
+          "name": "Bot 2",
+          "place": 1,
+          "bot": true
+        }
+      ]
+    },
     {
       "at": 1795100582925,
       "winnerId": "bot",
