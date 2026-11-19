@@ -2,6 +2,2449 @@
   "version": 1,
   "records": [
     {
+      "id": "74cd7263-1e9e-4dfa-a93a-b7dde634c7e6",
+      "code": "GSYVGT",
+      "createdAt": 1795097988473,
+      "length": "east",
+      "players": [
+        {
+          "id": "960004867542380555",
+          "name": "yumaru_00",
+          "bot": false
+        },
+        {
+          "id": "BOT",
+          "name": "Bot 2",
+          "bot": true
+        },
+        {
+          "id": "BOT",
+          "name": "Bot 1",
+          "bot": true
+        }
+      ],
+      "firstDealer": 2,
+      "placements": [
+        3,
+        2,
+        1
+      ],
+      "finalScores": [
+        {
+          "seat": 2,
+          "placement": 1,
+          "score": 59500,
+          "base": 19.5,
+          "uma": 20,
+          "oka": 15,
+          "total": 54.5
+        },
+        {
+          "seat": 1,
+          "placement": 2,
+          "score": 26200,
+          "base": -13.8,
+          "uma": 0,
+          "oka": 0,
+          "total": -13.8
+        },
+        {
+          "seat": 0,
+          "placement": 3,
+          "score": 19300,
+          "base": -20.7,
+          "uma": -20,
+          "oka": 0,
+          "total": -40.7
+        }
+      ],
+      "scores": [
+        19300,
+        26200,
+        59500
+      ],
+      "rules": {
+        "startScore": 35000,
+        "returnScore": 40000,
+        "requiredScore": 40000,
+        "uma": [
+          20,
+          0,
+          -20
+        ],
+        "topAward": true,
+        "agariYame": true,
+        "redDora": true,
+        "kita": true,
+        "kuitan": true,
+        "doubleRon": false,
+        "tobi": true,
+        "agariRenchan": true,
+        "tenpaiRenchan": true,
+        "honbaRon": 200,
+        "openRiichi": false,
+        "shibari": 0,
+        "uraDora": true,
+        "abortiveDraws": false,
+        "openHands": false
+      },
+      "rounds": [
+        {
+          "wall": [
+            27,
+            33,
+            18,
+            29,
+            0,
+            8,
+            22,
+            34,
+            28,
+            27,
+            32,
+            17,
+            23,
+            19,
+            10,
+            12,
+            20,
+            30,
+            8,
+            28,
+            13,
+            29,
+            13,
+            23,
+            25,
+            10,
+            12,
+            32,
+            27,
+            13,
+            20,
+            15,
+            24,
+            11,
+            16,
+            19,
+            12,
+            14,
+            17,
+            15,
+            27,
+            16,
+            0,
+            16,
+            26,
+            10,
+            17,
+            14,
+            10,
+            32,
+            23,
+            20,
+            0,
+            28,
+            28,
+            22,
+            33,
+            33,
+            11,
+            21,
+            9,
+            14,
+            16,
+            26,
+            25,
+            22,
+            30,
+            29,
+            0,
+            19,
+            24,
+            21,
+            12,
+            26,
+            21,
+            20,
+            25,
+            21,
+            15,
+            35,
+            18,
+            29,
+            18,
+            30,
+            31,
+            9,
+            8,
+            18,
+            9,
+            30,
+            33,
+            17,
+            8,
+            31,
+            11,
+            24,
+            26,
+            19,
+            9,
+            31,
+            23,
+            14,
+            15,
+            11,
+            31,
+            24,
+            32,
+            25
+          ],
+          "dealer": 2,
+          "honba": 0,
+          "kyotaku": 0,
+          "scores": [
+            35000,
+            35000,
+            35000
+          ],
+          "label": "東1局",
+          "events": [
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 0,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 21,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 21,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 35,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 19,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 27,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 19,
+              "riichi": false,
+              "openRiichi": false
+            }
+          ]
+        },
+        {
+          "wall": [
+            9,
+            8,
+            26,
+            26,
+            23,
+            32,
+            14,
+            12,
+            26,
+            26,
+            27,
+            27,
+            31,
+            19,
+            34,
+            18,
+            20,
+            11,
+            14,
+            12,
+            21,
+            24,
+            15,
+            20,
+            20,
+            17,
+            30,
+            30,
+            33,
+            33,
+            11,
+            0,
+            15,
+            24,
+            23,
+            8,
+            31,
+            12,
+            21,
+            23,
+            24,
+            10,
+            27,
+            29,
+            31,
+            13,
+            32,
+            12,
+            23,
+            35,
+            21,
+            29,
+            19,
+            33,
+            30,
+            25,
+            14,
+            22,
+            15,
+            14,
+            25,
+            28,
+            10,
+            17,
+            28,
+            18,
+            9,
+            27,
+            16,
+            8,
+            31,
+            28,
+            29,
+            18,
+            19,
+            16,
+            17,
+            8,
+            25,
+            19,
+            22,
+            11,
+            15,
+            29,
+            13,
+            0,
+            16,
+            21,
+            30,
+            11,
+            32,
+            0,
+            17,
+            24,
+            20,
+            13,
+            25,
+            9,
+            28,
+            10,
+            32,
+            10,
+            16,
+            0,
+            33,
+            9,
+            18,
+            22
+          ],
+          "dealer": 2,
+          "honba": 1,
+          "kyotaku": 2,
+          "scores": [
+            35500,
+            32000,
+            35500
+          ],
+          "label": "東1局",
+          "events": [
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 11,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 13,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 1,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "ron"
+            }
+          ]
+        },
+        {
+          "wall": [
+            21,
+            29,
+            28,
+            14,
+            14,
+            28,
+            18,
+            0,
+            15,
+            15,
+            8,
+            32,
+            22,
+            22,
+            20,
+            24,
+            25,
+            29,
+            13,
+            17,
+            23,
+            26,
+            16,
+            30,
+            18,
+            28,
+            28,
+            33,
+            9,
+            30,
+            12,
+            11,
+            12,
+            17,
+            21,
+            31,
+            8,
+            9,
+            27,
+            11,
+            31,
+            18,
+            29,
+            13,
+            13,
+            14,
+            30,
+            26,
+            10,
+            12,
+            23,
+            31,
+            10,
+            0,
+            34,
+            15,
+            25,
+            16,
+            11,
+            31,
+            8,
+            32,
+            24,
+            15,
+            9,
+            33,
+            22,
+            29,
+            32,
+            30,
+            19,
+            24,
+            0,
+            20,
+            19,
+            25,
+            14,
+            0,
+            24,
+            20,
+            35,
+            27,
+            23,
+            21,
+            27,
+            16,
+            18,
+            10,
+            17,
+            25,
+            11,
+            33,
+            26,
+            9,
+            10,
+            27,
+            20,
+            8,
+            17,
+            16,
+            32,
+            26,
+            19,
+            12,
+            21,
+            33,
+            23,
+            19
+          ],
+          "dealer": 2,
+          "honba": 2,
+          "kyotaku": 0,
+          "scores": [
+            23300,
+            32000,
+            49700
+          ],
+          "label": "東1局",
+          "events": [
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 11,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 14,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 13,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 17,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 11,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 21,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "t",
+              "s": 2
+            }
+          ]
+        },
+        {
+          "wall": [
+            29,
+            33,
+            22,
+            22,
+            12,
+            22,
+            27,
+            11,
+            14,
+            29,
+            24,
+            12,
+            14,
+            30,
+            17,
+            19,
+            18,
+            0,
+            14,
+            9,
+            15,
+            0,
+            17,
+            20,
+            25,
+            20,
+            23,
+            20,
+            33,
+            9,
+            16,
+            29,
+            18,
+            13,
+            26,
+            33,
+            28,
+            12,
+            21,
+            16,
+            11,
+            25,
+            15,
+            16,
+            26,
+            27,
+            21,
+            19,
+            24,
+            32,
+            25,
+            18,
+            29,
+            21,
+            35,
+            33,
+            19,
+            30,
+            8,
+            15,
+            31,
+            8,
+            21,
+            8,
+            31,
+            10,
+            24,
+            17,
+            25,
+            23,
+            19,
+            10,
+            10,
+            32,
+            10,
+            13,
+            12,
+            31,
+            11,
+            18,
+            13,
+            27,
+            32,
+            23,
+            28,
+            34,
+            27,
+            8,
+            32,
+            9,
+            14,
+            23,
+            28,
+            31,
+            20,
+            26,
+            26,
+            17,
+            9,
+            24,
+            16,
+            15,
+            11,
+            28,
+            30,
+            30,
+            0,
+            0
+          ],
+          "dealer": 2,
+          "honba": 3,
+          "kyotaku": 0,
+          "scores": [
+            15300,
+            24000,
+            65700
+          ],
+          "label": "東1局",
+          "events": [
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 0
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 1,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 13,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 0,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 14,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 17,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 1
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 19,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 0,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 19,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 13,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "t",
+              "s": 0
+            }
+          ]
+        },
+        {
+          "wall": [
+            0,
+            24,
+            10,
+            33,
+            13,
+            20,
+            22,
+            28,
+            25,
+            19,
+            21,
+            33,
+            18,
+            29,
+            32,
+            11,
+            12,
+            26,
+            35,
+            13,
+            18,
+            30,
+            0,
+            32,
+            14,
+            23,
+            31,
+            24,
+            19,
+            14,
+            14,
+            24,
+            27,
+            20,
+            8,
+            29,
+            16,
+            16,
+            8,
+            29,
+            15,
+            15,
+            14,
+            28,
+            16,
+            23,
+            10,
+            31,
+            26,
+            25,
+            11,
+            23,
+            17,
+            30,
+            33,
+            31,
+            11,
+            28,
+            28,
+            32,
+            23,
+            10,
+            27,
+            9,
+            20,
+            21,
+            29,
+            15,
+            17,
+            21,
+            18,
+            22,
+            17,
+            16,
+            19,
+            25,
+            32,
+            26,
+            34,
+            27,
+            15,
+            27,
+            10,
+            17,
+            9,
+            24,
+            25,
+            0,
+            12,
+            20,
+            9,
+            9,
+            8,
+            0,
+            31,
+            30,
+            33,
+            13,
+            18,
+            11,
+            12,
+            8,
+            22,
+            26,
+            12,
+            19,
+            30,
+            21
+          ],
+          "dealer": 0,
+          "honba": 0,
+          "kyotaku": 0,
+          "scores": [
+            21300,
+            22000,
+            61700
+          ],
+          "label": "東2局",
+          "events": [
+            {
+              "t": "n",
+              "s": 0
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 11,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 26,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 16,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 12,
+              "riichi": true,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 20,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 1,
+              "a": "ron"
+            }
+          ]
+        },
+        {
+          "wall": [
+            16,
+            28,
+            20,
+            13,
+            17,
+            25,
+            22,
+            29,
+            14,
+            27,
+            30,
+            9,
+            26,
+            32,
+            10,
+            25,
+            0,
+            20,
+            23,
+            28,
+            15,
+            13,
+            35,
+            22,
+            18,
+            15,
+            33,
+            17,
+            21,
+            27,
+            23,
+            32,
+            26,
+            12,
+            13,
+            17,
+            24,
+            8,
+            30,
+            16,
+            20,
+            16,
+            11,
+            21,
+            8,
+            33,
+            21,
+            17,
+            21,
+            14,
+            23,
+            15,
+            26,
+            9,
+            10,
+            14,
+            28,
+            12,
+            25,
+            31,
+            24,
+            12,
+            8,
+            32,
+            15,
+            31,
+            19,
+            29,
+            14,
+            31,
+            11,
+            8,
+            33,
+            28,
+            20,
+            29,
+            32,
+            19,
+            9,
+            0,
+            24,
+            27,
+            16,
+            18,
+            26,
+            23,
+            22,
+            11,
+            31,
+            18,
+            18,
+            34,
+            12,
+            24,
+            33,
+            10,
+            19,
+            25,
+            30,
+            0,
+            11,
+            30,
+            19,
+            9,
+            10,
+            0,
+            29,
+            27
+          ],
+          "dealer": 1,
+          "honba": 0,
+          "kyotaku": 0,
+          "scores": [
+            20300,
+            28200,
+            56500
+          ],
+          "label": "東3局",
+          "events": [
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 27,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "n",
+              "s": 2
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 17,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 14,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 33,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 0,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 18,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 16,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 1,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 13,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 17,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 0,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 20,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 9,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 10,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 20,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pon"
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 22,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 23,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 1,
+              "a": "pass"
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 24,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 15,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 31,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 19,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 29,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 14,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 25,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 11,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 8,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 12,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 28,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 2,
+              "tile": 21,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 0,
+              "tile": 17,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "d",
+              "s": 1,
+              "tile": 32,
+              "riichi": false,
+              "openRiichi": false
+            },
+            {
+              "t": "c",
+              "s": 2,
+              "a": "pass"
+            },
+            {
+              "t": "t",
+              "s": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "c23da724-3a02-4741-868e-e8a5207d8f2b",
       "code": "95JPGG",
       "createdAt": 1795092665958,
