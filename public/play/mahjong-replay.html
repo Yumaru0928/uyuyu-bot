@@ -689,7 +689,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   height: 17%;
   z-index: 1;
   background: linear-gradient(180deg, rgba(11, 20, 40, 0.88) 0%, #060b1a 35%, #040814 100%);
-  backdrop-filter: blur(4px);
   border-top: 0.25cqw solid rgba(242, 199, 107, 0.45);
   box-shadow:
     0 -1.2cqw 2.4cqw rgba(0, 0, 0, 0.65),
@@ -1086,7 +1085,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .tile.solid .face {
   position: absolute;
   inset: 0;
-  overflow: hidden;
   border-radius: 12%;
   transform: translateZ(0.62em);
   background: linear-gradient(160deg, #fffef8 0%, #f6f1df 55%, #e6dfc6 100%);
@@ -1137,14 +1135,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .tile.solid .c-bl { left: -0.041em; top: calc(100% - 0.081em); transform: rotate(53.5deg) rotateX(90deg); }
 .tile.solid .c-tr { left: calc(100% - 0.161em); top: 0.081em; transform: rotate(-126.5deg) rotateX(90deg); }
 .tile.solid .c-tl { left: -0.041em; top: 0.081em; transform: rotate(126.5deg) rotateX(90deg); }
-.tile.solid .sh {
-  position: absolute;
-  inset: 0.04em -0.12em -0.22em -0.12em;
-  border-radius: 0.2em;
-  background: rgba(0, 0, 0, 0.55);
-  filter: blur(0.14em);
-  transform: translateZ(-1px);
-}
 .pond .cell { transform-style: preserve-3d; }
 .pond .cell.last .tile.solid { outline: none; }
 .pond .cell.last .tile.solid .face {
@@ -1384,7 +1374,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   transform: rotateX(-90deg);
   transform-origin: 50% 100%;
 }
-.far-hand .tile.solid .sh { display: none; }
 .far-hand .drawn-gap { flex: none; width: 1.5cqw; }
 .plate.far { left: 56%; top: 12.5%; }
 .center .cscore.far {
@@ -1783,7 +1772,8 @@ function tileEl(raw, size, opts = {}) {
     el.classList.add('solid');
     host = document.createElement('div');
     host.className = 'face';
-    for (const c of ['s-end', 'sh', 'side s-b', 'side s-t', 'side s-l', 'side s-r', 'cnr c-br', 'cnr c-bl', 'cnr c-tr', 'cnr c-tl']) {
+    for (const c of ['s-end', 'side s-b', 'side s-t', 'side s-l', 'side s-r', 'cnr c-br', 'cnr c-bl', 'cnr c-tr', 'cnr c-tl']) {
+      if (opts.cull && opts.cull.includes(c.replace('side ', '').replace('cnr ', ''))) continue;
       const d = document.createElement('div');
       d.className = c;
       el.appendChild(d);
@@ -1796,6 +1786,7 @@ function tileEl(raw, size, opts = {}) {
     el.appendChild(host);
   }
   // 立体牌の裏面（暗槓の両端）：構造は立体のまま、顔に裏柄だけ描く
+  if (opts.concealed) return el;
   if (opts.solidBack) {
     host.classList.add('back-face');
     return el;
@@ -1993,12 +1984,12 @@ function renderSideHands(step) {
       el.classList.remove('open');
       const drawn = step.phase === 'play' && step.turn === p.seat && p.hand.length % 3 === 2;
       const n = drawn ? p.hand.length - 1 : p.hand.length;
-      for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+      for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true, concealed: true }));
       if (drawn) {
         const gap = document.createElement('div');
         gap.className = 'drawn-gap';
         el.appendChild(gap);
-        el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+        el.appendChild(tileEl(0, { cqw: tsize }, { solid: true, concealed: true }));
       }
     }
   }
@@ -2194,6 +2185,7 @@ function render(withFx = false) {
   renderSideHands(step);
   // 河・名札・副露
   const pondEls = { me: $('pond-me'), right: $('pond-right'), far: $('pond-far'), left: $('pond-left') };
+  const POND_CULL = { me: ['s-t', 'c-tr', 'c-tl'], far: ['s-b', 'c-br', 'c-bl'], right: ['s-r', 'c-tr', 'c-br'], left: ['s-l', 'c-tl', 'c-bl'] };
   const plateEls = { me: $('plate-me'), right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
   const meldEls = { right: $('melds-right'), left: $('melds-left') };
   const empty = emptySlotOf(step);
@@ -2213,7 +2205,7 @@ function render(withFx = false) {
       cell.className = 'cell' + (d.called ? ' called' : '') + (d.riichi ? ' riichi-cell' : '')
         + (p.seat === lastSeat && i === p.discards.length - 1 ? ' last' : '')
         + (opts.houjuu && step.lastResult && step.lastResult.type === 'ron' && step.lastResult.from === p.seat && i === p.discards.length - 1 ? ' houjuu' : '');
-      cell.appendChild(tileEl(d.tile, { cqw: slot === 'far' ? 2.9 : 3.2 }, { solid: true }));
+      cell.appendChild(tileEl(d.tile, { cqw: slot === 'far' ? 2.9 : 3.2 }, { solid: true, cull: d.riichi ? null : POND_CULL[slot] }));
       pond.appendChild(cell);
     });
     // 名札
