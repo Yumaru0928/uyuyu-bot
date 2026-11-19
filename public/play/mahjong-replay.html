@@ -731,6 +731,19 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 }
 .hand-bar > * { pointer-events: auto; }
 .kita-box { display: inline-flex; gap: 0.25cqw; margin-left: 0.7cqw; align-items: flex-end; transform-style: preserve-3d; }
+/* 抜き北の置き場（場の上・各家の隅）。副露や手牌の行を圧迫しないよう専用ゾーンに置く */
+.kita-zone { position: absolute; z-index: 2; display: flex; gap: 0.25cqw; transform: translateZ(6px); transform-style: preserve-3d; }
+.kita-zone:empty { display: none; }
+.kita-zone .kita-box { margin-left: 0; }
+/* 向きは各家の正面に合わせる（右家は -90°、左家は +90°、対面は 180°） */
+.kita-zone.right .kita-box { transform: rotate(-90deg); }
+.kita-zone.left .kita-box { transform: rotate(90deg); }
+.kita-zone.far .kita-box { transform: rotate(180deg); }
+.kita-zone.me { left: 64.5%; top: 63%; }
+.kita-zone.right { right: 10%; top: 16%; }
+.kita-zone.far { left: 23%; top: 13.5%; }
+.kita-zone.left { left: 19.5%; bottom: 26.5%; }
+
 /* 手牌公開・オープンリーチ時：他家の手牌は立てずに寝かせて表向きで見せる */
 .side-hand.open .tile.solid, .far-hand.open .tile.solid { transform: none; }
 .my-melds {
@@ -1337,10 +1350,10 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 
 /* ===== 対面スロット（視点回転対応） ===== */
 .board-tiles .pond.far {
-  left: 50%; top: 22.4%;
+  left: 50%; top: 21.4%;
   transform: translate(-50%, -50%) rotate(180deg) translateZ(6px);
   grid-template-columns: repeat(6, 2.9cqw);
-  gap: 0.85cqw 0.45cqw;
+  gap: 1.5cqw 0.45cqw;
 }
 .board-tiles .pond.far .cell { width: 2.9cqw; height: 3.92cqw; }
 .board .melds-far {
@@ -1628,6 +1641,10 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
           <div class="pond right" id="pond-right"></div>
           <div class="pond far" id="pond-far"></div>
           <div class="pond me" id="pond-me"></div>
+        <div class="kita-zone me" id="kita-me"></div>
+        <div class="kita-zone right" id="kita-right"></div>
+        <div class="kita-zone far" id="kita-far"></div>
+        <div class="kita-zone left" id="kita-left"></div>
           <div class="melds-opp left" id="melds-left"></div>
           <div class="melds-opp right" id="melds-right"></div>
           <div class="melds-far" id="melds-far"></div>
@@ -2185,6 +2202,7 @@ function render(withFx = false) {
   for (const el of Object.values(plateEls)) { el.innerHTML = ''; el.classList.remove('riichi-on', 'turn'); }
   for (const el of Object.values(meldEls)) el.innerHTML = '';
   $('melds-far').innerHTML = '';
+  for (const z of ['kita-me', 'kita-right', 'kita-far', 'kita-left']) $(z).innerHTML = '';
   const lastSeat = lastDiscardAt(idx);
   for (const p of step.players) {
     const slot = slotOf(p.seat);
@@ -2215,7 +2233,7 @@ function render(withFx = false) {
       const box = $('my-melds');
       box.innerHTML = '';
       for (const m of p.melds) box.appendChild(meldEl(m, { cqw: 4.6 }));
-      if (p.kita > 0) box.appendChild(kitaEl(p.kita, 4.6));
+      if (p.kita > 0) $('kita-me').appendChild(kitaEl(p.kita, 3.3));
     } else if (slot === 'far') {
       const mb = $('melds-far');
       mb.innerHTML = '';
@@ -2224,12 +2242,12 @@ function render(withFx = false) {
       const seq = order.filter((i) => i < p.melds.length);
       for (let i = 0; i < p.melds.length; i++) if (!seq.includes(i)) seq.push(i);
       seq.forEach((i) => mb.appendChild(meldEl(p.melds[i], { cqw: 3.3 }, true)));
-      if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
+      if (p.kita > 0) $('kita-' + slot).appendChild(kitaEl(p.kita, 3.3));
     } else {
       const mb = meldEls[slot];
       mb.innerHTML = '';
       for (const m of p.melds) mb.appendChild(meldEl(m, { cqw: 3.3 }, true));
-      if (p.kita > 0) mb.appendChild(kitaEl(p.kita, 3.3));
+      if (p.kita > 0) $('kita-' + slot).appendChild(kitaEl(p.kita, 3.3));
     }
   }
   // センター
