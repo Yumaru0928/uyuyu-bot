@@ -693,7 +693,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   height: 17%;
   z-index: 1;
   background: linear-gradient(180deg, rgba(11, 20, 40, 0.88) 0%, #060b1a 35%, #040814 100%);
-  backdrop-filter: blur(4px);
   border-top: 0.25cqw solid rgba(242, 199, 107, 0.45);
   box-shadow:
     0 -1.2cqw 2.4cqw rgba(0, 0, 0, 0.65),
@@ -1090,7 +1089,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .tile.solid .face {
   position: absolute;
   inset: 0;
-  overflow: hidden;
   border-radius: 12%;
   transform: translateZ(0.62em);
   background: linear-gradient(160deg, #fffef8 0%, #f6f1df 55%, #e6dfc6 100%);
@@ -1131,7 +1129,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   background: linear-gradient(to right, #a85a14 0%, #e8892b 58%, #f4ddb2 62%, #fbf3dc 100%);
   box-shadow: inset 0 0 0 5em rgba(0, 0, 0, 0.1);
 }
-/* 卓への接地影 */
 .tile.solid .cnr {
   position: absolute; width: 0.2017em; height: 0.62em;
   transform-origin: 50% 0;
@@ -1141,14 +1138,6 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
 .tile.solid .c-bl { left: -0.041em; top: calc(100% - 0.081em); transform: rotate(53.5deg) rotateX(90deg); }
 .tile.solid .c-tr { left: calc(100% - 0.161em); top: 0.081em; transform: rotate(-126.5deg) rotateX(90deg); }
 .tile.solid .c-tl { left: -0.041em; top: 0.081em; transform: rotate(126.5deg) rotateX(90deg); }
-.tile.solid .sh {
-  position: absolute;
-  inset: 0.04em -0.12em -0.22em -0.12em;
-  border-radius: 0.2em;
-  background: rgba(0, 0, 0, 0.55);
-  filter: blur(0.14em);
-  transform: translateZ(-1px);
-}
 .pond .cell { transform-style: preserve-3d; }
 .pond .cell.last .tile.solid { outline: none; }
 .pond .cell.last .tile.solid .face {
@@ -1756,7 +1745,9 @@ function tileEl(raw, size, opts = {}) {
     el.classList.add('solid');
     host = document.createElement('div');
     host.className = 'face';
-    for (const c of ['s-end', 'sh', 'side s-b', 'side s-t', 'side s-l', 'side s-r', 'cnr c-br', 'cnr c-bl', 'cnr c-tr', 'cnr c-tl']) {
+    // .sh（ぼかし影）は描画面が重いので廃止（2026-11-19 軽量化）。cull 指定の面・角は作らない
+    for (const c of ['s-end', 'side s-b', 'side s-t', 'side s-l', 'side s-r', 'cnr c-br', 'cnr c-bl', 'cnr c-tr', 'cnr c-tl']) {
+      if (opts.cull && opts.cull.includes(c.replace('side ', '').replace('cnr ', ''))) continue;
       const d = document.createElement('div');
       d.className = c;
       el.appendChild(d);
@@ -1768,6 +1759,8 @@ function tileEl(raw, size, opts = {}) {
     host.className = 'face';
     el.appendChild(host);
   }
+  // 伏せ牌（他家の手牌など）：顔の中身は見えないので作らない
+  if (opts.concealed) return el;
   // 立体牌の裏面（暗槓の両端）：構造は立体のまま、顔に裏柄だけ描く
   if (opts.solidBack) {
     host.classList.add('back-face');
@@ -1904,6 +1897,8 @@ let respondedCallKey = null;
 let prevPondCounts = [0, 0, 0];
 let lastDiscardSeat = -1;
 let prevTotalDiscards = 0;
+// 差分更新の署名キャッシュ（変わっていない領域は作り直さない。2026-11-19 軽量化）
+const diffCache = { pond: {}, plate: {}, meld: {}, kita: {}, dora: '' };
 let reconnectTimer = null;
 let intentionalClose = false;
 let matchLength = 'east';
@@ -2329,12 +2324,12 @@ function buildSideHands(view) {
     el.dataset.count = key;
     el.innerHTML = '';
     const n = drawn ? p.handCount - 1 : p.handCount;
-    for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+    for (let i = 0; i < n; i++) el.appendChild(tileEl(0, { cqw: tsize }, { solid: true, concealed: true }));
     if (drawn) {
       const gap = document.createElement('div');
       gap.className = 'drawn-gap';
       el.appendChild(gap);
-      el.appendChild(tileEl(0, { cqw: tsize }, { solid: true }));
+      el.appendChild(tileEl(0, { cqw: tsize }, { solid: true, concealed: true }));
     }
   }
 }
@@ -2382,12 +2377,16 @@ function renderState(view) {
   lastView = view;
   buildSideHands(view);
   renderWaitBar(view);
-  // ドラ表示
-  const dt = $('dora-tiles');
-  dt.innerHTML = '';
-  for (let i = 0; i < 5; i++) {
-    const ind = view.doraIndicators[i];
-    dt.appendChild(tileEl(ind === undefined ? 0 : ind, { cqw: 2.6 }, { back: ind === undefined }));
+  // ドラ表示（指標の並びが同じなら作り直さない）
+  const doraSig = view.doraIndicators.join(',');
+  if (diffCache.dora !== doraSig) {
+    diffCache.dora = doraSig;
+    const dt = $('dora-tiles');
+    dt.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const ind = view.doraIndicators[i];
+      dt.appendChild(tileEl(ind === undefined ? 0 : ind, { cqw: 2.6 }, { back: ind === undefined }));
+    }
   }
   $('match-title').textContent = (matchLength === 'south' ? '半荘戦' : '東風戦') + (roomMode === 'human' ? ' 友人戦' : ' 三人CPU戦');
 
@@ -2398,16 +2397,22 @@ function renderState(view) {
 
   // 河・名札・副露
   const pondEls = { me: $('pond-me'), right: $('pond-right'), far: $('pond-far'), left: $('pond-left') };
+  // 河の牌は固定俯瞰で奥側の面・角が見えないので作らない（スロットごとに「奥側」を間引く）
+  const POND_CULL = { me: ['s-t', 'c-tr', 'c-tl'], far: ['s-b', 'c-br', 'c-bl'], right: ['s-r', 'c-tr', 'c-br'], left: ['s-l', 'c-tl', 'c-bl'] };
   const plateEls = { right: $('plate-right'), far: $('plate-far'), left: $('plate-left') };
   const meldEls = { right: $('melds-right'), left: $('melds-left') };
   const kitaEls = { me: $('kita-me'), right: $('kita-right'), far: $('kita-far'), left: $('kita-left') };
   const empty = emptySlot(view);
-  // 空席スロットの河・名札・副露の残像を消す（席が替わった対局間で残らないように）
-  for (const el of Object.values(pondEls)) if (el) el.innerHTML = '';
-  for (const el of Object.values(plateEls)) { el.innerHTML = ''; el.classList.remove('riichi-on', 'turn'); }
-  for (const el of Object.values(meldEls)) el.innerHTML = '';
-  for (const el of Object.values(kitaEls)) if (el) el.innerHTML = '';
-  $('melds-far').innerHTML = '';
+  // 空席スロットの残像を消し、その差分キャッシュも捨てる（席が替わった対局間で残らないように）
+  if (empty) {
+    if (pondEls[empty]) pondEls[empty].innerHTML = '';
+    if (plateEls[empty]) { plateEls[empty].innerHTML = ''; plateEls[empty].classList.remove('riichi-on', 'turn'); }
+    if (empty === 'far') $('melds-far').innerHTML = '';
+    else if (meldEls[empty]) meldEls[empty].innerHTML = '';
+    if (kitaEls[empty]) kitaEls[empty].innerHTML = '';
+    delete diffCache.pond[empty]; delete diffCache.plate[empty];
+    delete diffCache.meld[empty]; delete diffCache.kita[empty];
+  }
   // 最後に捨てた席を先に確定させる（ループ途中の値で枠を付けると複数付いてしまうため）
   const grewBySeat = {};
   for (const p of view.players) {
@@ -2417,65 +2422,103 @@ function renderState(view) {
   }
   for (const p of view.players) {
     const slot = slotOf(p.seat, view);
+    // ---- 河（差分更新：先頭から一致するセルは触らず、食い違い以降だけ作り直す） ----
     const pond = pondEls[slot];
-    const grew = grewBySeat[p.seat];
-    pond.innerHTML = '';
-    p.discards.forEach((d, i) => {
+    const sigs = p.discards.map((d) => `${d.tile}|${d.called ? 1 : 0}|${d.riichi ? 1 : 0}`);
+    const pc = diffCache.pond[slot];
+    const sameSeat = !!(pc && pc.seat === p.seat);
+    let start = 0;
+    if (sameSeat) {
+      while (start < sigs.length && start < pc.sigs.length && sigs[start] === pc.sigs[start]) start++;
+    }
+    while (pond.children.length > start) pond.removeChild(pond.lastElementChild);
+    const prevCount = sameSeat ? pc.sigs.length : 0;
+    for (let i = start; i < sigs.length; i++) {
+      const d = p.discards[i];
       const cell = document.createElement('div');
       cell.className = 'cell'
         + (d.called ? ' called' : '')
         + (d.riichi ? ' riichi-cell' : '')
-        + (p.seat === lastDiscardSeat && i === p.discards.length - 1 ? ' last' : '')
-        + (grew && i === p.discards.length - 1 ? ' new' : '');
-      cell.appendChild(tileEl(d.tile, { cqw: slot === 'far' ? 2.75 : 3.2 }, { solid: true }));
+        + (grewBySeat[p.seat] && i >= prevCount && i === sigs.length - 1 ? ' new' : '');
+      cell.appendChild(tileEl(d.tile, { cqw: slot === 'far' ? 2.75 : 3.2 }, { solid: true, cull: d.riichi ? null : POND_CULL[slot] }));
       pond.appendChild(cell);
-    });
+    }
+    diffCache.pond[slot] = { seat: p.seat, sigs };
     prevPondCounts[p.seat] = p.discards.length;
     if (slot !== 'me') {
       const meta = playersMeta[p.seat] || {};
-      const plate = plateEls[slot];
-      plate.innerHTML = '';
-      const em = iconEl(meta, slot);
-      const tx = document.createElement('span');
-      const nm = document.createElement('span');
-      nm.textContent = meta.name || '';
-      tx.appendChild(nm);
-      if (meta.connected === false && !meta.bot) {
-        const sub = document.createElement('span');
-        sub.className = 'psub';
-        const off = document.createElement('span');
-        off.className = 'off';
-        off.textContent = '代行中';
-        sub.appendChild(off);
-        tx.appendChild(sub);
+      // ---- 名札（署名が同じなら作り直さない。アイコン画像の再生成も避けられる） ----
+      const plateSig = [p.seat, meta.name || '', meta.icon || '', meta.connected === false ? 0 : 1, meta.bot ? 1 : 0, p.riichi ? 1 : 0].join('|');
+      if (diffCache.plate[slot] !== plateSig) {
+        diffCache.plate[slot] = plateSig;
+        const plate = plateEls[slot];
+        plate.innerHTML = '';
+        const em = iconEl(meta, slot);
+        const tx = document.createElement('span');
+        const nm = document.createElement('span');
+        nm.textContent = meta.name || '';
+        tx.appendChild(nm);
+        if (meta.connected === false && !meta.bot) {
+          const sub = document.createElement('span');
+          sub.className = 'psub';
+          const off = document.createElement('span');
+          off.className = 'off';
+          off.textContent = '代行中';
+          sub.appendChild(off);
+          tx.appendChild(sub);
+        }
+        plate.appendChild(em);
+        plate.appendChild(tx);
+        plate.classList.toggle('riichi-on', p.riichi);
       }
-      plate.appendChild(em);
-      plate.appendChild(tx);
-      plate.classList.toggle('riichi-on', p.riichi);
-      if (slot === 'far') {
-        // 対面の副露は空席側の角のスペースに 2×2 で置く（1つ目は空席側の角）
-        const mb = $('melds-far');
-        mb.innerHTML = '';
-        mb.className = 'melds-far ' + (empty === 'left' ? 'at-left' : 'at-right');
-        const order = empty === 'left' ? [3, 2, 1, 0] : [2, 3, 0, 1];
-        const seq = order.filter((i) => i < p.melds.length);
-        for (let i = 0; i < p.melds.length; i++) if (!seq.includes(i)) seq.push(i);
-        seq.forEach((i) => mb.appendChild(meldEl(p.melds[i], { cqw: 3.3 }, true)));
-        if (p.kita > 0) kitaEls[slot].appendChild(kitaEl(p.kita, 3.3));
-      } else {
-        const mb = meldEls[slot];
-        mb.innerHTML = '';
-        p.melds.forEach((m) => {
-          mb.appendChild(meldEl(m, { cqw: 3.3 }, true));
-        });
-        if (p.kita > 0) kitaEls[slot].appendChild(kitaEl(p.kita, 3.3));
+      // ---- 副露（署名が同じなら作り直さない） ----
+      const meldSig = JSON.stringify(p.melds) + (slot === 'far' ? '|e:' + empty : '');
+      if (diffCache.meld[slot] !== meldSig) {
+        diffCache.meld[slot] = meldSig;
+        if (slot === 'far') {
+          // 対面の副露は空席側の角のスペースに 2×2 で置く（1つ目は空席側の角）
+          const mb = $('melds-far');
+          mb.innerHTML = '';
+          mb.className = 'melds-far ' + (empty === 'left' ? 'at-left' : 'at-right');
+          const order = empty === 'left' ? [3, 2, 1, 0] : [2, 3, 0, 1];
+          const seq = order.filter((i) => i < p.melds.length);
+          for (let i = 0; i < p.melds.length; i++) if (!seq.includes(i)) seq.push(i);
+          seq.forEach((i) => mb.appendChild(meldEl(p.melds[i], { cqw: 3.3 }, true)));
+        } else {
+          const mb = meldEls[slot];
+          mb.innerHTML = '';
+          p.melds.forEach((m) => {
+            mb.appendChild(meldEl(m, { cqw: 3.3 }, true));
+          });
+        }
+      }
+      // ---- 抜き北（場のゾーン。枚数が同じなら作り直さない） ----
+      const kitaSig = String(p.kita || 0);
+      if (diffCache.kita[slot] !== kitaSig) {
+        diffCache.kita[slot] = kitaSig;
+        const kz = kitaEls[slot];
+        kz.innerHTML = '';
+        if (p.kita > 0) kz.appendChild(kitaEl(p.kita, 3.3));
       }
     }
   }
-  // 自分の名札
+  // 最後の捨て牌の金リングは場全体で1つだけ（付け替え）
+  document.querySelectorAll('.pond .cell.last').forEach((c) => c.classList.remove('last'));
+  if (lastDiscardSeat >= 0) {
+    const lp = view.players.find((p) => p.seat === lastDiscardSeat);
+    if (lp && lp.discards.length > 0) {
+      const cell = pondEls[slotOf(lastDiscardSeat, view)].lastElementChild;
+      if (cell) cell.classList.add('last');
+    }
+  }
+  // 自分の名札（名前とアイコンが同じなら作り直さない）
   {
     const plate = $('plate-me');
-    plate.innerHTML = '';
+    const myMeta = playersMeta[mySeat] || {};
+    const myPlateSig = [myMeta.name || '', myMeta.icon || ''].join('|');
+    if (diffCache.plate.me !== myPlateSig) {
+      diffCache.plate.me = myPlateSig;
+      plate.innerHTML = '';
     const em = iconEl(playersMeta[mySeat], 'me');
     const tx = document.createElement('span');
     const nm = document.createElement('span');
@@ -2485,8 +2528,9 @@ function renderState(view) {
     sub.textContent = 'あなた';
     tx.appendChild(nm);
     tx.appendChild(sub);
-    plate.appendChild(em);
-    plate.appendChild(tx);
+      plate.appendChild(em);
+      plate.appendChild(tx);
+    }
   }
 
   // センター
@@ -2522,13 +2566,23 @@ function renderState(view) {
     const el = $('plate-' + s);
     if (el) el.classList.toggle('turn', !!turnSlot && turnSlot === s);
   });
-  // 自分の副露とカウンター
+  // 自分の副露とカウンター（署名が同じなら作り直さない）
   const myP = view.players[mySeat];
-  const meldsBox = $('my-melds');
-  meldsBox.innerHTML = '';
-  for (const m of myP.melds) meldsBox.appendChild(meldEl(m, { cqw: 4.6 }));
-  // 抜き北は手牌の行ではなく場の専用ゾーンへ（buildSideHands が全ゾーンをクリア済み）
-  if (myP.kita > 0) $('kita-me').appendChild(kitaEl(myP.kita, 3.3));
+  const myMeldSig = JSON.stringify(myP.melds);
+  if (diffCache.meld.me !== myMeldSig) {
+    diffCache.meld.me = myMeldSig;
+    const meldsBox = $('my-melds');
+    meldsBox.innerHTML = '';
+    for (const m of myP.melds) meldsBox.appendChild(meldEl(m, { cqw: 4.6 }));
+  }
+  // 抜き北は手牌の行ではなく場の専用ゾーンへ
+  const myKitaSig = String(myP.kita || 0);
+  if (diffCache.kita.me !== myKitaSig) {
+    diffCache.kita.me = myKitaSig;
+    const kz = $('kita-me');
+    kz.innerHTML = '';
+    if (myP.kita > 0) kz.appendChild(kitaEl(myP.kita, 3.3));
+  }
   let aka = 0;
   for (const raw of myP.hand || []) if (isRedTile(raw)) aka++;
   for (const m of myP.melds) for (const raw of m.tiles) if (isRedTile(raw)) aka++;
