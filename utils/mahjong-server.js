@@ -254,7 +254,7 @@ function attach(server, { verifyToken = null } = {}) {
         time = { base, bank: Math.ceil((room.timeBank[matchSeat] || 0) / 1000), deadline: room.callStart + base * 1000 + (room.timeBank[matchSeat] || 0) };
       }
       if (time) view.time = time;
-      send(slot.ws, { type: 'state', seat: matchSeat, players, view, mode: room.mode });
+      send(slot.ws, { type: 'state', seat: matchSeat, players, view, mode: room.mode, auto: Boolean(slot.auto) });
     });
   }
 
@@ -369,7 +369,7 @@ function attach(server, { verifyToken = null } = {}) {
 
   function seatIsAuto(room, seat) {
     const slot = room.slots[room.playerSeats[seat]];
-    return slot.bot || !slot.ws; // Bot 席 or 切断中の人間席は代行
+    return slot.bot || !slot.ws || slot.auto; // Bot 席・切断中・代走 ON の席は代行
   }
 
   function pump(room) {
@@ -515,6 +515,7 @@ function attach(server, { verifyToken = null } = {}) {
   }
 
   function startGame(room) {
+    for (const s of room.slots) if (s) s.auto = false; // 代走は対局ごとに OFF から始める
     if (room.waitingTimer) { clearTimeout(room.waitingTimer); room.waitingTimer = null; }
     if (room.finishedTimer) { clearTimeout(room.finishedTimer); room.finishedTimer = null; }
     // 座る席はランダムに割り当てる
@@ -821,6 +822,14 @@ function attach(server, { verifyToken = null } = {}) {
         broadcastState(room); // 応答したことを表示に反映（ボタンを消す）
         if (game.callSettled(m)) maybeResolveCall(room);
         else armCallClock(room);
+        return;
+      }
+
+      if (msg.type === 'autopilot') {
+        // 代走トグル: ON の間は Bot 代行が打つ（切断時の代行と同じ扱い・鳴きはせずロンだけ拾う）
+        slot.auto = Boolean(msg.on);
+        broadcastState(room);
+        pump(room);
         return;
       }
 
