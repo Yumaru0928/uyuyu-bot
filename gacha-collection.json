@@ -319,10 +319,11 @@
         "uyuyu_uhe": 2,
         "uyuyu": 1,
         "uyuyu_sweating": 1,
-        "uyuyu_null": 1
+        "uyuyu_null": 1,
+        "rolling_uyuyu": 1
       },
-      "total": 10,
-      "updatedAt": 1795009936204
+      "total": 11,
+      "updatedAt": 1795091066543
     }
   },
   "wins": {
