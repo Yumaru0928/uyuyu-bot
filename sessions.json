@@ -39,8 +39,8 @@
           [
             0,
             0,
-            0,
-            2,
+            1,
+            1,
             1,
             0,
             0,
@@ -87,7 +87,7 @@
             0
           ]
         ],
-        "turn": 1,
+        "turn": 2,
         "players": {
           "1": {
             "id": "1244234140174389300",
@@ -97,15 +97,23 @@
           "2": {
             "id": "1162584697457627218",
             "displayName": "⌬",
-            "isAi": false
+            "isAi": false,
+            "confirm": false
           }
         },
         "ranked": true,
         "level": "normal",
-        "events": [],
-        "moves": [],
-        "notifyMessageId": "1572977118265090210",
-        "updatedAt": 1795097369647
+        "events": [
+          "⚫ 壁: **c4** (1個)"
+        ],
+        "moves": [
+          {
+            "x": 2,
+            "y": 3
+          }
+        ],
+        "notifyMessageId": "1572977216986423377",
+        "updatedAt": 1795097400461
       }
     }
   }
