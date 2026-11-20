@@ -283,6 +283,10 @@ async function restoreConfigFromGitHub(filePath = 'config-channels.json') {
             .filter(([, g]) => g && g.babanukiChannel)
             .map(([id, g]) => `${id}->${g.babanukiChannel}`);
         console.log(`[GitHub Sync] babanukiChannel 設定済み: ${withBabanuki.length ? withBabanuki.join(', ') : 'なし'}`);
+        const withMahjong = Object.entries(getChannelConfig())
+            .filter(([, g]) => g && g.mahjongChannel)
+            .map(([id, g]) => `${id}->${g.mahjongChannel}`);
+        console.log(`[GitHub Sync] mahjongChannel 設定済み: ${withMahjong.length ? withMahjong.join(', ') : 'なし'}`);
     } catch (error) {
         console.error('[GitHub Sync] 設定の読み戻しに失敗しました。ローカルの設定を使います:', error);
     }

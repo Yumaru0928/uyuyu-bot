@@ -8,6 +8,7 @@
   const reactOnCount = channels.filter(c => !disabledReact.includes(c.id)).length;
   const deleteLogSet = channels.some(c => c.id === guildConfig.deleteLogChannel);
   const babanukiSet = channels.some(c => c.id === guildConfig.babanukiChannel);
+  const mahjongSet = channels.some(c => c.id === guildConfig.mahjongChannel);
 
   // ハニーポット設定（未設定の項目は既定値で補う）
   const honeypot = Object.assign(
@@ -27,6 +28,7 @@
     { id: 'auto-react', label: 'Auto-React', on: reactOnCount > 0 },
     { id: 'honeypot', label: 'ハニーポット', on: honeypotSet },
     { id: 'babanuki', label: 'ババ抜き', on: babanukiSet },
+    { id: 'mahjong', label: '麻雀', on: mahjongSet },
     { id: 'notifications', label: '配信・投稿の通知', on: notifications.length > 0 },
   ];
 %>
@@ -170,6 +172,26 @@
                             <% }) %>
                         </select>
                         <p class="field-help">Botがそのチャンネルに送信できる権限を持っている必要があります。Bot戦のルームは投稿されません。</p>
+                    </div>
+                </section>
+
+                <section class="panel" data-panel="mahjong" aria-labelledby="mahjong-title">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title" id="mahjong-title">麻雀</h2>
+                            <p class="panel-lead">/mahjong コマンドでルームが作られたときに、募集や対局結果を自動で投稿するチャンネルです。人間同士の対局では、対局が始まると投稿は募集終了の表示に書き換わります。</p>
+                        </div>
+                        <span class="status<%= mahjongSet ? '' : ' status--off' %>"><%= mahjongSet ? '有効' : '未設定' %></span>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="mahjongChannel">自動投稿先チャンネル</label>
+                        <select class="select" id="mahjongChannel" name="mahjongChannel">
+                            <option value="">(未設定: 自動投稿しない)</option>
+                            <% channels.forEach(channel => { %>
+                            <option value="<%= channel.id %>"<%= guildConfig.mahjongChannel === channel.id ? ' selected' : '' %>>#<%= channel.name %></option>
+                            <% }) %>
+                        </select>
+                        <p class="field-help">Botがそのチャンネルに送信できる権限を持っている必要があります。Bot戦は告知のみ投稿され、対局結果は人間の参加者が2人以上の対局のときだけ投稿されます。</p>
                     </div>
                 </section>
 
