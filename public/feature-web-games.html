@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Web対戦ゲーム(ババ抜き・三人麻雀) | うゆゆBot</title>
+  <meta name="description" content="うゆゆBotのWeb対戦ゲーム。ブラウザで遊べるババ抜き(2〜4人)と三人麻雀のルール、Bot戦と強さ、対戦履歴の再生と共有、サーバーへの自動投稿を説明します。">
+  <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-web-games.html">
+  <meta property="og:title" content="Web対戦ゲーム(ババ抜き・三人麻雀) | うゆゆBot" />
+  <meta property="og:description" content="うゆゆBotのWeb対戦ゲーム。ブラウザで遊べるババ抜き(2〜4人)と三人麻雀のルール、Bot戦と強さ、対戦履歴の再生と共有、サーバーへの自動投稿を説明します。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-web-games.html" />
+  <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
+  <meta name="theme-color" content="#0E7A5C" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="icon" href="uyuyu.png">
+</head>
+
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="index.html">
+        <img src="uyuyu.png" alt="" class="brand-logo">
+        うゆゆBot
+      </a>
+      <nav class="nav" aria-label="メインメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html" aria-current="page">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="invite.html" class="join">招待</a>
+        <a href="/dashboard" class="admin">管理画面へ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="doc">
+      <a class="crumb" href="features.html">&larr; 機能詳細の一覧へ</a>
+      <h1 class="page-title">Web対戦ゲーム</h1>
+      <p class="meta">ババ抜き・三人麻雀・対戦履歴</p>
+
+      <p>Discordのコマンドで対戦ルームを作り、発行されたリンクをブラウザで開いて遊ぶゲームです。リンクを知っていれば、<strong>別のサーバーの人とも対戦できます</strong>。Discordアカウントでログインして遊ぶほか、麻雀はゲスト参加もできます。</p>
+
+<ul class="related"><li><a href="#babanuki">ババ抜き</a></li><li><a href="#mahjong">三人麻雀</a></li><li><a href="#kifu">対戦履歴(棋譜)</a></li></ul>
+
+      <h2 id="babanuki">ババ抜き(/babanuki)</h2>
+      <p>ブラウザで遊べるババ抜きです。コマンドでルームを作ると招待リンクが発行されるので、参加者にリンクを共有します。</p>
+<pre class="usage"><code>/babanuki</code></pre>
+      <ul>
+        <li><strong>人数</strong>: 2〜4人です。そろわない席はBotが入ります。</li>
+        <li><strong>ルール</strong>: 配られた手札から、同じ数字のペアを自動で捨てます。隣の人から1枚引いて、ペアができたら捨てます。先に手札をなくした人から勝ち抜けで、最後までババ(ジョーカー)を持っていた人が負けです。</li>
+        <li><strong>再戦</strong>: 終わったあとは、接続中の人間全員の承諾で再戦できます。</li>
+        <li><strong>記録</strong>: レートはなく、勝敗だけが記録されます。</li>
+        <li><strong>自動投稿</strong>: ダッシュボードで自動投稿チャンネルを設定すると、対戦の募集がそのチャンネルに自動で投稿されます。</li>
+      </ul>
+
+      <h2 id="mahjong">三人麻雀(/mahjong)</h2>
+      <p>ブラウザでそのまま対局できる三人麻雀です。コマンドでルームを作ると招待リンクが発行されます。</p>
+<pre class="usage"><code>/mahjong</code></pre>
+      <ul>
+        <li><strong>対局</strong>: 3人で対局します。空いた席にはBotが入るので、1人でも遊べます。開始点は35000点で、東風戦と半荘戦を選べます。</li>
+        <li><strong>ルール設定</strong>: 待機ルームで細かく変更できます。赤ドラ、北抜き、喰いタン、裏ドラ、オープンリーチ、はんしばり(なし/2翻/3翻/4翻/満貫)、持ち時間(秒読みつき)などに対応しています。</li>
+        <li><strong>Botの強さ</strong>: 「よわい」「ふつう」「つよい」の3段階から選べます。対局中に席を離れるときは、Botの代走に任せることもできます。</li>
+        <li><strong>再接続</strong>: 回線が切れても、同じブラウザで開き直せば自分の席に戻れます。Bot戦は切断してもルームが解散せず、Botが代わりに打ち続けます。</li>
+        <li><strong>対戦履歴</strong>: 終わった対局は手順まで記録され、あとから再生して見直せます(下の「対戦履歴」参照)。</li>
+        <li><strong>自動投稿</strong>: ダッシュボードで自動投稿チャンネルを設定すると、対局の募集と結果がそのチャンネルに自動で投稿されます。</li>
+      </ul>
+
+      <h2 id="kifu">対戦履歴(棋譜)(/kifu)</h2>
+      <p>対戦ゲームの記録を見直す仕組みです。</p>
+<pre class="usage"><code>/kifu</code></pre>
+      <ul>
+        <li>オセロ・将棋・四目並べの対局は「棋譜」として、三人麻雀の対局は「対戦履歴」として保存されます。</li>
+        <li><code>/kifu</code> で、自分の最近の対戦履歴(再生リンクとコード)を表示します。麻雀の対戦履歴はサイト上の再生ページからも開けます。</li>
+        <li>記録には6文字のコードが付き、コードを知っていれば、対局していない人も再生を見られます。</li>
+        <li>保管期間は30日です。お気に入りにした記録は削除されず、名前を付けて残せます。</li>
+      </ul>
+
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-versus.html">対戦ゲーム(オセロ・将棋・四目並べ・ランキング)</a></li><li><a href="feature-games.html">ゲーム(スロット・ガチャ・ブラックジャックほか)</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-in">
+      <nav aria-label="フッターメニュー">
+        <a href="index.html">機能</a>
+        <a href="features.html">機能詳細</a>
+        <a href="emojis.html">絵文字一覧</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシー</a>
+        <a href="credits.html">クレジット</a>
+        <a href="https://github.com/Yumaru0928/uyuyu-bot">GitHub</a>
+      </nav>
+      <p>うゆゆBotは個人が運営するDiscord Botです。Discord Inc.とは関係のない非公式のBotです。</p>
+      <p>&copy; 2026 ゆまる All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+
+</html>

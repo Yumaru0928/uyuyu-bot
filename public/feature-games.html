@@ -5,10 +5,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>ゲーム(スロット・ガチャ・ブラックジャックほか) | うゆゆBot</title>
-  <meta name="description" content="うゆゆBotのゲームコマンド。スロットの当たる確率、うゆゆガチャ、ブラックジャックのルール、High&amp;Low、迷路の遊び方を説明します。">
+  <meta name="description" content="うゆゆBotのゲームコマンド。スロットの当たる確率、うゆゆガチャのレアリティと図鑑、ブラックジャックのルール、High&amp;Low、迷路の遊び方を説明します。">
   <link rel="canonical" href="https://uyuyu-bot.onrender.com/feature-games.html">
   <meta property="og:title" content="ゲーム(スロット・ガチャ・ブラックジャックほか) | うゆゆBot" />
-  <meta property="og:description" content="うゆゆBotのゲームコマンド。スロットの当たる確率、うゆゆガチャ、ブラックジャックのルール、High&amp;Low、迷路の遊び方を説明します。" />
+  <meta property="og:description" content="うゆゆBotのゲームコマンド。スロットの当たる確率、うゆゆガチャのレアリティと図鑑、ブラックジャックのルール、High&amp;Low、迷路の遊び方を説明します。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uyuyu-bot.onrender.com/feature-games.html" />
   <meta property="og:image" content="https://uyuyu-bot.onrender.com/uyuyu.png" />
@@ -48,7 +48,7 @@
 
       <p>うゆゆ絵文字を使ったスロットとガチャ、ひとりで遊べるカードゲームなど、5つのコマンドがあります。ボタンを使うゲームは、<strong>コマンドを実行した本人だけ</strong>が操作できます。ほかの人がボタンを押すと、「実行した本人のみ操作できます」と表示されます。</p>
 
-<ul class="related"><li><a href="#slot">スロット</a></li><li><a href="#gacha">うゆゆガチャ</a></li><li><a href="#blackjack">ブラックジャック</a></li><li><a href="#highlow">High&amp;Low</a></li><li><a href="#maze">迷路</a></li></ul>
+<ul class="related"><li><a href="#slot">スロット</a></li><li><a href="#gacha">うゆゆガチャ</a></li><li><a href="#zukan">図鑑</a></li><li><a href="#blackjack">ブラックジャック</a></li><li><a href="#highlow">High&amp;Low</a></li><li><a href="#maze">迷路</a></li></ul>
 
       <h2 id="slot">スロット(/slot)</h2>
       <p>3つのリールを回して、絵柄をそろえるゲームです。</p>
@@ -62,12 +62,23 @@
 <div class="tbl"><table><thead><tr><th class="nw">結果</th><th class="nw">確率</th><th class="nw">表示</th></tr></thead><tbody><tr><td>大当たり(3つともそろう)</td><td class="nw">5%</td><td>「大当たり (JACKPOT)!!」(緑)</td></tr><tr><td>おしい(2つがそろう)</td><td class="nw">20%</td><td>「おしい! 2つ揃えました!」(黄)</td></tr><tr><td>ハズレ(3つともバラバラ)</td><td class="nw">75%</td><td>「ざんねん! ハズレです。」(赤)</td></tr></tbody></table></div>
 
       <h2 id="gacha">うゆゆガチャ(/uyuyu-gacha)</h2>
-      <p>うゆゆ絵文字を10個引いて、5×2の画像にして表示します。</p>
+      <p>うゆゆ絵文字を10個引いて、5×2の画像にして表示します。コストはなく、何度でも引けます。</p>
 <pre class="usage"><code>/uyuyu-gacha</code></pre>
       <ul>
-        <li>16種類のうゆゆ絵文字から、毎回同じ確率で10回引きます。同じ絵文字が重なることがあります。</li>
-        <li><code>rolling_uyuyu</code> は、ガチャには入っていません。</li>
+        <li>通常プールは18種類で、レアリティごとに決まった確率で抽選します。同じ絵文字が重なることがあります。</li>
+        <li>週替わりで、SR・R・Nのうち3種類が「お休み」(排出されない)になります。お休みの顔ぶれは毎週月曜に入れ替わるので、コンプリートには時間がかかります。</li>
+        <li>条件を満たすと混ざる限定枠(SP)もあります。対戦ゲームに勝った日だけ出るもの、深夜だけ出るもの、12月や年末年始だけ出るものなどがあり、図鑑の対象は全部で24種類です。</li>
+        <li><code>rolling_uyuyu</code> は通常プールには入っていませんが、限定枠として出会えることがあります。</li>
         <li>画像は、暗い背景に、絵文字を128ピクセルの大きさで並べたものです。画像を作るのに、少し時間がかかることがあります。</li>
+      </ul>
+<div class="tbl"><table><thead><tr><th class="nw">レアリティ</th><th class="nw">確率</th><th class="nw">種類数</th></tr></thead><tbody><tr><td>SSR</td><td class="nw">2%</td><td class="nw">2種類</td></tr><tr><td>SR</td><td class="nw">5%</td><td class="nw">4種類</td></tr><tr><td>R</td><td class="nw">10%</td><td class="nw">6種類</td></tr><tr><td>N</td><td class="nw">83%</td><td class="nw">6種類</td></tr></tbody></table></div>
+
+      <h2 id="zukan">図鑑(/uyuyu-zukan)</h2>
+      <p>ガチャで集めたうゆゆ絵文字の、自分の所持状況を表示します。</p>
+<pre class="usage"><code>/uyuyu-zukan</code></pre>
+      <ul>
+        <li>対象は全部で24種類(通常プール18種類と、条件で出る限定枠6種類)です。まだ持っていない絵文字は、出現条件のヒントだけが表示されます。</li>
+        <li>同じ絵文字を集めると枠が育ちます。30個で銀枠、100個で金枠になります。</li>
       </ul>
 
       <h2 id="blackjack">ブラックジャック(/blackjack)</h2>
@@ -103,7 +114,7 @@
         <li>遊びとして眺めたり、ほかの人と「どっちが先に出口に着くか」を競ったりして使えます。</li>
       </ul>
 
-<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-versus.html">対戦ゲーム(オセロ・将棋・四目並べ・ランキング)</a></li><li><a href="emojis.html">うゆゆ絵文字の一覧</a></li><li><a href="feature-tools.html">ダイス・カラー・アバター</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
+<h2>あわせて読みたい</h2><ul class="related"><li><a href="feature-versus.html">対戦ゲーム(オセロ・将棋・四目並べ・ランキング)</a></li><li><a href="feature-web-games.html">Web対戦ゲーム(ババ抜き・三人麻雀)</a></li><li><a href="emojis.html">うゆゆ絵文字の一覧</a></li><li><a href="feature-tools.html">ダイス・カラー・アバター</a></li><li><a href="features.html">機能詳細の一覧</a></li></ul>
     </section>
   </main>
 
