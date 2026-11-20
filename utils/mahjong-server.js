@@ -17,7 +17,7 @@
 //   { type:'create', mode:'bot'|'human', length?, token?, name?, settings?:{ rules, time } }
 //   { type:'join', code, token?, name? }
 //   { type:'add_bot' } / { type:'remove_bot', seat } / { type:'set_length', length }
-//   { type:'set_rules', rules, time }  … 対局前設定（ホストのみ・ロビーで）
+//   { type:'set_rules', rules, time, botLevel }  … 対局前設定（ホストのみ・ロビーで）
 //   { type:'start' }
 //   { type:'discard', tile, riichi?, open? } / { type:'tsumo' } / { type:'kan', tile, kanKind }
 //   { type:'nuki' } / { type:'kyuushu' }
@@ -149,6 +149,7 @@ function makeRoom({ mode, createdVia, hooks = null }) {
     botTimer: null, callTimer: null, roundTimer: null,
     waitingTimer: null, finishedTimer: null, turnTimer: null,
     rules: game.normalizeRules(), // 対局前設定
+    botLevel: 'normal', // Bot の強さ（weak/normal/strong。ロビーでホストが変更）
     timePreset: '5+20', // 持ち時間プリセット
     timeBank: [20000, 20000, 20000], // 席ごとの秒読みバンク残量（ms、対局の席番号）
     clock: null, // 手番時計 { seat, startedAt, deadline, key }
@@ -223,7 +224,7 @@ function attach(server, { verifyToken = null } = {}) {
         isHost: seat === room.hostSeat,
         canStart: filledSeats(room).length >= MAX_PLAYERS,
         length: room.length, players,
-        rules: room.rules, time: room.timePreset,
+        rules: room.rules, time: room.timePreset, botLevel: room.botLevel,
       });
     });
   }
@@ -315,7 +316,7 @@ function attach(server, { verifyToken = null } = {}) {
       const mm = room.match;
       let tile = mm.lastDrawn;
       if (tile === null || tile === undefined) {
-        const act = game.botChoosePlay(mm, seat);
+        const act = game.botChoosePlay(mm, seat, room.botLevel);
         tile = act && act.tile !== undefined ? act.tile : game.legalPlay(mm, seat).discards[0];
       }
       if (tile !== null && tile !== undefined) game.applyDiscard(mm, seat, tile, {});
@@ -415,7 +416,7 @@ function attach(server, { verifyToken = null } = {}) {
 
   function doBotPlay(room, seat) {
     const m = room.match;
-    const act = game.botChoosePlay(m, seat);
+    const act = game.botChoosePlay(m, seat, room.botLevel);
     if (act.type === 'tsumo') game.applyTsumo(m, seat);
     else if (act.type === 'kyuushu') game.applyKyuushu(m, seat);
     else if (act.type === 'nuki') game.applyNuki(m, seat);
@@ -437,7 +438,7 @@ function attach(server, { verifyToken = null } = {}) {
         if (room.match.call.responses[seat] === undefined) {
           const opts = room.match.call.options[seat];
           // 代行はロンだけ拾い、鳴きはパス（切断中の席を勝手に開かせない）
-          const action = room.slots[room.playerSeats[seat]].bot ? game.botChooseCall(room.match, seat) : (opts.ron ? 'ron' : 'pass');
+          const action = room.slots[room.playerSeats[seat]].bot ? game.botChooseCall(room.match, seat, room.botLevel) : (opts.ron ? 'ron' : 'pass');
           game.applyCallResponse(room.match, seat, action);
           maybeResolveCall(room);
         }
@@ -671,6 +672,7 @@ function attach(server, { verifyToken = null } = {}) {
         if (msg.settings && typeof msg.settings === 'object') {
           room.rules = game.normalizeRules(msg.settings.rules || {});
           room.timePreset = normalizeTimePreset(msg.settings.time);
+          if (typeof msg.settings.botLevel === 'string') room.botLevel = game.normalizeBotLevel(msg.settings.botLevel);
         }
         room.slots[0] = { ws, user, bot: false };
         rooms.set(code, room);
@@ -788,6 +790,7 @@ function attach(server, { verifyToken = null } = {}) {
         if (seat !== room.hostSeat) return send(ws, { type: 'error', message: '設定の変更はホストだけができます' });
         room.rules = game.normalizeRules(msg.rules || {});
         room.timePreset = normalizeTimePreset(msg.time);
+        if (typeof msg.botLevel === 'string') room.botLevel = game.normalizeBotLevel(msg.botLevel);
         broadcastLobby(room);
         return;
       }

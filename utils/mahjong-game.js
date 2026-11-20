@@ -1175,7 +1175,20 @@ function publicView(match, seat) {
   };
 }
 
-// ---- Bot の簡易判断（フェーズ2: 牌効率ベース。押し引きはフェーズ3） ----
+// ---- Bot の判断（フェーズ2: 牌効率ベース。フェーズ3 B で強さ3段階を追加） ----
+
+// Bot の強さ（先生指定の仕様）:
+// weak=入門。行動は一通りする（リーチも鳴きもする）が、牌効率を無視して切る。
+//   愚形でも待ちを見ずにリーチする
+// normal=従来どおり（シャンテン＋受け入れの牌効率、条件付きポン）
+// strong=牌効率に加えて打点も見る（ドラ・役の種を残す）。他家のリーチ・仕掛けから
+//   待ちを読んで放銃回避し、打点上昇の見込みがある愚形テンパイはリーチせず様子を見る。
+//   たまに速度重視で打ち始める局がある
+const BOT_LEVELS = ['weak', 'normal', 'strong'];
+
+function normalizeBotLevel(v) {
+  return BOT_LEVELS.includes(v) ? v : 'normal';
+}
 
 // 受け入れ枚数（その牌を引くとシャンテンが下がる種類と残り枚数の概算）
 function ukeire(match, seat, handTiles) {
@@ -1202,23 +1215,12 @@ function ukeire(match, seat, handTiles) {
   return { kinds, total };
 }
 
-// Bot の打牌選択: { tile, riichi }
-function botChooseDiscard(match, seat) {
+// 打牌候補の評価（手牌の種類ごと）: { tile, kind, sh, score }
+// score が大きいほど「切ると得」な牌（シャンテンが進み、受け入れが広く、温存価値が低い）
+function evalDiscards(match, seat) {
   const p = match.players[seat];
-  const legal = legalPlay(match, seat);
-  if (p.riichi) return { tile: match.lastDrawn, riichi: false };
-  // リーチできるなら受入の広い切り方でリーチ
-  if (legal.riichi.length > 0) {
-    let best = null;
-    for (const raw of legal.riichi) {
-      const rest = [...p.hand];
-      removeOne(rest, raw);
-      const waits = core.waitingTiles(countsOf(rest), p.melds.length);
-      if (!best || waits.length > best.waits.length) best = { tile: raw, waits };
-    }
-    if (best && best.waits.length >= 1) return { tile: best.tile, riichi: true };
-  }
-  let best = null;
+  const counts = countsOf(p.hand);
+  const out = [];
   for (const raw of new Set(p.hand)) {
     const rest = [...p.hand];
     removeOne(rest, raw);
@@ -1227,7 +1229,6 @@ function botChooseDiscard(match, seat) {
     // 切りたくなくなさ: 孤立した客風・端牌を先に切る。赤は温存
     const kind = normalizeTile(raw);
     let keep = 0;
-    const counts = countsOf(p.hand);
     if (counts[kind] >= 2) keep += 3; // 対子以上は温存
     if (kind < 27) {
       const r = kind % 9;
@@ -1237,19 +1238,172 @@ function botChooseDiscard(match, seat) {
       keep += 1.5; // 役牌は温存
     }
     if (isRed(raw)) keep += 2;
-    const score = -sh * 1000 + uk.total * 10 + uk.kinds * 3 - keep;
-    if (!best || score > best.score) best = { tile: raw, score };
+    out.push({ tile: raw, kind, sh, score: -sh * 1000 + uk.total * 10 + uk.kinds * 3 - keep });
   }
+  return out;
+}
+
+// 守備用: 危険な他家全員に対して安全な打牌候補を返す（現物→筋→安全な字牌の順）。
+// 安全な牌が無ければ null。
+function safestDiscard(match, seat, cands, danger) {
+  const rivers = danger.map((s) => new Set(match.players[s].discards.map((d) => normalizeTile(d.tile))));
+  // 現物: リーチ者全員が捨てている種類（フリテンで当たらない）
+  const genbutsu = (kind) => rivers.every((set) => set.has(kind));
+  // 筋: リーチ者全員の河に対して ±3 の関係にある種類（両面待ちでは当たらない）
+  const suji = (kind) => {
+    if (kind >= 27) return false;
+    const base = Math.floor(kind / 9) * 9;
+    const r = kind - base;
+    return rivers.every((set) => {
+      for (const d of set) {
+        if (d >= 27 || Math.floor(d / 9) * 9 !== base) continue;
+        if (Math.abs((d - base) - r) === 3) return true;
+      }
+      return false;
+    });
+  };
+  // 字牌の見え枚数（河・副露・ドラ表示・自分の手牌を含む場全体）
+  const visible = new Array(34).fill(0);
+  for (const pl of match.players) {
+    for (const d of pl.discards) visible[normalizeTile(d.tile)]++;
+    for (const m of pl.melds) for (const t of m.tiles) visible[normalizeTile(t)]++;
+  }
+  for (const t of match.players[seat].hand) visible[normalizeTile(t)]++;
+  match.doraIndicators.forEach((t) => { visible[normalizeTile(t)]++; });
+
+  const tiers = [
+    (c) => genbutsu(c.kind),
+    (c) => suji(c.kind),
+    (c) => c.kind >= 27 && visible[c.kind] >= 3, // 残り1枚以下（単騎待ちでしか当たらない）
+    (c) => c.kind >= 27 && visible[c.kind] >= 2,
+    (c) => c.kind >= 27,
+  ];
+  for (const tier of tiers) {
+    const inTier = cands.filter(tier);
+    if (inTier.length > 0) {
+      // 同じ安全度なら一番温存価値の低い（score の低い）牌を切る
+      return inTier.reduce((a, b) => (b.score < a.score ? b : a));
+    }
+  }
+  return null;
+}
+
+// 危険な他家: リーチしているか、3つ以上鳴いてテンパイが近い家
+function dangerSeats(match, seat) {
+  const out = [];
+  match.players.forEach((pl, s) => {
+    if (s === seat) return;
+    if (pl.riichi || pl.melds.length >= 3) out.push(s);
+  });
+  return out;
+}
+
+// strong の個性: たまに速度重視で打ち始める（席ごと・1局ごとに抽選し、その局は維持する）
+function isSpeedMode(match, seat) {
+  if (!match._botSpeedMode) match._botSpeedMode = {};
+  const key = `${match.roundWind}:${match.roundNum}:${seat}`;
+  if (!(key in match._botSpeedMode)) match._botSpeedMode[key] = Math.random() < 0.15;
+  return match._botSpeedMode[key];
+}
+
+// strong の打点評価: その候補牌を切ることへのペナルティ（ドラ・役牌の種は残す）
+function discardValuePenalty(match, seat, cand) {
+  const p = match.players[seat];
+  const counts = countsOf(p.hand);
+  let penalty = 0;
+  const doraKinds = match.doraIndicators.map(nextDoraKind);
+  if (doraKinds.includes(cand.kind) || isRed(cand.tile)) penalty += 400; // ドラ・赤を切るのは重い
+  const yakuhai = cand.kind >= 31 || cand.kind === seatWindOf(match, seat) || cand.kind === match.roundWind;
+  if (yakuhai && counts[cand.kind] >= 3) penalty += 300; // 役牌の刻子の種
+  else if (yakuhai && counts[cand.kind] === 2) penalty += 150; // 役牌の対子
+  return penalty;
+}
+
+// 役牌の刻子（暗刻・明刻）をすでに持っているか
+function hasYakuhaiAnkou(match, seat) {
+  const p = match.players[seat];
+  const counts = countsOf(p.hand);
+  const isYakuhai = (k) => k >= 31 || k === seatWindOf(match, seat) || k === match.roundWind;
+  for (let k = 0; k < 34; k++) if (counts[k] >= 3 && isYakuhai(k)) return true;
+  return p.melds.some((m) => (m.type === 'pon' || m.type === 'kan') && m.tiles.length > 0 && isYakuhai(normalizeTile(m.tiles[0])));
+}
+
+// Bot の打牌選択: { tile, riichi }（level は BOT_LEVELS、既定は normal=従来どおり）
+function botChooseDiscard(match, seat, level = 'normal') {
+  const p = match.players[seat];
+  const legal = legalPlay(match, seat);
+  if (p.riichi) return { tile: match.lastDrawn, riichi: false };
+
+  if (level === 'weak') {
+    // 入門: 牌効率を無視する。リーチできるなら待ちの良し悪しを見ずにリーチし、
+    // そうでなければ手牌からランダムに切る（シャンテン・受け入れは見ない）
+    if (legal.riichi.length > 0) {
+      const tile = legal.riichi[Math.floor(Math.random() * legal.riichi.length)];
+      return { tile, riichi: true };
+    }
+    const tiles = [...new Set(p.hand)];
+    return { tile: tiles[Math.floor(Math.random() * tiles.length)], riichi: false };
+  }
+
+  // リーチ候補（受入の広い切り方と、その待ち）
+  let riichiPick = null;
+  if (legal.riichi.length > 0) {
+    for (const raw of legal.riichi) {
+      const rest = [...p.hand];
+      removeOne(rest, raw);
+      const waits = core.waitingTiles(countsOf(rest), p.melds.length);
+      if (!riichiPick || waits.length > riichiPick.waits.length) riichiPick = { tile: raw, waits };
+    }
+    if (riichiPick && riichiPick.waits.length < 1) riichiPick = null;
+  }
+
+  const cands = evalDiscards(match, seat);
+  const best = cands.reduce((a, b) => (b.score > a.score ? b : a));
+
+  if (level === 'strong') {
+    const speed = isSpeedMode(match, seat);
+    if (riichiPick) {
+      // 打点上昇の見込みがあるならリーチせず様子を見る（ダマ）:
+      // 愚形待ちで、ドラも役牌の刻子も無い手は、待ち替え・打点アップを狙う
+      const dama = !speed && riichiPick.waits.length === 1
+        && countDora(p, match.doraIndicators) === 0
+        && !hasYakuhaiAnkou(match, seat);
+      if (!dama) return { tile: riichiPick.tile, riichi: true };
+    }
+    // 守備: 危険な他家がいて自分の手が遠いなら放銃回避を優先（待ち読み=現物・筋・安全な字牌）。
+    // テンパイ／1シャンテンなら押す。速度重視の局は降りる基準を緩める（3シャンテンから）
+    const danger = dangerSeats(match, seat);
+    if (danger.length > 0 && best.sh >= (speed ? 3 : 2)) {
+      const safe = safestDiscard(match, seat, cands, danger);
+      if (safe) return { tile: safe.tile, riichi: false };
+      // 安全な牌が無ければ、一番温存価値の低い牌でベタ降りする
+      const worst = cands.reduce((a, b) => (b.score < a.score ? b : a));
+      return { tile: worst.tile, riichi: false };
+    }
+    if (speed) return { tile: best.tile, riichi: false };
+    // 打点も見る: 効率のスコアから、ドラ・役牌の種を切るペナルティを引いて選ぶ
+    const pick = cands.reduce((a, b) => {
+      const va = a.score - discardValuePenalty(match, seat, a);
+      const vb = b.score - discardValuePenalty(match, seat, b);
+      return vb > va ? b : a;
+    });
+    return { tile: pick.tile, riichi: false };
+  }
+
+  // normal: リーチできるなら受入の広い切り方でリーチ（従来どおり）
+  if (riichiPick) return { tile: riichiPick.tile, riichi: true };
   return { tile: best.tile, riichi: false };
 }
 
-// Bot の鳴き応答: 'ron' | 'pon' | 'pass'（大明槓はフェーズ2では見送る）
-function botChooseCall(match, seat) {
+// Bot の鳴き応答: 'ron' | 'pon' | 'pass'（大明槓は全段階とも見送る）
+function botChooseCall(match, seat, level = 'normal') {
   const opts = match.call.options[seat];
   if (!opts) return 'pass';
   if (opts.ron) return 'ron';
   const p = match.players[seat];
   if (p.riichi) return 'pass';
+  // 入門は効率を判断せず、ポンできるなら鳴く
+  if (level === 'weak') return opts.pon ? 'pon' : 'pass';
   if (opts.pon) {
     const kind = normalizeTile(match.call.tile);
     const before = core.shanten(countsOf(p.hand), p.melds.length);
@@ -1258,13 +1412,15 @@ function botChooseCall(match, seat) {
     removeOne(rest, rest.find((t) => normalizeTile(t) === kind));
     const after = core.shanten(countsOf(rest), p.melds.length + 1);
     const yakuhai = kind >= 31 || kind === seatWindOf(match, seat) || kind === match.roundWind;
-    if (after < before && (after === 0 || yakuhai)) return 'pon';
+    // strong の速度重視の局は、シャンテンが進むポンは役・テンパイを問わず鳴く
+    const speedPon = level === 'strong' && isSpeedMode(match, seat);
+    if (after < before && (after === 0 || yakuhai || speedPon)) return 'pon';
   }
   return 'pass';
 }
 
 // Bot の手番アクション全体: { type:'tsumo' } | { type:'kyuushu' } | { type:'nuki' } | { type:'kan', ... } | { type:'discard', tile, riichi }
-function botChoosePlay(match, seat) {
+function botChoosePlay(match, seat, level = 'normal') {
   const legal = legalPlay(match, seat);
   if (legal.tsumo) return { type: 'tsumo' };
   if (legal.kyuushu) return { type: 'kyuushu' }; // 九種九牌は倒す
@@ -1282,7 +1438,7 @@ function botChoosePlay(match, seat) {
     const shou = legal.kan.find((k) => k.kind === 'shouminkan');
     if (shou) return { type: 'kan', tile: shou.tile, kanKind: 'shouminkan' };
   }
-  const d = botChooseDiscard(match, seat);
+  const d = botChooseDiscard(match, seat, level);
   return { type: 'discard', tile: d.tile, riichi: d.riichi };
 }
 
@@ -1291,7 +1447,7 @@ module.exports = {
   createMatch, startRound, startNextRound,
   legalPlay, applyDiscard, applyTsumo, applyKan, applyNuki, applyKyuushu,
   applyCallResponse, callSettled, resolveCall,
-  publicView, botChoosePlay, botChooseCall,
+  publicView, botChoosePlay, botChooseCall, BOT_LEVELS, normalizeBotLevel,
   enableRecord,
   evalWin, waitsOf, isFuriten, countDora, nextDoraKind,
   roundLabel, liveWallCount,
