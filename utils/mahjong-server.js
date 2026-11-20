@@ -505,6 +505,30 @@ function attach(server, { verifyToken = null } = {}) {
         }
       }
     }
+    // 自動投稿フック（/mahjong コマンドで作られたルームだけが持つ）: 対局結果を投稿する。
+    // ただし結果を流すのは人間の参加者が2人以上の対局だけ。Bot戦（人間1人）や
+    // 空席を Bot で埋めた1人対局は、スパム防止のため結果を流さない。
+    // 募集・告知の投稿とその編集はコマンド側（room.hooks の onStart / onExpire）が担う。
+    if (room.hooks && typeof room.hooks.onFinish === 'function' && room.match && room.match.finalScores) {
+      const humanCount = room.playerSeats.filter((s) => {
+        const slot = room.slots[s];
+        return slot && !slot.bot;
+      }).length;
+      if (humanCount >= 2) {
+        const results = room.match.finalScores.map((fs) => {
+          const slot = room.slots[room.playerSeats[fs.seat]];
+          return {
+            rank: fs.placement,
+            name: slot && slot.user ? slot.user.name : 'Bot',
+            bot: Boolean(slot && slot.bot),
+            score: fs.score,
+            total: fs.total,
+          };
+        }).sort((a, b) => a.rank - b.rank);
+        const summary = { length: room.match.length, humanCount, results };
+        Promise.resolve().then(() => room.hooks.onFinish(room, summary)).catch((e) => console.error('[Mahjong] onFinish:', e.message));
+      }
+    }
     broadcastState(room);
     if (room.finishedTimer) clearTimeout(room.finishedTimer);
     room.finishedTimer = setTimeout(() => {

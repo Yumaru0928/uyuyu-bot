@@ -549,6 +549,12 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
             return res.status(400).send('ババ抜きの自動投稿先に指定できないチャンネルです。');
         }
 
+        // 麻雀の自動投稿先（/mahjong コマンドでルームが作られたときに使う）
+        const mahjongChannel = String(req.body.mahjongChannel || '');
+        if (mahjongChannel && !channelIds.has(mahjongChannel)) {
+            return res.status(400).send('麻雀の自動投稿先に指定できないチャンネルです。');
+        }
+
         // ハニーポット設定。チェックボックスは未チェックだと項目ごと届かないので「'1' かどうか」で判定する
         const honeypotChannel = String(req.body.honeypotChannel || '');
         const honeypotLogChannel = String(req.body.honeypotLogChannel || '');
@@ -583,6 +589,13 @@ app.post('/dashboard/:guildId', remember.restoreLogin, async (req, res, next) =>
                     guildConfig.babanukiChannel = babanukiChannel;
                 } else {
                     delete guildConfig.babanukiChannel;
+                }
+
+                // 麻雀の自動投稿先（空なら設定を消す）
+                if (mahjongChannel) {
+                    guildConfig.mahjongChannel = mahjongChannel;
+                } else {
+                    delete guildConfig.mahjongChannel;
                 }
 
                 // Auto-React を無効にするチャンネル = 「画面に出ていてオフにされたもの」
