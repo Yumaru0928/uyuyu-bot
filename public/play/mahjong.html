@@ -1920,7 +1920,7 @@ function umaPresetOf(uma) {
 }
 
 // 設定パネルを組み立てる（グループ見出し＋ステッパー＋セグメント＋トグルタイル）。
-// settings は { rules, time }、変更のたびに onChange(settings) を呼ぶ
+// settings は { rules, time, botLevel }、変更のたびに onChange(settings) を呼ぶ
 let settingsPanelSeq = 0;
 function buildSettingsPanel(container, settings, editable, onChange) {
   if (!container) return;
@@ -2043,6 +2043,9 @@ function buildSettingsPanel(container, settings, editable, onChange) {
 
   const g4 = group('特殊ルール');
   g4.appendChild(tiles([['ダブルロン', 'doubleRon'], ['オープンリーチ', 'openRiichi'], ['手牌公開', 'openHands']]));
+
+  const g5 = group('Bot');
+  g5.appendChild(seg('Botの強さ', [['weak', 'よわい'], ['normal', 'ふつう'], ['strong', 'つよい']], settings.botLevel || 'normal', (v) => { settings.botLevel = v; }));
 
   container.appendChild(wrap);
 }
@@ -2243,9 +2246,9 @@ function renderLobby(msg) {
   }
   $('lobby-host-controls').hidden = !msg.isHost;
   if (msg.rules) {
-    lobbyDraft = { rules: { ...msg.rules, uma: umaPresetOf(msg.rules.uma) }, time: msg.time || '5+20' };
+    lobbyDraft = { rules: { ...msg.rules, uma: umaPresetOf(msg.rules.uma) }, time: msg.time || '5+20', botLevel: msg.botLevel || 'normal' };
     buildSettingsPanel($('lobby-settings'), lobbyDraft, msg.isHost, (s) => {
-      send({ type: 'set_rules', rules: s.rules, time: s.time });
+      send({ type: 'set_rules', rules: s.rules, time: s.time, botLevel: s.botLevel });
     });
   }
   $('btn-len-east').className = 'small' + (msg.length === 'east' ? '' : ' secondary');
