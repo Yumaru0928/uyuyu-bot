@@ -30,7 +30,7 @@
             0,
             0,
             0,
-            0,
+            1,
             0,
             0,
             0,
@@ -40,9 +40,9 @@
             0,
             0,
             0,
-            2,
             1,
-            0,
+            2,
+            2,
             0,
             0
           ],
@@ -97,22 +97,32 @@
           "2": {
             "id": "1162584697457627218",
             "displayName": "⌬",
-            "isAi": false
+            "isAi": false,
+            "confirm": false
           }
         },
         "ranked": false,
         "level": "easy",
         "events": [
-          "⚫ Jockie Music: **e6** (1個)"
+          "⚪ ⌬: **f4** (1個)",
+          "⚫ Jockie Music: **d3** (1個)"
         ],
         "moves": [
           {
             "x": 4,
             "y": 5
+          },
+          {
+            "x": 5,
+            "y": 3
+          },
+          {
+            "x": 3,
+            "y": 2
           }
         ],
         "notifyMessageId": null,
-        "updatedAt": 1795368079392
+        "updatedAt": 1795368093956
       }
     }
   }
