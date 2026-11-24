@@ -63,7 +63,11 @@ if (!process.env.SESSION_SECRET) {
     console.warn('[Web] SESSION_SECRET が未設定です。起動ごとのランダムな値を使います（再起動でログインが解除されます）。');
 }
 
+// セッションストアは既定の MemoryStore を明示して使う（index.js のメモリ計測が件数を参照するため）
+const sessionStore = new session.MemoryStore();
+
 app.use(session({
+    store: sessionStore,
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
@@ -79,9 +83,38 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// index.js のメモリ計測からセッション数を参照できるようにする
+app.set('sessionStore', sessionStore);
+
 // 3. ユーザーのシリアライズ・デシリアライズ
 //    done の引数は (エラー, ユーザー)。
-passport.serializeUser((user, done) => done(null, user));
+//    セッションに保存するのは、画面と API で実際に使う項目だけに絞る。
+//    プロフィール全体（guilds の features など未使用の項目まで）を持ち続けると、
+//    セッションストアのメモリを無駄に食うため（Render のメモリ超過対策）。
+//    ・id / username / global_name / avatar … 表示と WS 用トークンの発行に使う
+//    ・guilds … 「管理できるサーバー」の判定（permissions）と一覧表示（name / icon）に使う項目のみ
+//    ・auth … ログイン状態の保持（remember）とログアウト時のトークン失効に使う
+function slimSessionUser(user) {
+    if (!user || typeof user !== 'object') return user;
+    return {
+        id: user.id,
+        username: user.username,
+        global_name: user.global_name ?? null,
+        avatar: user.avatar ?? null,
+        guilds: Array.isArray(user.guilds)
+            ? user.guilds.map(guild => ({
+                id: guild.id,
+                name: guild.name,
+                icon: guild.icon ?? null,
+                permissions: guild.permissions
+            }))
+            : [],
+        ...(user.auth
+            ? { auth: { accessToken: user.auth.accessToken, refreshToken: user.auth.refreshToken ?? null } }
+            : {})
+    };
+}
+passport.serializeUser((user, done) => done(null, slimSessionUser(user)));
 passport.deserializeUser((obj, done) => done(null, obj));
 
 // 4. Discord Strategy の設定

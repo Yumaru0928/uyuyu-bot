@@ -91,6 +91,38 @@ process.once('SIGTERM', async () => {
 });
 
 // ===================================================
+// ★ メモリ使用量の定期ログ（Render のメモリ超過の切り分け用）
+//   10 分ごとに process.memoryUsage() とセッション数の目安を残す。
+//   「じわじわ増え続けているのか」「一時的に跳ね上がっているのか」を
+//   後からログで追えるようにするための計測（対策の前にまず実測する）。
+// ===================================================
+const MEMORY_LOG_INTERVAL_MS = 10 * 60 * 1000;
+
+async function countSessions() {
+    const store = app.get('sessionStore');
+    if (!store) return null;
+    if (store.sessions && typeof store.sessions === 'object') {
+        return Object.keys(store.sessions).length;
+    }
+    if (typeof store.length === 'function') {
+        return new Promise(resolve => store.length((error, n) => resolve(error ? null : n)));
+    }
+    return null;
+}
+
+async function logMemoryUsage() {
+    const usage = process.memoryUsage();
+    const mb = bytes => (bytes / 1024 / 1024).toFixed(1);
+    const sessions = await countSessions().catch(() => null);
+    console.log(`[Memory] rss ${mb(usage.rss)}MB / heapUsed ${mb(usage.heapUsed)}MB / heapTotal ${mb(usage.heapTotal)}MB / external ${mb(usage.external)}MB / sessions ${sessions === null ? '不明' : sessions}`);
+}
+
+logMemoryUsage();
+setInterval(() => {
+    logMemoryUsage().catch(error => console.error('[Memory] 使用量の記録に失敗しました:', error));
+}, MEMORY_LOG_INTERVAL_MS);
+
+// ===================================================
 // ★ ② client が定義されたあとに各種イベントを読み込む
 // ===================================================
 const messageDeleteEvent = require('./events/delete-message-log.js');
@@ -233,12 +265,49 @@ async function commitJsonToGitHubNow(filePath, contentData, commitMessage) {
     }
 }
 
-// 同時に複数の変更が来ても、sha の食い違い（409）にならないよう 1 件ずつ順番にコミットする
-let commitQueue = Promise.resolve();
+// 同時に複数の変更が来ても、sha の食い違い（409）にならないよう 1 件ずつ順番にコミットする。
+// さらに、同じファイルのコミット待ちが複数溜まった場合は、最新のスナップショットだけに畳む。
+// 保存内容は常に「全データのスナップショット」なので、新しい内容で古い待ち分を置き換えても
+// 失われる変更はない（各呼び出しの完了待ちは、畳んだ先のコミット完了で解決する）。
+// 待ち分のスナップショットを保持し続けない分、GitHub API が遅いときのメモリ滞留も減る。
+const pendingCommits = new Map(); // filePath -> { contentData, commitMessage, resolvers }
+let commitDraining = false;
 
 function commitJsonToGitHub(filePath, contentData, commitMessage = "auto: update json [skip render]") {
-    commitQueue = commitQueue.then(() => commitJsonToGitHubNow(filePath, contentData, commitMessage));
-    return commitQueue;
+    return new Promise(resolve => {
+        const pending = pendingCommits.get(filePath);
+        if (pending) {
+            // まだ実行されていない同じファイルのコミットがある → 最新の内容に差し替えて1件に畳む
+            pending.contentData = contentData;
+            pending.commitMessage = commitMessage;
+            pending.resolvers.push(resolve);
+            return;
+        }
+        pendingCommits.set(filePath, { contentData, commitMessage, resolvers: [resolve] });
+        if (!commitDraining) {
+            commitDraining = true;
+            drainCommitQueue();
+        }
+    });
+}
+
+async function drainCommitQueue() {
+    try {
+        while (pendingCommits.size > 0) {
+            const [filePath, entry] = pendingCommits.entries().next().value;
+            pendingCommits.delete(filePath);
+            try {
+                await commitJsonToGitHubNow(filePath, entry.contentData, entry.commitMessage);
+            } catch (error) {
+                // commitJsonToGitHubNow は内部でエラーを処理する想定だが、念のためここでも落とさない
+                console.error("[GitHub Sync Failed]", error);
+            } finally {
+                for (const resolve of entry.resolvers) resolve();
+            }
+        }
+    } finally {
+        commitDraining = false;
+    }
 }
 
 // data ブランチの設定ファイルを読み戻して、ローカルの設定に反映する。
