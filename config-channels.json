@@ -20,7 +20,17 @@
       "logChannel": "1569191039258984589",
       "honeypotChannel": "1569191012491071631"
     },
-    "babanukiChannel": "1558496949169299590"
+    "babanukiChannel": "1558496949169299590",
+    "notifications": [
+      {
+        "id": "1d509154",
+        "platform": "youtube",
+        "targetId": "UCjKHfzc1IWb4_M5IvR_9jhQ",
+        "targetName": "何屋未来 / なにやみらい",
+        "channelId": "1558496949169299590",
+        "roleId": null
+      }
+    ]
   },
   "1526139098291769447": {
     "disableAutoReact": [
