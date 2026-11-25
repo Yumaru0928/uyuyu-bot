@@ -1295,7 +1295,11 @@ body.in-game main { max-width: none; padding: 0; width: 100%; }
   align-items: center;
   justify-content: center;
   padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .6s ease;
 }
+.overlay--show { opacity: 1; pointer-events: auto; }
 .overlay[hidden] { display: none; }
 .result-card {
   background: var(--panel);
@@ -2063,7 +2067,7 @@ let lastAutoGiriKey = null;
 const screens = ['menu-screen', 'lobby-screen', 'game-screen', 'end-screen'];
 function show(id) {
   for (const s of screens) $(s).hidden = s !== id;
-  if (id !== 'game-screen') $('result-overlay').hidden = true;
+  if (id !== 'game-screen') { $('result-overlay').hidden = true; $('result-overlay').classList.remove('overlay--show'); }
   document.body.classList.toggle('in-game', id === 'game-screen' || id === 'end-screen');
   if (id === 'game-screen') fitStage();
 }
@@ -2978,10 +2982,14 @@ function resultHandHtml(view, winnerSeat, handOverride, meldsOverride) {
   return wrap;
 }
 
+// 局結果オーバーレイは、和了演出を明るい卓上で見せてから少し遅れてフェードインさせる
+let resultOverlayTimer = null;
 function renderResult(view) {
   const overlay = $('result-overlay');
   if (view.phase !== 'roundEnd' || !view.lastResult) {
+    if (resultOverlayTimer) { clearTimeout(resultOverlayTimer); resultOverlayTimer = null; }
     overlay.hidden = true;
+    overlay.classList.remove('overlay--show');
     $('result-card').classList.remove('result-panel--enter');
     return;
   }
@@ -3053,7 +3061,13 @@ function renderResult(view) {
   note.className = 'muted';
   note.textContent = 'まもなく次の局が始まります…';
   card.appendChild(note);
-  overlay.hidden = false;
+  if (overlay.hidden && !resultOverlayTimer) {
+    resultOverlayTimer = setTimeout(() => {
+      resultOverlayTimer = null;
+      overlay.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('overlay--show')));
+    }, 800);
+  }
 }
 
 // ===== 終了画面 =====
