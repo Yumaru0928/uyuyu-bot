@@ -57,7 +57,7 @@ async function main() {
     assert.deepStrictEqual(gacha.getRestingNames(sun), restMon, '同じ週なのにお休みが変わる');
     assert.strictEqual(restMon.length, gacha.REST_COUNT);
     const eligible = new Set(GACHA_POOL.filter((e) => e.rarity !== 'SSR').map((e) => e.name));
-    assert.strictEqual(eligible.size, 16);
+    assert.strictEqual(eligible.size, 19);
     for (const name of restMon) assert(eligible.has(name), `お休み対象外が含まれている: ${name}`);
     assert(!restMon.includes('uyuyun'), 'SSR がお休みになっている');
 
@@ -218,8 +218,8 @@ async function main() {
     console.log('記録の保存と読み戻し: OK');
   }
 
-  // 図鑑の全種は24種（通常プール18＋条件枠6）
-  assert.strictEqual(GACHA_ALL.length, 24);
+  // 図鑑の全種は27種（通常プール21＋条件枠6）
+  assert.strictEqual(GACHA_ALL.length, 27);
 
   try { fs.unlinkSync(TMP_FILE); } catch { /* 後片付け */ }
   console.log('test-gacha: OK');

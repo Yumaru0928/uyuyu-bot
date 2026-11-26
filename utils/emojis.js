@@ -25,6 +25,9 @@ const UYUYU_EMOJIS = [
     { name: 'uyuyu_golden', id: '1572106477492109372' },
     { name: 'uyuyu_hotcake', id: '1572248200981520404' },
     { name: 'uyuyu_peace_sign', id: '1572245778473287870' },
+    { name: 'uyuyu_abstracted', id: '1575335077192405054' },
+    { name: 'uyuyu_rainbow_abstracted', id: '1575335080950497283' },
+    { name: 'uyuyu_screw', id: '1575335289755279360' },
     { name: 'uyuyun', id: '1558816474267910154' }
 ];
 
@@ -57,12 +60,15 @@ const GACHA_POOL = [
     { ...byName('uyuyu_space'), rarity: 'SR' },
     { ...byName('uyuyu_null'), rarity: 'SR' },
     { ...byName('uyuyu_rainbow'), rarity: 'SR' },
+    { ...byName('uyuyu_rainbow_abstracted'), rarity: 'SR' },
     { ...byName('uyuyu_peace_sign'), rarity: 'R' },
     { ...byName('uyuyu_hotcake'), rarity: 'R' },
     { ...byName('uyuyu_makeup'), rarity: 'R' },
     { ...byName('uyuyu_dango'), rarity: 'R' },
     { ...byName('uyuyu_WT'), rarity: 'R' },
     { ...byName('myumyumyu'), rarity: 'R' },
+    { ...byName('uyuyu_abstracted'), rarity: 'R' },
+    { ...byName('uyuyu_screw'), rarity: 'R' },
     { ...byName('uyuyu'), rarity: 'N' },
     { ...byName('uyuyu_crying'), rarity: 'N' },
     { ...byName('uyuyu_crashed'), rarity: 'N' },
@@ -84,7 +90,7 @@ const GACHA_CONDITIONALS = [
     { ...NEWYEAR_UYUYU, rarity: 'SP', condition: 'newyear', hint: 'お正月なうゆゆ。年末年始にだけ姿を見せる' },
 ];
 
-// 図鑑に並べる全種（通常プール＋条件枠 = 24種）
+// 図鑑に並べる全種（通常プール＋条件枠 = 27種）
 const GACHA_ALL = [...GACHA_POOL, ...GACHA_CONDITIONALS];
 
 module.exports = { UYUYU_EMOJIS, ROLLING_UYUYU, SANTA_UYUYU, TONAKAI_UYUYU, NEWYEAR_UYUYU, SLOT_TRANSPARENT, SLOT_EXTRA, asText, GACHA_POOL, GACHA_CONDITIONALS, GACHA_ALL };
