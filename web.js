@@ -86,6 +86,21 @@ app.use(passport.session());
 // index.js のメモリ計測からセッション数を参照できるようにする
 app.set('sessionStore', sessionStore);
 
+// MemoryStore は期限切れセッションを自分からは掃除せず、溜まり続けると
+// 起動時の警告どおり少しずつメモリを食う。1時間ごとに期限切れを捨てる。
+setInterval(() => {
+    sessionStore.all((error, storedSessions) => {
+        if (error || !storedSessions) return;
+        const now = Date.now();
+        for (const [sid, stored] of Object.entries(storedSessions)) {
+            const expires = stored?.cookie?.expires ? new Date(stored.cookie.expires).getTime() : null;
+            if (expires !== null && Number.isFinite(expires) && expires < now) {
+                sessionStore.destroy(sid, () => {});
+            }
+        }
+    });
+}, 60 * 60 * 1000);
+
 // 3. ユーザーのシリアライズ・デシリアライズ
 //    done の引数は (エラー, ユーザー)。
 //    セッションに保存するのは、画面と API で実際に使う項目だけに絞る。
