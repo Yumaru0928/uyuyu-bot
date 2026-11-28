@@ -92,11 +92,54 @@ process.once('SIGTERM', async () => {
 
 // ===================================================
 // ★ メモリ使用量の定期ログ（Render のメモリ超過の切り分け用）
-//   10 分ごとに process.memoryUsage() とセッション数の目安を残す。
+//   1 分ごとに process.memoryUsage() とセッション数の目安を残す。
 //   「じわじわ増え続けているのか」「一時的に跳ね上がっているのか」を
 //   後からログで追えるようにするための計測（対策の前にまず実測する）。
+//   2026-11-28 の OOM では、Node 本体の rss が約132MBで平坦なまま
+//   最後の記録から約4分で 512MB を超えた。Node の外（子プロセスや
+//   ネイティブ確保）で増えた可能性を追えるよう、コンテナ全体の使用量
+//   （cgroup）と、急増時のプロセス別内訳も記録する。
 // ===================================================
-const MEMORY_LOG_INTERVAL_MS = 10 * 60 * 1000;
+const MEMORY_LOG_INTERVAL_MS = 60 * 1000;
+const MEMORY_SPIKE_JUMP_BYTES = 80 * 1024 * 1024; // 1分でこれ以上増えたら内訳を出す
+const MEMORY_SPIKE_TOTAL_BYTES = 400 * 1024 * 1024; // コンテナ上限(512MB)への接近警告
+let lastMemoryTotalBytes = null;
+let lastSpikeLogAt = 0;
+
+// コンテナ全体のメモリ使用量（cgroup）。読めない環境では null。
+function readContainerMemoryBytes() {
+    const candidates = [
+        '/sys/fs/cgroup/memory.current', // cgroup v2
+        '/sys/fs/cgroup/memory/memory.usage_in_bytes', // cgroup v1
+    ];
+    for (const file of candidates) {
+        try {
+            const value = Number(fs.readFileSync(file, 'utf8').trim());
+            if (Number.isFinite(value) && value > 0) return value;
+        } catch { /* 次の候補へ */ }
+    }
+    return null;
+}
+
+// /proc からプロセス別の RSS を大きい順に取る（子プロセスの食い過ぎ検出用）。
+function topProcessesByRss(limit = 5) {
+    const rows = [];
+    let pids;
+    try {
+        pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
+    } catch {
+        return rows;
+    }
+    for (const pid of pids) {
+        try {
+            const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+            const name = /^Name:\s*(.+)$/m.exec(status)?.[1]?.trim() || '?';
+            const rssKb = Number(/^VmRSS:\s*(\d+)\s*kB$/m.exec(status)?.[1] || 0);
+            if (rssKb > 0) rows.push({ pid, name, rssBytes: rssKb * 1024 });
+        } catch { /* 終了したプロセスは読み飛ばす */ }
+    }
+    return rows.sort((a, b) => b.rssBytes - a.rssBytes).slice(0, limit);
+}
 
 async function countSessions() {
     const store = app.get('sessionStore');
@@ -114,7 +157,23 @@ async function logMemoryUsage() {
     const usage = process.memoryUsage();
     const mb = bytes => (bytes / 1024 / 1024).toFixed(1);
     const sessions = await countSessions().catch(() => null);
-    console.log(`[Memory] rss ${mb(usage.rss)}MB / heapUsed ${mb(usage.heapUsed)}MB / heapTotal ${mb(usage.heapTotal)}MB / external ${mb(usage.external)}MB / sessions ${sessions === null ? '不明' : sessions}`);
+    const containerBytes = readContainerMemoryBytes();
+    const containerPart = containerBytes === null ? '' : ` / container ${mb(containerBytes)}MB`;
+    console.log(`[Memory] rss ${mb(usage.rss)}MB / heapUsed ${mb(usage.heapUsed)}MB / heapTotal ${mb(usage.heapTotal)}MB / external ${mb(usage.external)}MB / sessions ${sessions === null ? '不明' : sessions}${containerPart}`);
+
+    // 急増・上限接近のときだけ、プロセス別の内訳を残す（通常時のログを太らせない）
+    const totalBytes = containerBytes ?? usage.rss;
+    const jumped = lastMemoryTotalBytes !== null && totalBytes - lastMemoryTotalBytes >= MEMORY_SPIKE_JUMP_BYTES;
+    const nearLimit = totalBytes >= MEMORY_SPIKE_TOTAL_BYTES;
+    const now = Date.now();
+    if ((jumped || nearLimit) && now - lastSpikeLogAt >= 60 * 1000) {
+        lastSpikeLogAt = now;
+        const tops = topProcessesByRss(5)
+            .map(p => `${p.name}(pid ${p.pid}) ${mb(p.rssBytes)}MB`)
+            .join(' / ');
+        console.log(`[MemorySpike] total ${mb(totalBytes)}MB${jumped ? ` (+${mb(totalBytes - lastMemoryTotalBytes)}MB in 1min)` : ''} top: ${tops || '取得できず'}`);
+    }
+    lastMemoryTotalBytes = totalBytes;
 }
 
 logMemoryUsage();
